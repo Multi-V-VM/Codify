@@ -1,9 +1,8 @@
 //
-//  wasm.swift
+//  wasmer.swift
 //  Code
 //
-//  Native Wasmer-based WASM execution (migrated from JavaScript)
-//  Backup of old implementation saved as wasm.swift.backup
+//  Native Wasmer integration with WASIX p1 support
 //
 
 import Foundation
@@ -24,16 +23,17 @@ func wasmer_execute(
 @_silgen_name("wasmer_version")
 func wasmer_version() -> UnsafePointer<Int8>
 
-@_cdecl("wasm")
-public func wasm(argc: Int32, argv: UnsafeMutablePointer<UnsafeMutablePointer<Int8>?>?) -> Int32 {
+// Command entry point for "wasmer" command
+@_cdecl("wasmer")
+public func wasmer(argc: Int32, argv: UnsafeMutablePointer<UnsafeMutablePointer<Int8>?>?) -> Int32 {
     let args = convertCArguments(argc: argc, argv: argv)
-    return executeWebAssembly(arguments: args)
+    return executeWasmerNative(arguments: args)
 }
 
-private func executeWebAssembly(arguments: [String]?) -> Int32 {
+private func executeWasmerNative(arguments: [String]?) -> Int32 {
     guard let arguments = arguments, arguments.count >= 2 else {
-        fputs("Usage: wasm <wasm-file> [args...]\n", thread_stderr)
-        fputs("       wasm --version\n", thread_stderr)
+        fputs("Usage: wasmer <wasm-file> [args...]\n", thread_stderr)
+        fputs("       wasmer --version\n", thread_stderr)
         return -1
     }
 
@@ -41,7 +41,6 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
     if arguments[1] == "--version" || arguments[1] == "-v" {
         let version = String(cString: wasmer_version())
         fputs("\(version)\n", thread_stdout)
-        fputs("Native WASM runtime powered by Wasmer with WASIX p1 support\n", thread_stdout)
         return 0
     }
 
@@ -51,7 +50,7 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
 
     // Load WASM file
     guard let wasmData = try? Data(contentsOf: URL(fileURLWithPath: fileName)) else {
-        fputs("wasm: file '\(wasmFile)' not found\n", thread_stderr)
+        fputs("wasmer: file '\(wasmFile)' not found\n", thread_stderr)
         return -1
     }
 
@@ -99,29 +98,3 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
 
     return exitCode
 }
-
-/*
- * MIGRATION NOTES:
- * ================
- * This file previously used a JavaScript/WebKit-based approach with WKWebView
- * to execute WebAssembly modules. That implementation had several limitations:
- *
- * - Required JavaScript bridge for WASI calls (700+ lines of code)
- * - Slower due to JS overhead
- * - Custom WASI implementation with limited functionality
- * - Complex code with wasmWebViewDelegate and message handlers
- * - Required wasmWebView.loadWorker() at app startup
- *
- * The new implementation uses native Wasmer runtime with:
- * - Direct C ABI calls (no JavaScript) - now only ~100 lines
- * - Full WASIX p1 support
- * - Better performance
- * - Simpler, more maintainable code
- * - Proper file descriptor mapping
- * - No WebView required
- *
- * The old JavaScript-based implementation has been backed up to:
- * wasm.swift.backup
- *
- * You can also find it in git history before this migration.
- */

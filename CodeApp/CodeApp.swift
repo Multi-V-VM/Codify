@@ -35,7 +35,7 @@ private func setup() {
     if versionNumberIncreased() || needToUpdateCFiles() {
         createCSDK()
     }
-    wasmWebView.loadWorker()
+    // wasmWebView.loadWorker() - Removed: Now using native Wasmer instead of JavaScript
     initializeEnvironment()
     Repository.initialize_libgit2()
     AppExtensionService.shared.startServer()
@@ -233,6 +233,7 @@ private func setupEnvironment() {
     replaceCommand("npm", "npm", true)
     replaceCommand("npx", "npx", true)
     replaceCommand("wasm", "wasm", true)
+    replaceCommand("wasmer", "wasmer", true)  // Native Wasmer with WASIX p1 support
     replaceCommand("java", "java", true)
     replaceCommand("javac", "javac", true)
 

@@ -1,0 +1,17 @@
+[package]
+name = "wasmer-ios"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+wasmer = { version = "6.1.0", default-features = false, features = ["wamr"] }
+wasmer-wasix = "0.601.0"
+
+[profile.release]
+opt-level = "z"     # Optimize for size
+lto = true          # Enable Link Time Optimization
+codegen-units = 1   # Better optimization
+strip = true        # Strip symbols
