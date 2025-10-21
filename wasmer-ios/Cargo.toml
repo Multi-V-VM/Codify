@@ -7,8 +7,16 @@ edition = "2021"
 crate-type = ["staticlib"]
 
 [dependencies]
-wasmer = { version = "6.1.0", default-features = false, features = ["wamr"] }
+wasmer = { path = "../../wasmer/lib/api", default-features = false, features = ["wamr","cranelift"] }
 wasmer-wasix = "0.601.0"
+tokio = { version = "1", features = ["rt", "sync"] }
+
+[patch.crates-io]
+wasmer = { path = "../../wasmer/lib/api" }
+wasmer-types = { path = "../../wasmer/lib/types" }
+wasmer-vm = { path = "../../wasmer/lib/vm" }
+wasmer-compiler = { path = "../../wasmer/lib/compiler" }
+wasmer-derive = { path = "../../wasmer/lib/derive" }
 
 [profile.release]
 opt-level = "z"     # Optimize for size

@@ -16,8 +16,8 @@ rustup target add x86_64-apple-ios
 
 # Clean previous builds
 echo "Cleaning previous builds..."
-cargo clean
-rm -rf WasmerRuntime.xcframework
+# cargo clean
+# rm -rf WasmerRuntime.xcframework
 
 # Build for iOS device (ARM64)
 echo "Building for iOS device (aarch64-apple-ios)..."

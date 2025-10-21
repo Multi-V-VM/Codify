@@ -1,8 +1,10 @@
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::slice;
+use std::sync::Arc;
 use wasmer::{Store, Module, Instance, Value};
-use wasmer_wasix::{WasiEnv, WasiStateBuilder, WasiFunctionEnv};
+use wasmer_wasix::{WasiEnvBuilder, PluggableRuntime};
+use wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager;
 
 /// Execute a WebAssembly module with WASIX p1 support
 ///
@@ -68,17 +70,41 @@ fn execute_wasm(
     stdout_fd: i32,
     stderr_fd: i32,
 ) -> Result<i32, Box<dyn std::error::Error>> {
+    // Create a tokio runtime for wasmer-wasix
+    // wasmer-wasix requires an async runtime context
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+
+    // Run the WASM execution in the tokio runtime
+    rt.block_on(async {
+        execute_wasm_async(wasm_bytes, args, stdin_fd, stdout_fd, stderr_fd).await
+    })
+}
+
+async fn execute_wasm_async(
+    wasm_bytes: &[u8],
+    args: &[String],
+    stdin_fd: i32,
+    stdout_fd: i32,
+    stderr_fd: i32,
+) -> Result<i32, Box<dyn std::error::Error>> {
     // Create a new Wasmer store
     let mut store = Store::default();
 
-    // Compile the WASM module
+    // Load the WASM module
     let module = Module::new(&store, wasm_bytes)?;
 
     // Get environment variables
     let env_vars: Vec<(String, String)> = std::env::vars().collect();
 
     // Build WASI environment with WASIX p1 support
-    let mut wasi_env_builder = WasiStateBuilder::new("wasmer");
+    // Create a PluggableRuntime with tokio task manager
+    let task_manager = Arc::new(TokioTaskManager::new(tokio::runtime::Handle::current()));
+    let runtime = Arc::new(PluggableRuntime::new(task_manager));
+
+    let mut wasi_env_builder = WasiEnvBuilder::new("wasmer")
+        .runtime(runtime);
 
     // Add arguments
     for arg in args {
@@ -97,7 +123,7 @@ fn execute_wasm(
         // For now, we use default stdin/stdout/stderr
     }
 
-    let wasi_env = wasi_env_builder.finalize(&mut store)?;
+    let mut wasi_env = wasi_env_builder.finalize(&mut store)?;
 
     // Generate WASI imports
     let import_object = wasi_env.import_object(&mut store, &module)?;
@@ -105,13 +131,14 @@ fn execute_wasm(
     // Instantiate the module
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
-    // Get the WASI environment function environment
-    let wasi_fn_env = wasi_env.data(&store);
+    // Initialize the WASI environment with the instance
+    // This is critical - it sets up wasi_env.inner
+    wasi_env.initialize(&mut store, instance.clone())?;
 
     // Find and call the _start or main function
     let exit_code = if let Ok(start_func) = instance.exports.get_function("_start") {
         // WASI command pattern
-        match start_func.call(&mut store, &[]) {
+        match start_func.call(&mut store, &[] as &[Value]) {
             Ok(_) => {
                 // Get exit code from WASI environment if available
                 0
@@ -128,9 +155,10 @@ fn execute_wasm(
         }
     } else if let Ok(main_func) = instance.exports.get_function("main") {
         // Reactor pattern
-        match main_func.call(&mut store, &[]) {
+        match main_func.call(&mut store, &[] as &[Value]) {
             Ok(results) => {
                 // Extract exit code from return value
+                let results = results.to_vec();
                 if let Some(Value::I32(code)) = results.first() {
                     *code
                 } else {

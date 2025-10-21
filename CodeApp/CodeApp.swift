@@ -29,7 +29,6 @@ struct CodeApp: App {
 }
 
 private func setup() {
-    setupEnvironment()
     refreshNodeCommands()
     setupExtensionListener()
     if versionNumberIncreased() || needToUpdateCFiles() {
@@ -37,6 +36,8 @@ private func setup() {
     }
     // wasmWebView.loadWorker() - Removed: Now using native Wasmer instead of JavaScript
     initializeEnvironment()
+    // Must call setupEnvironment AFTER initializeEnvironment to register custom commands
+    setupEnvironment()
     Repository.initialize_libgit2()
     AppExtensionService.shared.startServer()
 }
@@ -229,13 +230,18 @@ private func createCSDK() {
 }
 
 private func setupEnvironment() {
+    NSLog("🔧 Setting up environment - registering custom commands")
+
+    // Note: wasm command is intercepted in Executor.dispatch()
+    // to avoid iOS dlsym limitations
+
+    // Use replaceCommand for extension-based commands
     replaceCommand("node", "node", true)
     replaceCommand("npm", "npm", true)
     replaceCommand("npx", "npx", true)
-    replaceCommand("wasm", "wasm", true)
-    replaceCommand("wasmer", "wasmer", true)  // Native Wasmer with WASIX p1 support
     replaceCommand("java", "java", true)
     replaceCommand("javac", "javac", true)
+    NSLog("✅ Custom commands registered")
 
     joinMainThread = false
     numPythonInterpreters = 2

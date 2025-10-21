@@ -59,16 +59,16 @@ private func executeWasmerNative(arguments: [String]?) -> Int32 {
     let wasmArgs = Array(arguments.dropFirst())
 
     // Convert Swift strings to C strings
-    var cStrings: [UnsafeMutablePointer<Int8>?] = wasmArgs.map { arg in
+    var cStrings: [UnsafePointer<Int8>?] = wasmArgs.map { arg in
         let cString = strdup(arg)
-        return cString
+        return UnsafePointer(cString)
     }
     cStrings.append(nil) // Null-terminate the array
 
     defer {
         // Clean up allocated C strings
         for cString in cStrings where cString != nil {
-            free(cString)
+            free(UnsafeMutablePointer(mutating: cString))
         }
     }
 

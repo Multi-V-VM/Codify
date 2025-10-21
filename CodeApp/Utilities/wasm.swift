@@ -31,17 +31,24 @@ public func wasm(argc: Int32, argv: UnsafeMutablePointer<UnsafeMutablePointer<In
 }
 
 private func executeWebAssembly(arguments: [String]?) -> Int32 {
+    
     guard let arguments = arguments, arguments.count >= 2 else {
-        fputs("Usage: wasm <wasm-file> [args...]\n", thread_stderr)
-        fputs("       wasm --version\n", thread_stderr)
+        let stderr = thread_stderr ?? fdopen(STDERR_FILENO, "w")
+        fputs("Usage: wasm <wasm-file> [args...]\n", stderr)
+        fputs("       wasm --version\n", stderr)
         return -1
     }
 
     // Handle --version flag
     if arguments[1] == "--version" || arguments[1] == "-v" {
-        let version = String(cString: wasmer_version())
-        fputs("\(version)\n", thread_stdout)
-        fputs("Native WASM runtime powered by Wasmer with WASIX p1 support\n", thread_stdout)
+        // Use stdout if available, otherwise use STDOUT_FILENO
+        let stdout = thread_stdout ?? fdopen(STDOUT_FILENO, "w")
+
+        let versionPtr = wasmer_version()
+        let version = String(cString: versionPtr)
+        let output = "\(version)\nNative WASM runtime powered by Wasmer with WASIX p1 support\n"
+        fputs(output, stdout)
+        fflush(stdout)
         return 0
     }
 
@@ -51,7 +58,8 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
 
     // Load WASM file
     guard let wasmData = try? Data(contentsOf: URL(fileURLWithPath: fileName)) else {
-        fputs("wasm: file '\(wasmFile)' not found\n", thread_stderr)
+        let stderr = thread_stderr ?? fdopen(STDERR_FILENO, "w")
+        fputs("wasm: file '\(wasmFile)' not found\n", stderr)
         return -1
     }
 
@@ -60,23 +68,24 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
     let wasmArgs = Array(arguments.dropFirst())
 
     // Convert Swift strings to C strings
-    var cStrings: [UnsafeMutablePointer<Int8>?] = wasmArgs.map { arg in
+    var cStrings: [UnsafePointer<Int8>?] = wasmArgs.map { arg in
         let cString = strdup(arg)
-        return cString
+        return UnsafePointer(cString)
     }
     cStrings.append(nil) // Null-terminate the array
 
     defer {
         // Clean up allocated C strings
         for cString in cStrings where cString != nil {
-            free(cString)
+            free(UnsafeMutablePointer(mutating: cString))
         }
     }
 
     // Get file descriptors for stdin/stdout/stderr
-    let stdinFd = fileno(thread_stdin)
-    let stdoutFd = fileno(thread_stdout)
-    let stderrFd = fileno(thread_stderr)
+    // Use safe defaults if thread_* are NULL
+    let stdinFd: Int32 = (thread_stdin != nil) ? fileno(thread_stdin) : STDIN_FILENO
+    let stdoutFd: Int32 = (thread_stdout != nil) ? fileno(thread_stdout) : STDOUT_FILENO
+    let stderrFd: Int32 = (thread_stderr != nil) ? fileno(thread_stderr) : STDERR_FILENO
 
     // Execute WASM with native Wasmer
     let exitCode = wasmData.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) -> Int32 in
