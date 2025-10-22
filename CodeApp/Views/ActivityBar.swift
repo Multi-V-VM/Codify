@@ -40,6 +40,35 @@ struct PanelToggleButton: View {
     }
 }
 
+struct RightPanelToggleButton: View {
+    @SceneStorage("rightPanel.visible") var isRightPanelVisible: Bool = false
+
+    var body: some View {
+        Button {
+            isRightPanelVisible.toggle()
+        } label: {
+            ZStack {
+                Text(isRightPanelVisible ? "Hide AI Chat" : "Show AI Chat")
+                    .foregroundColor(.clear)
+                    .font(.system(size: 1))
+                Image(systemName: "sidebar.right")
+                    .font(.system(size: 20, weight: .light))
+                    .padding(5)
+                    .foregroundColor(
+                        Color.init(
+                            id: (isRightPanelVisible)
+                                ? "activityBar.foreground"
+                                : "activityBar.inactiveForeground")
+                    )
+            }
+        }
+        .accessibilityLabel(isRightPanelVisible ? "Hide AI Chat" : "Show AI Chat")
+        .keyboardShortcut("k", modifiers: [.command, .shift])
+        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .frame(minWidth: 0, maxWidth: 50.0, minHeight: 0, maxHeight: 60.0)
+    }
+}
+
 struct ConfigurationToggleButton: View {
     @EnvironmentObject var stateManager: MainStateManager
 
@@ -90,6 +119,7 @@ struct ActivityBar: View {
                 ActivityBarIconView(activityBarItem: $0)
             }
             PanelToggleButton(togglePanel: togglePanel)
+            RightPanelToggleButton()
             ZStack {
                 Color.black.opacity(0.001)
                 Spacer()

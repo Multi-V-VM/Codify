@@ -27,7 +27,8 @@ class ExtensionManager: ObservableObject {
         SourceControlAuxiliaryExtension(),
         SimpleWebPreviewExtension(),
         RemoteAuxiliaryExtension(),
-        ExtensionsExtension(), // TODO: Uncomment after adding ExtensionsExtension.swift to Xcode project
+        ExtensionsExtension(),
+        ChatExtension(),
     ]
 
     func registerExtension(ex: CodeAppExtension) {

@@ -137,6 +137,7 @@ class MainStateManager: ObservableObject {
 
 class MainApp: ObservableObject {
     let extensionManager = ExtensionManager()
+    let rightPanelManager = RightPanelManager()
     let stateManager = MainStateManager()
     let alertManager = AlertManager()
     let safariManager = SafariManager()

@@ -49,6 +49,8 @@ extension WKWebView {
 
 class MonacoImplementation: NSObject {
     private var monacoWebView = WebViewBase()
+    private var contextMenu: EditorContextMenu?
+
     var options: EditorOptions {
         didSet {
             Task { await configureCustomOptions() }
@@ -81,6 +83,80 @@ class MonacoImplementation: NSObject {
         let request = URLRequest(
             url: URL(string: "http://localhost:\(String(EditorService.PORT))/index.html")!)
         monacoWebView.load(request)
+
+        // Setup context menu
+        setupContextMenu()
+    }
+
+    private func setupContextMenu() {
+        contextMenu = EditorContextMenu(editorImplementation: self)
+
+        // Setup AI functionality callbacks
+        contextMenu?.onExplainCode = { [weak self] code in
+            self?.handleExplainCode(code: code)
+        }
+
+        contextMenu?.onGenerateCode = { [weak self] in
+            self?.handleGenerateCode()
+        }
+
+        contextMenu?.onAddToChat = { [weak self] code in
+            self?.handleAddToChat(code: code)
+        }
+
+        monacoWebView.setupContextMenu { [weak self] hasSelection in
+            guard let self = self else { return UIMenu(children: []) }
+            return self.contextMenu?.buildContextMenu(hasSelection: hasSelection) ?? UIMenu(children: [])
+        }
+    }
+
+    // AI Functionality Handlers
+    private func handleExplainCode(code: String) {
+        let llmService = CoreMLLLMService.shared
+
+        Task {
+            _ = await llmService.explainCode(code)
+
+            // Show right panel with chat
+            await MainActor.run {
+                NotificationCenter.default.post(
+                    name: Notification.Name("rightPanel.show"),
+                    object: nil
+                )
+            }
+        }
+    }
+
+    private func handleGenerateCode() {
+        let llmService = CoreMLLLMService.shared
+
+        Task {
+            _ = await llmService.sendMessage("Generate code based on the context of my current file.")
+
+            // Show right panel with chat
+            await MainActor.run {
+                NotificationCenter.default.post(
+                    name: Notification.Name("rightPanel.show"),
+                    object: nil
+                )
+            }
+        }
+    }
+
+    private func handleAddToChat(code: String) {
+        let llmService = CoreMLLLMService.shared
+
+        Task {
+            _ = await llmService.sendMessage("I'd like to discuss this code:", includeCode: code)
+
+            // Show right panel with chat
+            await MainActor.run {
+                NotificationCenter.default.post(
+                    name: Notification.Name("rightPanel.show"),
+                    object: nil
+                )
+            }
+        }
     }
 
     private func setupEditor() async {
@@ -415,6 +491,49 @@ extension MonacoImplementation: EditorImplementation {
         return
             (try? await monacoWebView.evaluateJavaScriptAsync(
                 "document.activeElement.tagName == 'TEXTAREA'")) as? Bool ?? false
+    }
+
+    // Context menu operations
+    func cutSelection() async {
+        let selected = await getSelectedValue()
+        if !selected.isEmpty {
+            UIPasteboard.general.string = selected
+            await deleteSelection()
+        }
+    }
+
+    func copySelection() async -> String {
+        return await getSelectedValue()
+    }
+
+    func deleteSelection() async {
+        _ = try? await monacoWebView.evaluateJavaScriptAsync(
+            "editor.executeEdits('source',[{identifier: {major: 1, minor: 1}, range: editor.getSelection(), text: '', forceMoveMarkers: true}])"
+        )
+    }
+
+    func formatSelection() async {
+        _ = try? await monacoWebView.evaluateJavaScriptAsync(
+            "editor.getAction('editor.action.formatSelection').run()"
+        )
+    }
+
+    func formatDocument() async {
+        _ = try? await monacoWebView.evaluateJavaScriptAsync(
+            "editor.getAction('editor.action.formatDocument').run()"
+        )
+    }
+
+    func findAllOccurrences() async {
+        _ = try? await monacoWebView.evaluateJavaScriptAsync(
+            "editor.getAction('editor.action.changeAll').run()"
+        )
+    }
+
+    func renameSymbol() async {
+        _ = try? await monacoWebView.evaluateJavaScriptAsync(
+            "editor.getAction('editor.action.rename').run()"
+        )
     }
 
     func invalidateDecorations() async {

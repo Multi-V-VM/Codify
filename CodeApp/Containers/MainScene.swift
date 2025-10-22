@@ -88,6 +88,7 @@ struct MainScene: View {
         MainView()
             .environmentObject(App)
             .environmentObject(App.extensionManager)
+            .environmentObject(App.rightPanelManager)
             .environmentObject(App.stateManager)
             .environmentObject(App.alertManager)
             .environmentObject(App.safariManager)
@@ -172,36 +173,42 @@ private struct MainView: View {
                             }
                         }
 
-                        ZStack {
-                            VStack(spacing: 0) {
-                                TopBar(openConsolePanel: openConsolePanel)
-                                    .environmentObject(extensionManager.toolbarManager)
-                                    .frame(height: 40)
+                        HStack(spacing: 0) {
+                            ZStack {
+                                VStack(spacing: 0) {
+                                    TopBar(openConsolePanel: openConsolePanel)
+                                        .environmentObject(extensionManager.toolbarManager)
+                                        .frame(height: 40)
 
-                                EditorView()
-                                    .disabled(horizontalSizeClass == .compact && isSideBarVisible)
-                                    .sheet(isPresented: $stateManager.showsNewFileSheet) {
-                                        NewFileView(
-                                            targetUrl: App.workSpaceStorage.currentDirectory.url
-                                        ).environmentObject(App)
+                                    EditorView()
+                                        .disabled(horizontalSizeClass == .compact && isSideBarVisible)
+                                        .sheet(isPresented: $stateManager.showsNewFileSheet) {
+                                            NewFileView(
+                                                targetUrl: App.workSpaceStorage.currentDirectory.url
+                                            ).environmentObject(App)
+                                        }
+                                        .environmentObject(extensionManager.editorProviderManager)
+
+                                    if isPanelVisible {
+                                        PanelView(
+                                            windowHeight: geometry.size.height
+                                        )
+                                        .environmentObject(extensionManager.panelManager)
                                     }
-                                    .environmentObject(extensionManager.editorProviderManager)
+                                }
+                                .blur(
+                                    radius: (horizontalSizeClass == .compact && isSideBarVisible)
+                                        ? 10 : 0)
 
-                                if isPanelVisible {
-                                    PanelView(
-                                        windowHeight: geometry.size.height
-                                    )
-                                    .environmentObject(extensionManager.panelManager)
+                                if isSideBarVisible && horizontalSizeClass == .compact {
+                                    CompactSidebar()
+                                        .environmentObject(extensionManager.activityBarManager)
                                 }
                             }
-                            .blur(
-                                radius: (horizontalSizeClass == .compact && isSideBarVisible)
-                                    ? 10 : 0)
 
-                            if isSideBarVisible && horizontalSizeClass == .compact {
-                                CompactSidebar()
-                                    .environmentObject(extensionManager.activityBarManager)
-                            }
+                            // Right Panel
+                            RightPanelView()
+                                .environmentObject(App.rightPanelManager)
                         }
                     }
                     StatusBar()

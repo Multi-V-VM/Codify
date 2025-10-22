@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		127FA9CE5049F8C1450070B0 /* CoreMLLLMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 339480E779806315DA030E57 /* CoreMLLLMService.swift */; };
+		15EEBBE9671DA3168A48E9F4 /* ModelSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2199E4F96DF42B6B1AECC5FD /* ModelSettingsView.swift */; };
 		1C4C8CCF2EA69A96008E5E33 /* python-lsp in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 94EF4FD92C6DF6A900994D9C /* python-lsp */; };
 		1C4C8CD12EA69AB8008E5E33 /* WasmerRuntime.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 1C4C8CD02EA69AB8008E5E33 /* WasmerRuntime.xcframework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1C4C8CD22EA69ACA008E5E33 /* java-lsp in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 9424437D2C6E337B00BC862F /* java-lsp */; };
@@ -24,6 +26,11 @@
 		1C4C8CFD2EA866AF008E5E33 /* MarketplaceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4C8CF82EA866AF008E5E33 /* MarketplaceService.swift */; };
 		1C4C8CFF2EA86730008E5E33 /* ExtensionsContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4C8CFE2EA86730008E5E33 /* ExtensionsContainer.swift */; };
 		1C4C8D002EA86730008E5E33 /* ExtensionsContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4C8CFE2EA86730008E5E33 /* ExtensionsContainer.swift */; };
+		1C4C8D022EA878B1008E5E33 /* ExtensionSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4C8D012EA878B1008E5E33 /* ExtensionSettingsView.swift */; };
+		1C4C8D032EA878B1008E5E33 /* ExtensionSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4C8D012EA878B1008E5E33 /* ExtensionSettingsView.swift */; };
+		394EF07EF6172FD54225A7CF /* EditorContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = E39903ABA90C4082EE4ED364 /* EditorContextMenu.swift */; };
+		6E36A2060B12F5FDC18E48F0 /* RightPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 196F5B2ABB1ED12FA468E93B /* RightPanelView.swift */; };
+		7C1DA7D26DC46FA203F9A5CA /* ChatExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5761A82A762202EBF3BC48CA /* ChatExtension.swift */; };
 		940C68252C646E0400089EA3 /* System.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940C68242C646E0400089EA3 /* System.swift */; };
 		940C68262C64704C00089EA3 /* String+toCString.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949B3CC425DEA89A00BC83B5 /* String+toCString.swift */; };
 		940C68272C65D36700089EA3 /* commandDictionary.plist in Resources */ = {isa = PBXBuildFile; fileRef = 948D11FF2583F20C008F877A /* commandDictionary.plist */; };
@@ -926,6 +933,8 @@
 		9FE3E2AA298A169300F63DD0 /* Dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = 9FE3E2A9298A169300F63DD0 /* Dynamic */; };
 		9FE3E2AC298A169B00F63DD0 /* SwiftGit2 in Frameworks */ = {isa = PBXBuildFile; productRef = 9FE3E2AB298A169A00F63DD0 /* SwiftGit2 */; };
 		9FE3E2AD298A16A300F63DD0 /* NMSSH.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 942E321128093CA600233441 /* NMSSH.xcframework */; };
+		A12A39F1681F3858D5662F85 /* RightPanelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22C5DFDB5ECC8B524DE1BB79 /* RightPanelManager.swift */; };
+		E8F06343581DA54B78D8F9D4 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 614E0ED83B8027FDE8180D5D /* ChatView.swift */; };
 		FFD081B82925F8FB001D9373 /* TextEditorWithPlaceholder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFD081B72925F8FB001D9373 /* TextEditorWithPlaceholder.swift */; };
 		FFD081B92925F8FB001D9373 /* TextEditorWithPlaceholder.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFD081B72925F8FB001D9373 /* TextEditorWithPlaceholder.swift */; };
 		FFD081BB29260B00001D9373 /* Libgit2Error.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFD081BA29260B00001D9373 /* Libgit2Error.swift */; };
@@ -1425,14 +1434,21 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		196F5B2ABB1ED12FA468E93B /* RightPanelView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RightPanelView.swift; path = CodeApp/Views/RightPanelView.swift; sourceTree = "<group>"; };
 		1C4C8CCE2EA44B1D008E5E33 /* FiraCode-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "FiraCode-Regular.ttf"; sourceTree = "<group>"; };
 		1C4C8CD02EA69AB8008E5E33 /* WasmerRuntime.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = WasmerRuntime.xcframework; path = Resources/WasmerRuntime.xcframework; sourceTree = "<group>"; };
 		1C4C8CD92EA86398008E5E33 /* ExtensionsExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionsExtension.swift; sourceTree = "<group>"; };
 		1C4C8CF72EA866AF008E5E33 /* ExtensionInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionInstaller.swift; sourceTree = "<group>"; };
 		1C4C8CF82EA866AF008E5E33 /* MarketplaceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketplaceService.swift; sourceTree = "<group>"; };
 		1C4C8CFE2EA86730008E5E33 /* ExtensionsContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionsContainer.swift; sourceTree = "<group>"; };
+		1C4C8D012EA878B1008E5E33 /* ExtensionSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionSettingsView.swift; sourceTree = "<group>"; };
+		2199E4F96DF42B6B1AECC5FD /* ModelSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ModelSettingsView.swift; path = CodeApp/Views/ModelSettingsView.swift; sourceTree = "<group>"; };
+		22C5DFDB5ECC8B524DE1BB79 /* RightPanelManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RightPanelManager.swift; path = CodeApp/Managers/RightPanelManager.swift; sourceTree = "<group>"; };
+		339480E779806315DA030E57 /* CoreMLLLMService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CoreMLLLMService.swift; path = CodeApp/Services/CoreMLLLMService.swift; sourceTree = "<group>"; };
 		4F30816829662CBF002708FD /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/Localizable.strings; sourceTree = "<group>"; };
 		4F30816929662D58002708FD /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		5761A82A762202EBF3BC48CA /* ChatExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ChatExtension.swift; path = Extensions/ChatAssistant/ChatExtension.swift; sourceTree = "<group>"; };
+		614E0ED83B8027FDE8180D5D /* ChatView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ChatView.swift; path = CodeApp/Views/ChatView.swift; sourceTree = "<group>"; };
 		73F80B0F2850F7E5000EF3FC /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/Localizable.strings; sourceTree = "<group>"; };
 		73F80B102850F7EE000EF3FC /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		940C68242C646E0400089EA3 /* System.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = System.swift; sourceTree = "<group>"; };
@@ -2051,6 +2067,7 @@
 		9FDAD1B8296EAC3C00E8AEB2 /* SourceControlTemplateSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceControlTemplateSection.swift; sourceTree = "<group>"; };
 		9FE3E292298A14BC00F63DD0 /* CodeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CodeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9FE3E294298A14BC00F63DD0 /* CodeUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeUITests.swift; sourceTree = "<group>"; };
+		E39903ABA90C4082EE4ED364 /* EditorContextMenu.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EditorContextMenu.swift; path = CodeApp/Views/EditorContextMenu.swift; sourceTree = "<group>"; };
 		FFD081B72925F8FB001D9373 /* TextEditorWithPlaceholder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextEditorWithPlaceholder.swift; sourceTree = "<group>"; };
 		FFD081BA29260B00001D9373 /* Libgit2Error.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Libgit2Error.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -2211,6 +2228,7 @@
 			children = (
 				1C4C8CF72EA866AF008E5E33 /* ExtensionInstaller.swift */,
 				1C4C8CF82EA866AF008E5E33 /* MarketplaceService.swift */,
+				339480E779806315DA030E57 /* CoreMLLLMService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -2222,6 +2240,14 @@
 				945E7E3727CA79C900BA1D95 /* NodeMobile.xcframework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		34D15C59569ABA9EF57FAA02 /* ChatAssistant */ = {
+			isa = PBXGroup;
+			children = (
+				5761A82A762202EBF3BC48CA /* ChatExtension.swift */,
+			);
+			name = ChatAssistant;
 			sourceTree = "<group>";
 		};
 		94369AFD25E3B933008419A0 /* NodeExtension */ = {
@@ -2975,6 +3001,7 @@
 				9FD5BCE729238B5800F20C4B /* TerminalService */,
 				9FD5BCE12923872800F20C4B /* MonacoLanguageService */,
 				9F046C3829223CCF00BDE4E9 /* RemoteExecution */,
+				34D15C59569ABA9EF57FAA02 /* ChatAssistant */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
@@ -3004,6 +3031,7 @@
 				94801F94266FBC3500B29D80 /* ViewRepresentable.swift */,
 				94D721DE268DA2B8007A63BD /* TopBar.swift */,
 				94795C442931489C0057C12F /* ActivityBar.swift */,
+				1C4C8D012EA878B1008E5E33 /* ExtensionSettingsView.swift */,
 				94E6CC842807502A00939E4F /* ActivityBarItemView.swift */,
 				94795C4729314A0A0057C12F /* CompactSidebar.swift */,
 				94A045FD2804853200182275 /* DescriptionText.swift */,
@@ -3059,6 +3087,10 @@
 				9F062FE22B58D3F4006210AA /* FileTreeView.swift */,
 				9F062FE82B58D416006210AA /* TableView.swift */,
 				948488F82BE61684004D4A70 /* TerminalKeyboardToolbar.swift */,
+				E39903ABA90C4082EE4ED364 /* EditorContextMenu.swift */,
+				614E0ED83B8027FDE8180D5D /* ChatView.swift */,
+				196F5B2ABB1ED12FA468E93B /* RightPanelView.swift */,
+				2199E4F96DF42B6B1AECC5FD /* ModelSettingsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -3207,6 +3239,7 @@
 				9434C3EE2BA2CCBB00EB1CF6 /* WASMService.swift */,
 				949D78842C33DA48006D7480 /* AppExtensionService.swift */,
 				949CDF492C6658DC00FFC5B1 /* LanguageService.swift */,
+				22C5DFDB5ECC8B524DE1BB79 /* RightPanelManager.swift */,
 			);
 			path = Managers;
 			sourceTree = "<group>";
@@ -3747,6 +3780,7 @@
 				94196972280316C7008AAEB2 /* KeychainWrapper.swift in Sources */,
 				94A0460B2804955C00182275 /* GitHubSearchView.swift in Sources */,
 				9FC03E6F291F6EE700DECD1B /* ExplorerEditorListSection.swift in Sources */,
+				1C4C8D022EA878B1008E5E33 /* ExtensionSettingsView.swift in Sources */,
 				942ACB9E281312900067114D /* SpellChecker.swift in Sources */,
 				94E6CC7C2806FBAF00939E4F /* SFTPFileSystemProvider.swift in Sources */,
 				94196973280316C7008AAEB2 /* EditorTabs.swift in Sources */,
@@ -3943,6 +3977,7 @@
 				94F52707259F9B4800337306 /* KeychainWrapper.swift in Sources */,
 				94A0460A2804955C00182275 /* GitHubSearchView.swift in Sources */,
 				9FC03E6E291F6EE700DECD1B /* ExplorerEditorListSection.swift in Sources */,
+				1C4C8D032EA878B1008E5E33 /* ExtensionSettingsView.swift in Sources */,
 				942ACB9D281312900067114D /* SpellChecker.swift in Sources */,
 				94E6CC7B2806FBAF00939E4F /* SFTPFileSystemProvider.swift in Sources */,
 				94A77830257BD680008FE7B2 /* EditorTabs.swift in Sources */,
@@ -4015,6 +4050,13 @@
 				9F062FE62B58D40D006210AA /* FileTreeViewController.swift in Sources */,
 				1C4C8CDB2EA86398008E5E33 /* ExtensionsExtension.swift in Sources */,
 				9F046C322922203E00BDE4E9 /* ToolbarManager.swift in Sources */,
+				394EF07EF6172FD54225A7CF /* EditorContextMenu.swift in Sources */,
+				127FA9CE5049F8C1450070B0 /* CoreMLLLMService.swift in Sources */,
+				E8F06343581DA54B78D8F9D4 /* ChatView.swift in Sources */,
+				6E36A2060B12F5FDC18E48F0 /* RightPanelView.swift in Sources */,
+				A12A39F1681F3858D5662F85 /* RightPanelManager.swift in Sources */,
+				7C1DA7D26DC46FA203F9A5CA /* ChatExtension.swift in Sources */,
+				15EEBBE9671DA3168A48E9F4 /* ModelSettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -97,6 +97,21 @@ struct SettingsView: View {
                         }
                     }
 
+                    Section(header: Text("AI & Models")) {
+                        NavigationLink(destination: ModelSettingsView()) {
+                            HStack {
+                                Image(systemName: "cpu")
+                                    .foregroundColor(.blue)
+                                Text("AI Model")
+                                Spacer()
+                                if CoreMLLLMService.shared.modelLoaded {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                }
+                            }
+                        }
+                    }
+
                     Section(header: Text(NSLocalizedString("Version Control", comment: ""))) {
                         NavigationLink(destination: SourceControlIdentityConfiguration()) {
                             Text("Author Identity")

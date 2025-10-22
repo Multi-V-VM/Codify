@@ -38,6 +38,7 @@ class SchemeHandler: NSObject, WKURLSchemeHandler {
 class WebViewBase: KBWebViewBase {
     var isMessageHandlerAdded = false
     private var schemeHandler = SchemeHandler()
+    var contextMenuConfiguration: ((Bool) -> UIMenu)?
 
     init() {
         let config = WKWebViewConfiguration()
@@ -143,5 +144,63 @@ class WebViewBase: KBWebViewBase {
     override open var inputAccessoryView: UIView? {
         // remove/replace the default accessory view
         return nil
+    }
+
+    func setupContextMenu(menuProvider: @escaping (Bool) -> UIMenu) {
+        self.contextMenuConfiguration = menuProvider
+
+        // Add long press gesture recognizer for context menu
+        let longPressGesture = UILongPressGestureRecognizer(
+            target: self,
+            action: #selector(handleLongPress(_:))
+        )
+        longPressGesture.minimumPressDuration = 0.5
+        longPressGesture.delegate = self
+        self.addGestureRecognizer(longPressGesture)
+    }
+
+    @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began else { return }
+
+        // Get selection state from JavaScript
+        evaluateJavaScript("editor.getSelection().isEmpty()") { [weak self] result, error in
+            guard let self = self else { return }
+            let isEmpty = (result as? Bool) ?? true
+            let hasSelection = !isEmpty
+
+            if let menu = self.contextMenuConfiguration?(hasSelection) {
+                // Show context menu using UIMenuController approach
+                self.showContextMenu(menu: menu, at: gesture.location(in: self))
+            }
+        }
+    }
+
+    private func showContextMenu(menu: UIMenu, at point: CGPoint) {
+        // Create a view controller to present the menu
+        guard let windowScene = self.window?.windowScene,
+              let window = windowScene.windows.first else { return }
+
+        // For iOS 14+, we can use UIMenu with UIButton
+        let menuButton = UIButton(frame: CGRect(x: point.x, y: point.y, width: 1, height: 1))
+        menuButton.menu = menu
+        menuButton.showsMenuAsPrimaryAction = true
+
+        self.addSubview(menuButton)
+
+        // Simulate a touch to show the menu
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            menuButton.sendActions(for: .menuActionTriggered)
+
+            // Remove the button after showing menu
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                menuButton.removeFromSuperview()
+            }
+        }
+    }
+}
+
+extension WebViewBase: UIGestureRecognizerDelegate {
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        return true
     }
 }

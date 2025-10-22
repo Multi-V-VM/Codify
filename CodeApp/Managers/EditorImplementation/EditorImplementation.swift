@@ -128,6 +128,15 @@ protocol EditorImplementation: AnyObject {
     func moveCursor(direction: CursorDirection) async
     func editorInFocus() async -> Bool
 
+    // Context menu operations
+    func cutSelection() async
+    func copySelection() async -> String
+    func deleteSelection() async
+    func formatSelection() async
+    func formatDocument() async
+    func findAllOccurrences() async
+    func renameSymbol() async
+
     // Git operations
     func invalidateDecorations() async
     func switchToDiffMode(
