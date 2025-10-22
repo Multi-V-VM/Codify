@@ -1,0 +1,13 @@
+{
+  "name": "codeapp-node-utils",
+  "version": "1.0.0",
+  "description": "Common Node.js utilities for CodeApp",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "keywords": ["utils", "nodejs", "codeapp"],
+  "author": "CodeApp",
+  "license": "MIT",
+  "dependencies": {}
+}

@@ -1,0 +1,12 @@
+{
+  "name": "wasm-hello-world",
+  "version": "1.0.0",
+  "description": "Simple WebAssembly Hello World module with basic math functions",
+  "main": "hello.wasm",
+  "scripts": {
+    "build": "emcc hello.c -o hello.wasm -s EXPORTED_FUNCTIONS='[\"_add\",\"_multiply\",\"_hello\"]' -s EXPORTED_RUNTIME_METHODS='[\"ccall\",\"cwrap\"]'"
+  },
+  "keywords": ["wasm", "webassembly", "example"],
+  "author": "CodeApp",
+  "license": "MIT"
+}

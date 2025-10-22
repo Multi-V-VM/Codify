@@ -29,6 +29,7 @@ class ExtensionManager: ObservableObject {
         RemoteAuxiliaryExtension(),
         ExtensionsExtension(),
         ChatExtension(),
+        VISXExtension(),
     ]
 
     func registerExtension(ex: CodeAppExtension) {

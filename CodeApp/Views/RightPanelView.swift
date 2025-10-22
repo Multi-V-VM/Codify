@@ -162,27 +162,3 @@ private struct PanelTab: View {
         .buttonStyle(.plain)
     }
 }
-
-// MARK: - Toggle Button (for Activity Bar)
-
-struct RightPanelToggleButton: View {
-    @Binding var isVisible: Bool
-
-    var body: some View {
-        Button(action: {
-            withAnimation {
-                isVisible.toggle()
-            }
-        }) {
-            Image(systemName: "sidebar.right")
-                .font(.system(size: 20))
-                .foregroundColor(
-                    isVisible
-                        ? Color.init(id: "activityBar.activeForeground")
-                        : Color.init(id: "activityBar.inactiveForeground")
-                )
-                .frame(width: 50, height: 50)
-        }
-        .buttonStyle(.plain)
-    }
-}

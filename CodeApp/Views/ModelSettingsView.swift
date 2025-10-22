@@ -379,13 +379,13 @@ struct ModelConversionGuideView: View {
             }
             .navigationTitle("Model Conversion")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
+            .toolbar(content: {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
                         dismiss()
                     }
                 }
-            }
+            })
         }
     }
 }
