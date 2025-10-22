@@ -14,7 +14,9 @@ class MarketplaceService {
 
     // Using asplos.dev as proxy for VSCode Marketplace
     // This provides caching and reduces load on Microsoft's servers
-    private let baseURL = "https://asplos.dev/api/marketplace"
+    private var baseURL: String {
+        UserDefaults.standard.string(forKey: "extensionMarketplaceURL") ?? "https://asplos.dev/api/marketplace"
+    }
     private let fallbackURL = "https://marketplace.visualstudio.com/_apis/public/gallery"
     private let apiVersion = "7.2-preview.1"
 
@@ -22,9 +24,14 @@ class MarketplaceService {
     private lazy var urlSession: URLSession = {
         let config = URLSessionConfiguration.default
         config.requestCachePolicy = .returnCacheDataElseLoad
+
+        // Load cache settings from UserDefaults
+        let maxCacheSize = UserDefaults.standard.integer(forKey: "extensionMaxCacheSize")
+        let cacheSizeMB = maxCacheSize > 0 ? maxCacheSize : 200
+
         config.urlCache = URLCache(
             memoryCapacity: 50 * 1024 * 1024,    // 50 MB memory cache
-            diskCapacity: 200 * 1024 * 1024,     // 200 MB disk cache
+            diskCapacity: cacheSizeMB * 1024 * 1024,     // Configurable disk cache
             diskPath: "marketplace-cache"
         )
         return URLSession(configuration: config)

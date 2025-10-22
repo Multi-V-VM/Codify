@@ -19,6 +19,7 @@ struct ExtensionsContainer: View {
     @State private var featuredExtensions: [MarketplaceExtension] = []
     @State private var isLoadingMarketplace: Bool = false
     @State private var marketplaceError: String? = nil
+    @State private var showSettings: Bool = false
     private let marketplaceService = MarketplaceService()
     private let extensionInstaller = ExtensionInstaller()
 
@@ -66,6 +67,9 @@ struct ExtensionsContainer: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.init(id: "sideBar.background"))
+        .sheet(isPresented: $showSettings) {
+            ExtensionSettingsView()
+        }
     }
 
     // MARK: - Header
@@ -428,7 +432,7 @@ struct ExtensionsContainer: View {
 
     private func openSettings() {
         NSLog("Opening extension settings...")
-        // TODO: Open settings
+        showSettings = true
     }
 
     // MARK: - Marketplace API Integration

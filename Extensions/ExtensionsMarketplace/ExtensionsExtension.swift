@@ -53,7 +53,7 @@ class ExtensionsExtension: CodeAppExtension {
                     )
                 ]
             },
-            positionPrecedence: 400, // After SOURCE_CONTROL (500) and before REMOTE (300)
+            positionPrecedence: -5, // Second to last (before REMOTE_PORT_FORWARD at -10)
             bubble: {
                 // TODO: Show update count when extensions have updates available
                 return nil
