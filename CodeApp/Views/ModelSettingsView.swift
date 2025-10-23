@@ -117,9 +117,21 @@ struct ModelSettingsView: View {
                             .font(.caption)
                     }
 
+                    HStack {
+                        Text("Compiled Cache Size")
+                        Spacer()
+                        Text(formatBytes(CoreMLModelHandler.getCompiledModelsCacheSize()))
+                            .foregroundColor(.gray)
+                    }
+
                     Button(action: createModelsDirectory) {
                         Label("Create Models Folder", systemImage: "folder.badge.plus")
                     }
+
+                    Button(action: clearCompiledCache) {
+                        Label("Clear Compiled Cache", systemImage: "trash")
+                    }
+                    .foregroundColor(.orange)
                 }
             }
             .navigationTitle("AI Model Settings")
@@ -162,19 +174,26 @@ struct ModelSettingsView: View {
 
     private func handleModelSelection(_ url: URL) {
         isLoading = true
-        statusMessage = "Loading model from \(url.lastPathComponent)..."
+
+        // Check if model needs compilation
+        let modelType = CoreMLModelHandler.getModelType(url: url)
+        if modelType == .mlpackage || modelType == .source {
+            statusMessage = "Compiling model \(url.lastPathComponent)... This may take a few minutes."
+        } else {
+            statusMessage = "Loading model from \(url.lastPathComponent)..."
+        }
 
         Task {
             do {
                 try await llmService.loadModel(at: url)
 
                 await MainActor.run {
-                    statusMessage = "Model loaded successfully"
+                    statusMessage = "✅ Model loaded successfully"
                     isLoading = false
                 }
             } catch {
                 await MainActor.run {
-                    statusMessage = "Failed to load: \(error.localizedDescription)"
+                    statusMessage = "❌ Failed to load: \(error.localizedDescription)"
                     isLoading = false
                 }
             }
@@ -190,6 +209,27 @@ struct ModelSettingsView: View {
             statusMessage = "Models folder created at: \(modelsURL.path)"
         } catch {
             statusMessage = "Error creating folder: \(error.localizedDescription)"
+        }
+    }
+
+    private func clearCompiledCache() {
+        do {
+            try CoreMLModelHandler.clearCompiledModelsCache()
+            statusMessage = "✅ Compiled models cache cleared"
+        } catch {
+            statusMessage = "❌ Error clearing cache: \(error.localizedDescription)"
+        }
+    }
+
+    private func formatBytes(_ bytes: Int64) -> String {
+        if bytes < 1024 {
+            return "\(bytes) B"
+        } else if bytes < 1024 * 1024 {
+            return String(format: "%.1f KB", Double(bytes) / 1024.0)
+        } else if bytes < 1024 * 1024 * 1024 {
+            return String(format: "%.1f MB", Double(bytes) / (1024.0 * 1024.0))
+        } else {
+            return String(format: "%.1f GB", Double(bytes) / (1024.0 * 1024.0 * 1024.0))
         }
     }
 }
@@ -238,12 +278,33 @@ struct ModelFilePicker: UIViewControllerRepresentable {
     let onModelSelected: (URL) -> Void
 
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        // Create content types for Core ML models
+        var contentTypes: [UTType] = []
+
+        // Try to use declared UTTypes from Info.plist
+        contentTypes.append(UTType(importedAs: "com.apple.coreml.mlpackage"))
+        contentTypes.append(UTType(importedAs: "com.apple.coreml.mlmodelc"))
+        contentTypes.append(UTType(importedAs: "com.apple.coreml.mlmodel"))
+
+        // Also add standard types using filename extensions as fallback
+        if let mlpackageType = UTType(filenameExtension: "mlpackage") {
+            if !contentTypes.contains(mlpackageType) {
+                contentTypes.append(mlpackageType)
+            }
+        }
+        if let mlmodelcType = UTType(filenameExtension: "mlmodelc") {
+            if !contentTypes.contains(mlmodelcType) {
+                contentTypes.append(mlmodelcType)
+            }
+        }
+        if let mlmodelType = UTType(filenameExtension: "mlmodel") {
+            if !contentTypes.contains(mlmodelType) {
+                contentTypes.append(mlmodelType)
+            }
+        }
+
         let picker = UIDocumentPickerViewController(
-            forOpeningContentTypes: [
-                UTType(filenameExtension: "mlmodelc")!,
-                UTType(filenameExtension: "mlpackage")!,
-                UTType(filenameExtension: "mlmodel")!
-            ],
+            forOpeningContentTypes: contentTypes,
             asCopy: false
         )
         picker.delegate = context.coordinator
@@ -266,7 +327,46 @@ struct ModelFilePicker: UIViewControllerRepresentable {
 
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
             guard let url = urls.first else { return }
-            onModelSelected(url)
+
+            // Start accessing security scoped resource
+            let shouldStopAccessing = url.startAccessingSecurityScopedResource()
+
+            defer {
+                if shouldStopAccessing {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+
+            // Copy the file to app's documents directory for persistent access
+            if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+                let modelsDir = documentsURL.appendingPathComponent("Models")
+
+                // Create Models directory if it doesn't exist
+                try? FileManager.default.createDirectory(at: modelsDir, withIntermediateDirectories: true)
+
+                // Destination URL with the same filename
+                let destinationURL = modelsDir.appendingPathComponent(url.lastPathComponent)
+
+                do {
+                    // Remove existing file if present
+                    if FileManager.default.fileExists(atPath: destinationURL.path) {
+                        try FileManager.default.removeItem(at: destinationURL)
+                    }
+
+                    // Copy the file
+                    try FileManager.default.copyItem(at: url, to: destinationURL)
+
+                    // Use the copied file
+                    onModelSelected(destinationURL)
+                } catch {
+                    print("Error copying model file: \(error)")
+                    // Fallback: try to use the original URL
+                    onModelSelected(url)
+                }
+            } else {
+                // Fallback: use original URL
+                onModelSelected(url)
+            }
         }
     }
 }
@@ -379,13 +479,13 @@ struct ModelConversionGuideView: View {
             }
             .navigationTitle("Model Conversion")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar(content: {
-                ToolbarItem(placement: .navigationBarTrailing) {
+            .toolbar {
+                SwiftUI.ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
                         dismiss()
                     }
                 }
-            })
+            }
         }
     }
 }

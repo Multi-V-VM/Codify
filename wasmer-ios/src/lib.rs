@@ -2,9 +2,113 @@ use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::slice;
 use std::sync::Arc;
-use wasmer::{Store, Module, Instance, Value};
+use std::os::unix::io::{RawFd, FromRawFd};
+use std::io::SeekFrom;
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use wasmer::{Store, Module, Instance, Value, Engine};
+use wasmer::sys::NativeEngineExt;
 use wasmer_wasix::{WasiEnvBuilder, PluggableRuntime};
 use wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager;
+use wasmer_wasix::virtual_fs::{VirtualFile, FsError};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncSeek, ReadBuf};
+
+// Custom VirtualFile implementation that wraps a file descriptor
+#[derive(Debug)]
+struct FdFile {
+    #[allow(dead_code)]
+    fd: RawFd,
+    file: tokio::fs::File,
+}
+
+impl FdFile {
+    /// Create a new FdFile by duplicating the given file descriptor
+    fn new(fd: RawFd) -> std::io::Result<Self> {
+        // Duplicate the file descriptor so we don't close the original
+        let dup_fd = unsafe { libc::dup(fd) };
+        if dup_fd < 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+
+        // Create tokio File from the duplicated fd
+        let std_file = unsafe { std::fs::File::from_raw_fd(dup_fd) };
+        let file = tokio::fs::File::from_std(std_file);
+
+        Ok(Self { fd: dup_fd, file })
+    }
+}
+
+impl VirtualFile for FdFile {
+    fn last_accessed(&self) -> u64 {
+        0 // Not implemented for FDs
+    }
+
+    fn last_modified(&self) -> u64 {
+        0 // Not implemented for FDs
+    }
+
+    fn created_time(&self) -> u64 {
+        0 // Not implemented for FDs
+    }
+
+    fn size(&self) -> u64 {
+        0 // Unknown size for FDs
+    }
+
+    fn set_len(&mut self, _new_size: u64) -> Result<(), FsError> {
+        Err(FsError::PermissionDenied)
+    }
+
+    fn unlink(&mut self) -> Result<(), FsError> {
+        Ok(()) // No-op for FDs
+    }
+
+    fn poll_read_ready(self: std::pin::Pin<&mut Self>, _cx: &mut std::task::Context<'_>) -> std::task::Poll<std::io::Result<usize>> {
+        std::task::Poll::Ready(Ok(1))
+    }
+
+    fn poll_write_ready(self: std::pin::Pin<&mut Self>, _cx: &mut std::task::Context<'_>) -> std::task::Poll<std::io::Result<usize>> {
+        std::task::Poll::Ready(Ok(1))
+    }
+}
+
+impl AsyncRead for FdFile {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        Pin::new(&mut self.file).poll_read(cx, buf)
+    }
+}
+
+impl AsyncWrite for FdFile {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<std::io::Result<usize>> {
+        Pin::new(&mut self.file).poll_write(cx, buf)
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Pin::new(&mut self.file).poll_flush(cx)
+    }
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Pin::new(&mut self.file).poll_shutdown(cx)
+    }
+}
+
+impl AsyncSeek for FdFile {
+    fn start_seek(mut self: Pin<&mut Self>, position: SeekFrom) -> std::io::Result<()> {
+        Pin::new(&mut self.file).start_seek(position)
+    }
+
+    fn poll_complete(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<u64>> {
+        Pin::new(&mut self.file).poll_complete(cx)
+    }
+}
 
 /// Execute a WebAssembly module with WASIX p1 support
 ///
@@ -70,10 +174,11 @@ fn execute_wasm(
     stdout_fd: i32,
     stderr_fd: i32,
 ) -> Result<i32, Box<dyn std::error::Error>> {
-    // Create a tokio runtime for wasmer-wasix
-    // wasmer-wasix requires an async runtime context
+    // Create a tokio runtime for wasmer-wasix with larger stack size
+    // Default stack size may be too small for some WASM programs
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
+        .thread_stack_size(8 * 1024 * 1024) // 8MB stack (increased from default ~2MB)
         .build()?;
 
     // Run the WASM execution in the tokio runtime
@@ -89,10 +194,28 @@ async fn execute_wasm_async(
     stdout_fd: i32,
     stderr_fd: i32,
 ) -> Result<i32, Box<dyn std::error::Error>> {
-    // Create a new Wasmer store
-    let mut store = Store::default();
+    // Validate WASM binary first
+    if wasm_bytes.len() < 8 {
+        return Err("Invalid WASM binary: too small".into());
+    }
+
+    // Check WASM magic number (0x00 0x61 0x73 0x6D)
+    if &wasm_bytes[0..4] != &[0x00, 0x61, 0x73, 0x6D] {
+        return Err("Invalid WASM binary: missing magic number".into());
+    }
+
+    // Check WASM version (should be 1)
+    if &wasm_bytes[4..8] != &[0x01, 0x00, 0x00, 0x00] {
+        return Err("Invalid WASM binary: unsupported version".into());
+    }
+
+    // Create a headless engine (interpreter-only, no JIT)
+    // This is required for iOS where JIT compilation is not allowed
+    let engine = Engine::headless();
+    let mut store = Store::new(engine);
 
     // Load the WASM module
+    // The module will be validated using singlepass compiler, but executed using WAMR interpreter
     let module = Module::new(&store, wasm_bytes)?;
 
     // Get environment variables
@@ -116,11 +239,24 @@ async fn execute_wasm_async(
         wasi_env_builder = wasi_env_builder.env(key, value);
     }
 
-    // Map file descriptors if provided
-    // WASIX p1 provides enhanced file system support
+    // Map file descriptors using custom FdFile implementation
+    // Each FD is duplicated to avoid closing the original
     if stdin_fd >= 0 {
-        // Note: Proper FD mapping requires additional implementation
-        // For now, we use default stdin/stdout/stderr
+        if let Ok(stdin) = FdFile::new(stdin_fd) {
+            wasi_env_builder = wasi_env_builder.stdin(Box::new(stdin));
+        }
+    }
+
+    if stdout_fd >= 0 {
+        if let Ok(stdout) = FdFile::new(stdout_fd) {
+            wasi_env_builder = wasi_env_builder.stdout(Box::new(stdout));
+        }
+    }
+
+    if stderr_fd >= 0 {
+        if let Ok(stderr) = FdFile::new(stderr_fd) {
+            wasi_env_builder = wasi_env_builder.stderr(Box::new(stderr));
+        }
     }
 
     let mut wasi_env = wasi_env_builder.finalize(&mut store)?;
@@ -148,7 +284,19 @@ async fn execute_wasm_async(
                 if let Some(exit_code) = extract_exit_code(&e) {
                     exit_code
                 } else {
-                    eprintln!("Error calling _start: {}", e);
+                    // Print detailed error information for debugging
+                    eprintln!("wasmer-ios: Error calling _start");
+                    eprintln!("  Error: {}", e);
+                    eprintln!("  Error type: {:?}", e);
+
+                    // Check for trap information
+                    let trace = e.trace();
+                    if !trace.is_empty() {
+                        eprintln!("  Stack trace:");
+                        for frame in trace {
+                            eprintln!("    {:?}", frame);
+                        }
+                    }
                     1
                 }
             }
@@ -166,12 +314,26 @@ async fn execute_wasm_async(
                 }
             }
             Err(e) => {
-                eprintln!("Error calling main: {}", e);
+                eprintln!("wasmer-ios: Error calling main");
+                eprintln!("  Error: {}", e);
+                eprintln!("  Error type: {:?}", e);
+
+                let trace = e.trace();
+                if !trace.is_empty() {
+                    eprintln!("  Stack trace:");
+                    for frame in trace {
+                        eprintln!("    {:?}", frame);
+                    }
+                }
                 1
             }
         }
     } else {
-        eprintln!("No _start or main function found");
+        eprintln!("wasmer-ios: No _start or main function found in WASM module");
+        eprintln!("  Available exports:");
+        for (name, _) in instance.exports.iter() {
+            eprintln!("    - {}", name);
+        }
         -1
     };
 

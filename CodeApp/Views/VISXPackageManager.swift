@@ -100,7 +100,7 @@ struct VISXPackageManagerView: View {
             .navigationTitle("VISX Packages")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                SwiftUI.ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: refreshPackages) {
                         Image(systemName: "arrow.clockwise")
                     }
@@ -282,7 +282,7 @@ struct DownloadPackageSheet: View {
             .navigationTitle("Download Package")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                SwiftUI.ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {
                         dismiss()
                     }
@@ -351,7 +351,7 @@ struct PackageDetailsView: View {
             .navigationTitle("Package Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                SwiftUI.ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
                         dismiss()
                     }

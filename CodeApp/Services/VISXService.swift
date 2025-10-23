@@ -7,6 +7,7 @@
 
 import Foundation
 import Compression
+import ZIPFoundation
 
 /// VISX Package Manifest
 struct VISXManifest: Codable {
@@ -197,20 +198,9 @@ class VISXService: NSObject, ObservableObject {
     }
 
     private func decompressTarGz(from sourceURL: URL, to destinationURL: URL) async throws {
-        // Use system tar command for decompression
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/tar")
-        process.arguments = [
-            "-xzf", sourceURL.path,
-            "-C", destinationURL.path
-        ]
-
-        try process.run()
-        process.waitUntilExit()
-
-        guard process.terminationStatus == 0 else {
-            throw VISXError.decompressionFailed("tar exit code: \(process.terminationStatus)")
-        }
+        // Use ZIPFoundation for decompression
+        // Note: VISX packages should be created as ZIP files, not tar.gz
+        try FileManager.default.unzipItem(at: sourceURL, to: destinationURL)
     }
 
     private func verifyPackageIntegrity(manifest: VISXManifest, extractedDir: URL) throws {

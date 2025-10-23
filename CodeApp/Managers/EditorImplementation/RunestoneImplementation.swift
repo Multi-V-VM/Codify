@@ -7,6 +7,8 @@
 
 import Runestone
 import SwiftUI
+import UIKit
+import Combine
 import TreeSitterAstroRunestone
 import TreeSitterBashRunestone
 import TreeSitterCPPRunestone
@@ -45,6 +47,117 @@ import TreeSitterTOMLRunestone
 import TreeSitterTSXRunestone
 import TreeSitterTypeScriptRunestone
 import TreeSitterYAMLRunestone
+
+// MARK: - Custom TextView with Context Menu
+
+class CustomRunestoneTextView: TextView {
+    var contextMenuBuilder: ((Bool) -> UIMenu)?
+    var onTextChanged: ((String, Int, Int) -> Void)?
+    var onTabPressed: (() -> Bool)?  // Returns true if tab was handled
+
+    // Inline completion display
+    private var completionLabel: UILabel?
+    var currentCompletion: String? {
+        didSet {
+            updateCompletionDisplay()
+        }
+    }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupCompletionLabel()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupCompletionLabel()
+    }
+
+    private func setupCompletionLabel() {
+        let label = UILabel()
+        label.textColor = UIColor.systemGray.withAlphaComponent(0.5)
+        label.backgroundColor = .clear
+        label.isUserInteractionEnabled = false
+        // Get font from theme if available
+        if let editorTheme = self.theme as? DynamicTheme {
+            label.font = editorTheme.font
+        }
+        addSubview(label)
+        completionLabel = label
+    }
+
+    private func updateCompletionDisplay() {
+        guard let label = completionLabel else { return }
+
+        if let completion = currentCompletion, !completion.isEmpty {
+            label.text = completion
+            // Update font from theme
+            if let editorTheme = self.theme as? DynamicTheme {
+                label.font = editorTheme.font
+            }
+            label.sizeToFit()
+
+            // Position at cursor
+            if let cursorPosition = selectedTextRange?.start {
+                let caretRect = self.caretRect(for: cursorPosition)
+                label.frame.origin = CGPoint(
+                    x: caretRect.maxX,
+                    y: caretRect.minY
+                )
+            }
+
+            label.isHidden = false
+        } else {
+            label.isHidden = true
+        }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        updateCompletionDisplay()
+    }
+
+    // Handle Tab key through insertText override
+    override func insertText(_ text: String) {
+        // Check if it's a tab and we have a completion
+        if text == "\t", let handler = onTabPressed, handler() {
+            // Tab was handled by completion
+            return
+        }
+
+        // Default behavior
+        super.insertText(text)
+    }
+
+    func acceptCompletion() {
+        if let completion = currentCompletion {
+            insertText(completion)
+            currentCompletion = nil
+        }
+    }
+
+    func dismissCompletion() {
+        currentCompletion = nil
+    }
+
+    // Context menu interaction
+    override func buildMenu(with builder: UIMenuBuilder) {
+        let hasSelection = selectedRange.length > 0
+
+        if let customMenu = contextMenuBuilder?(hasSelection) {
+            // Remove standard edit menu
+            builder.remove(menu: .standardEdit)
+        }
+
+        super.buildMenu(with: builder)
+    }
+
+    // Disable standard menu items
+    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        // Disable standard system actions - our custom menu handles everything
+        return false
+    }
+}
 
 class DynamicTheme: Runestone.Theme {
 
@@ -305,8 +418,11 @@ struct URLTextState {
     }
 }
 
+@available(iOS 18.0, *)
 class RunestoneImplementation: NSObject {
-    private var textView: TextView
+    private var textView: CustomRunestoneTextView
+    private var contextMenu: EditorContextMenu?
+    private var cancellables = Set<AnyCancellable>()
 
     var options: EditorOptions {
         didSet {
@@ -346,7 +462,7 @@ class RunestoneImplementation: NSObject {
                 ?? DefaultTheme().font
         )
 
-        let textView = TextView()
+        let textView = CustomRunestoneTextView()
         textView.showLineNumbers = true
         textView.autocapitalizationType = .none
         textView.autocorrectionType = .no
@@ -359,9 +475,42 @@ class RunestoneImplementation: NSObject {
 
         super.init()
 
+        // Setup context menu
+        setupContextMenu()
+
         textView.editorDelegate = self
         textView.delegate = self
         configureTextViewForOptions(options: options)
+    }
+
+    private func setupContextMenu() {
+        let menu = EditorContextMenu(editorImplementation: self)
+
+        // Configure callbacks if needed
+        menu.onExplainCode = { [weak self] code in
+            // Handle explain code - could integrate with CoreMLLLMService
+            print("Explain code: \(code)")
+        }
+
+        menu.onGenerateCode = { [weak self] in
+            // Handle generate code
+            print("Generate code requested")
+        }
+
+        menu.onAddToChat = { [weak self] code in
+            // Handle add to chat
+            print("Add to chat: \(code)")
+        }
+
+        self.contextMenu = menu
+
+        // Set the menu builder on the text view
+        textView.contextMenuBuilder = { [weak menu] hasSelection in
+            guard let menu = menu else {
+                return UIMenu(children: [])
+            }
+            return menu.buildContextMenu(hasSelection: hasSelection)
+        }
     }
 
     private func updateEditorTheme() {
@@ -393,6 +542,7 @@ class RunestoneImplementation: NSObject {
     }
 }
 
+@available(iOS 18.0, *)
 extension RunestoneImplementation: EditorImplementation {
     var view: UIView {
         textView
@@ -689,8 +839,63 @@ extension RunestoneImplementation: EditorImplementation {
         return []
     }
 
+    // MARK: - Context Menu Operations
+
+    func cutSelection() async {
+        await MainActor.run {
+            let selectedRange = textView.selectedRange
+            if selectedRange.length > 0,
+               let text = textView.text(in: selectedRange) {
+                UIPasteboard.general.string = text
+                textView.insertText("")
+            }
+        }
+    }
+
+    func copySelection() async -> String {
+        await MainActor.run {
+            let selectedRange = textView.selectedRange
+            if selectedRange.length > 0,
+               let text = textView.text(in: selectedRange) {
+                UIPasteboard.general.string = text
+                return text
+            }
+            return ""
+        }
+    }
+
+    func deleteSelection() async {
+        await MainActor.run {
+            let selectedRange = textView.selectedRange
+            if selectedRange.length > 0 {
+                textView.insertText("")
+            }
+        }
+    }
+
+    func formatSelection() async {
+        // Runestone doesn't have built-in formatting
+        // This would require integration with a formatter like swift-format
+    }
+
+    func formatDocument() async {
+        // Runestone doesn't have built-in formatting
+        // This would require integration with a formatter like swift-format
+    }
+
+    func findAllOccurrences() async {
+        // This would require implementing search functionality
+        // Could be added in future enhancement
+    }
+
+    func renameSymbol() async {
+        // This would require LSP integration for symbol renaming
+        // Could be added in future enhancement
+    }
+
 }
 
+@available(iOS 18.0, *)
 extension RunestoneImplementation: TextViewDelegate {
     func textViewDidChange(_ textView: TextView) {
         guard let delegate, let currentURL else { return }
@@ -702,6 +907,20 @@ extension RunestoneImplementation: TextViewDelegate {
         delegate.editorImplementation(
             contentDidChangeForModelURL: currentURL, content: textView.text,
             versionID: updatedState.version)
+
+        // Trigger inline completion
+        if #available(iOS 18.0, *) {
+            if let customTextView = textView as? CustomRunestoneTextView,
+               let textLocation = textView.textLocation(at: textView.selectedRange.location) {
+                customTextView.onTextChanged?(
+                    textView.text,
+                    textLocation.lineNumber,
+                    textLocation.column
+                )
+            }
+        } else {
+            // Fallback on earlier versions
+        }
     }
 
     func textViewDidChangeSelection(_ textView: TextView) {
@@ -713,9 +932,13 @@ extension RunestoneImplementation: TextViewDelegate {
         guard let currentURL, var modifiedState = states[currentURL] else { return }
         modifiedState.selectedTextRange = textView.selectedTextRange
         states[currentURL] = modifiedState
+
+        // Cancel completion when moving cursor
+        InlineCompletionService.cancelCompletion()
     }
 }
 
+@available(iOS 18.0, *)
 extension RunestoneImplementation: UIScrollViewDelegate {
     func didEndScrolling() {
         guard let currentURL, var modifiedState = states[currentURL] else { return }

@@ -8,6 +8,13 @@ echo "Building Wasmer for iOS as XCFramework..."
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
+# Setup LLVM for bindgen
+export LLVM_CONFIG_PATH=/opt/homebrew/opt/llvm/bin/llvm-config
+
+# Get SDK paths
+IOS_SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+SIM_SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
+
 # Install iOS targets if not already installed
 echo "Installing Rust iOS targets..."
 rustup target add aarch64-apple-ios
@@ -21,14 +28,17 @@ echo "Cleaning previous builds..."
 
 # Build for iOS device (ARM64)
 echo "Building for iOS device (aarch64-apple-ios)..."
+export BINDGEN_EXTRA_CLANG_ARGS="--target=arm64-apple-ios -isysroot $IOS_SDK"
 cargo build --release --target aarch64-apple-ios
 
 # Build for iOS Simulator (ARM64 - Apple Silicon Macs)
 echo "Building for iOS Simulator ARM64 (aarch64-apple-ios-sim)..."
+export BINDGEN_EXTRA_CLANG_ARGS="--target=arm64-apple-ios-simulator -isysroot $SIM_SDK"
 cargo build --release --target aarch64-apple-ios-sim
 
 # Build for iOS Simulator (x86_64 - Intel Macs)
 echo "Building for iOS Simulator x86_64 (x86_64-apple-ios)..."
+export BINDGEN_EXTRA_CLANG_ARGS="--target=x86_64-apple-ios-simulator -isysroot $SIM_SDK"
 cargo build --release --target x86_64-apple-ios
 
 # Create lipo binary for simulator (combine arm64-sim and x86_64)

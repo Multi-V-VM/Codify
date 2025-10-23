@@ -18,7 +18,6 @@ class EditorContextMenu {
         self.editorImplementation = editorImplementation
     }
 
-    @MainActor
     func buildContextMenu(hasSelection: Bool) -> UIMenu {
         var menuItems: [UIMenuElement] = []
 
@@ -45,7 +44,6 @@ class EditorContextMenu {
         return UIMenu(children: menuItems)
     }
 
-    @MainActor
     private func buildAISection() -> UIMenu {
         let explainAction = UIAction(
             title: NSLocalizedString("Explain", comment: ""),
@@ -83,7 +81,6 @@ class EditorContextMenu {
         )
     }
 
-    @MainActor
     private func buildEditingSection(hasSelection: Bool) -> UIMenu {
         var actions: [UIAction] = []
 
@@ -143,7 +140,6 @@ class EditorContextMenu {
         )
     }
 
-    @MainActor
     private func buildCodeActionsSection() -> UIMenu {
         let formatSelectionAction = UIAction(
             title: NSLocalizedString("Format Selection", comment: ""),
@@ -161,7 +157,6 @@ class EditorContextMenu {
         )
     }
 
-    @MainActor
     private func buildRefactoringSection(hasSelection: Bool) -> UIMenu {
         var actions: [UIAction] = []
 

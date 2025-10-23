@@ -39,11 +39,18 @@ class CoreMLLLMService: ObservableObject {
     @Published var isGenerating: Bool = false
     @Published var modelLoaded: Bool = false
     @Published var error: String?
+    @Published var currentResponse: String = ""
 
     private var model: MLModel?
     private var conversationHistory: [LLMMessage] = []
+    private var tokenizer: LLMTokenizer
+    private var inferenceEngine: CoreMLInferenceEngine?
+    private var currentTask: Task<Void, Never>?
 
     private init() {
+        // Initialize tokenizer
+        tokenizer = LLMTokenizer()
+
         // Initialize with system message
         conversationHistory.append(LLMMessage(
             role: .system,
@@ -84,19 +91,33 @@ class CoreMLLLMService: ObservableObject {
     /// Load model from a custom URL
     func loadModel(at url: URL) async throws {
         do {
-            let config = MLModelConfiguration()
-            config.computeUnits = .cpuAndGPU // Use both CPU and GPU for better performance
+            await MainActor.run {
+                isGenerating = true
+                error = nil
+            }
 
-            model = try MLModel(contentsOf: url, configuration: config)
+            // Load tokenizer vocabulary if available
+            let vocabURL = url.deletingLastPathComponent().appendingPathComponent("vocab.json")
+            if FileManager.default.fileExists(atPath: vocabURL.path) {
+                try? tokenizer.loadVocabulary(from: vocabURL)
+            }
+
+            // Initialize inference engine
+            inferenceEngine = CoreMLInferenceEngine(tokenizer: tokenizer)
+
+            // Load the model
+            try inferenceEngine?.loadModel(from: url)
 
             await MainActor.run {
                 modelLoaded = true
+                isGenerating = false
                 error = nil
             }
         } catch {
             await MainActor.run {
                 self.error = "Failed to load model: \(error.localizedDescription)"
                 modelLoaded = false
+                isGenerating = false
             }
             throw error
         }
@@ -146,13 +167,43 @@ class CoreMLLLMService: ObservableObject {
     /// Generate a response using the loaded model
     private func generateResponse(for conversation: [LLMMessage]) async -> String {
         // If no model is loaded, use a fallback
-        guard modelLoaded else {
+        guard modelLoaded, let engine = inferenceEngine else {
             return await generateFallbackResponse(for: conversation)
         }
 
-        // TODO: Implement actual Core ML inference
-        // For now, we'll use a simulated response
-        return await generateSimulatedResponse(for: conversation)
+        do {
+            // Format the conversation into a prompt
+            let prompt = tokenizer.formatDeepSeekPrompt(messages: conversation)
+
+            // Tokenize the prompt
+            let inputTokens = tokenizer.encode(prompt, addSpecialTokens: true)
+
+            // Reset current response
+            await MainActor.run {
+                currentResponse = ""
+            }
+
+            // Generate with streaming
+            let outputTokens = try await engine.generateStreaming(
+                inputTokens: inputTokens,
+                stopTokens: [tokenizer.eosTokenId],
+                onToken: { [weak self] tokenId, tokenText in
+                    guard let self = self else { return }
+                    self.currentResponse += tokenText
+                }
+            )
+
+            // Decode the full response
+            let response = tokenizer.decode(outputTokens, skipSpecialTokens: true)
+
+            return response.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        } catch {
+            await MainActor.run {
+                self.error = "Inference failed: \(error.localizedDescription)"
+            }
+            return "I encountered an error while generating a response. Please try again."
+        }
     }
 
     /// Generate a simulated response (for demo purposes)
@@ -216,6 +267,40 @@ class CoreMLLLMService: ObservableObject {
         return await sendMessage(instruction, includeCode: code)
     }
 
+    // MARK: - Generation Control
+
+    /// Cancel current generation
+    func cancelGeneration() {
+        currentTask?.cancel()
+        currentTask = nil
+
+        Task { @MainActor in
+            isGenerating = false
+            currentResponse = ""
+        }
+    }
+
+    /// Update generation parameters
+    func updateGenerationParameters(
+        maxTokens: Int? = nil,
+        temperature: Float? = nil,
+        topK: Int? = nil,
+        topP: Float? = nil
+    ) {
+        if let maxTokens = maxTokens {
+            inferenceEngine?.maxTokens = maxTokens
+        }
+        if let temperature = temperature {
+            inferenceEngine?.temperature = temperature
+        }
+        if let topK = topK {
+            inferenceEngine?.topK = topK
+        }
+        if let topP = topP {
+            inferenceEngine?.topP = topP
+        }
+    }
+
     // MARK: - Conversation Management
 
     /// Clear conversation history
@@ -227,6 +312,7 @@ class CoreMLLLMService: ObservableObject {
             )
         ]
         messages = []
+        currentResponse = ""
     }
 
     /// Export conversation as markdown

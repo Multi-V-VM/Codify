@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 60;
+	objectVersion = 90;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -160,7 +160,18 @@
 		1C4C8E942EA89089008E5E33 /* ChatExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4C8E912EA89089008E5E33 /* ChatExtension.swift */; };
 		1C4C8E962EA890A8008E5E33 /* RightPanelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4C8E952EA890A8008E5E33 /* RightPanelManager.swift */; };
 		1C4C8E972EA890A8008E5E33 /* RightPanelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4C8E952EA890A8008E5E33 /* RightPanelManager.swift */; };
-		70722D482025607475E0DFBD /* VISXExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CBBDEFDDF44FAE3AF22E1F9 /* VISXExtension.swift */; };
+		1C4C8E9A2EA9878A008E5E33 /* VISXExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4C8E982EA9878A008E5E33 /* VISXExtension.swift */; };
+		1C4C8E9B2EA9878A008E5E33 /* VISXExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4C8E982EA9878A008E5E33 /* VISXExtension.swift */; };
+		1C9606AA2EA9D0150033D6E2 /* LLMTokenizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9606A92EA9D0150033D6E2 /* LLMTokenizer.swift */; };
+		1C9606AB2EA9D0150033D6E2 /* LLMTokenizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9606A92EA9D0150033D6E2 /* LLMTokenizer.swift */; };
+		1C9606AD2EA9D0340033D6E2 /* CoreMLInference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9606AC2EA9D0340033D6E2 /* CoreMLInference.swift */; };
+		1C9606AE2EA9D0340033D6E2 /* CoreMLInference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9606AC2EA9D0340033D6E2 /* CoreMLInference.swift */; };
+		1C9606B02EA9EA5D0033D6E2 /* CoreMLModelHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9606AF2EA9EA5D0033D6E2 /* CoreMLModelHandler.swift */; };
+		1C9606B12EA9EA5D0033D6E2 /* CoreMLModelHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9606AF2EA9EA5D0033D6E2 /* CoreMLModelHandler.swift */; };
+		1C9606B32EAA93950033D6E2 /* AgentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9606B22EAA93950033D6E2 /* AgentService.swift */; };
+		1C9606B42EAA93950033D6E2 /* AgentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9606B22EAA93950033D6E2 /* AgentService.swift */; };
+		1C9606B62EAA93990033D6E2 /* InlineCompletionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9606B52EAA93990033D6E2 /* InlineCompletionService.swift */; };
+		1C9606B72EAA93990033D6E2 /* InlineCompletionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9606B52EAA93990033D6E2 /* InlineCompletionService.swift */; };
 		940C68252C646E0400089EA3 /* System.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940C68242C646E0400089EA3 /* System.swift */; };
 		940C68262C64704C00089EA3 /* String+toCString.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949B3CC425DEA89A00BC83B5 /* String+toCString.swift */; };
 		940C68272C65D36700089EA3 /* commandDictionary.plist in Resources */ = {isa = PBXBuildFile; fileRef = 948D11FF2583F20C008F877A /* commandDictionary.plist */; };
@@ -980,9 +991,8 @@
 /* Begin PBXCopyFilesBuildPhase section */
 		941969AA280316C7008AAEB2 /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 10;
+			dstSubfolder = Frameworks;
 			files = (
 				941969AC280316C7008AAEB2 /* network_ios.xcframework in Embed Frameworks */,
 				941969AD280316C7008AAEB2 /* freetype.xcframework in Embed Frameworks */,
@@ -999,24 +1009,20 @@
 				94196B12280316C7008AAEB2 /* tar.xcframework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		94369B0B25E3B933008419A0 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 13;
+			dstSubfolder = PlugIns;
 			files = (
 				94369B0725E3B933008419A0 /* extension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		94A77817257BC13F008FE7B2 /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 10;
+			dstSubfolder = Frameworks;
 			files = (
 				1C4C8CD52EA69ADF008E5E33 /* tools.jar in Embed Frameworks */,
 				1C4C8CD42EA69ADA008E5E33 /* monaco-textmate.bundle in Embed Frameworks */,
@@ -1420,28 +1426,23 @@
 				94B3DDF62604D3ED00C4F2B1 /* tar.xcframework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		94EDC7B72C2DCBF600C86F56 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 13;
+			dstSubfolder = PlugIns;
 			files = (
 				94EDC7B42C2DCBF600C86F56 /* extension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9FE3E29D298A163200F63DD0 /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 10;
+			dstSubfolder = Frameworks;
 			files = (
 			);
 			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
@@ -1520,11 +1521,16 @@
 		1C4C8E0C2EA89040008E5E33 /* VISXPackageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VISXPackageManager.swift; sourceTree = "<group>"; };
 		1C4C8E912EA89089008E5E33 /* ChatExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatExtension.swift; sourceTree = "<group>"; };
 		1C4C8E952EA890A8008E5E33 /* RightPanelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RightPanelManager.swift; sourceTree = "<group>"; };
+		1C4C8E982EA9878A008E5E33 /* VISXExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VISXExtension.swift; sourceTree = "<group>"; };
+		1C9606A92EA9D0150033D6E2 /* LLMTokenizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMTokenizer.swift; sourceTree = "<group>"; };
+		1C9606AC2EA9D0340033D6E2 /* CoreMLInference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreMLInference.swift; sourceTree = "<group>"; };
+		1C9606AF2EA9EA5D0033D6E2 /* CoreMLModelHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreMLModelHandler.swift; sourceTree = "<group>"; };
+		1C9606B22EAA93950033D6E2 /* AgentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentService.swift; sourceTree = "<group>"; };
+		1C9606B52EAA93990033D6E2 /* InlineCompletionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineCompletionService.swift; sourceTree = "<group>"; };
 		4F30816829662CBF002708FD /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/Localizable.strings; sourceTree = "<group>"; };
 		4F30816929662D58002708FD /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		73F80B0F2850F7E5000EF3FC /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/Localizable.strings; sourceTree = "<group>"; };
 		73F80B102850F7EE000EF3FC /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		8CBBDEFDDF44FAE3AF22E1F9 /* VISXExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VISXExtension.swift; path = Extensions/VISXPackages/VISXExtension.swift; sourceTree = "<group>"; };
 		940C68242C646E0400089EA3 /* System.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = System.swift; sourceTree = "<group>"; };
 		94127C3F280335C8008C7F82 /* Themes */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Themes; sourceTree = "<group>"; };
 		941969242802AB2C008AAEB2 /* FileSystemProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystemProvider.swift; sourceTree = "<group>"; };
@@ -2090,7 +2096,6 @@
 /* Begin PBXFrameworksBuildPhase section */
 		9419698E280316C7008AAEB2 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				9419698F280316C7008AAEB2 /* FilesProvider in Frameworks */,
 				94FD17022BAED26A003E1545 /* Runestone in Frameworks */,
@@ -2141,20 +2146,16 @@
 				947BBCAA2C12ED7E00FFD0C5 /* TreeSitterYAMLRunestone in Frameworks */,
 				94465DDC28094920001DACDF /* NMSSH.xcframework in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		94369AF925E3B933008419A0 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				946C67832C33C03400100F3F /* SwiftWS in Frameworks */,
 				945AEA3827ECCB5F00BA193E /* NodeMobile.xcframework in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		944EEBED2563C381009D77FE /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				947BBCDE2C12F5A600FFD0C5 /* TreeSitterPerlRunestone in Frameworks */,
 				947BBCF22C12F5A900FFD0C5 /* TreeSitterTOMLRunestone in Frameworks */,
@@ -2209,11 +2210,9 @@
 				947BBCEE2C12F5A800FFD0C5 /* TreeSitterSvelteRunestone in Frameworks */,
 				947BBCCA2C12F5A200FFD0C5 /* TreeSitterJavaRunestone in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9FE3E28F298A14BC00F63DD0 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				9FE3E2AD298A16A300F63DD0 /* NMSSH.xcframework in Frameworks */,
 				9FE3E2A3298A167800F63DD0 /* ios_system.xcframework in Frameworks */,
@@ -2225,7 +2224,6 @@
 				9FE3E2A5298A167F00F63DD0 /* MarkdownView in Frameworks */,
 				9FE3E2AC298A169B00F63DD0 /* SwiftGit2 in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
@@ -2241,7 +2239,12 @@
 		1C4C8CF92EA866AF008E5E33 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				1C9606B22EAA93950033D6E2 /* AgentService.swift */,
+				1C9606AF2EA9EA5D0033D6E2 /* CoreMLModelHandler.swift */,
+				1C9606B52EAA93990033D6E2 /* InlineCompletionService.swift */,
 				1C4C8CF72EA866AF008E5E33 /* ExtensionInstaller.swift */,
+				1C9606AC2EA9D0340033D6E2 /* CoreMLInference.swift */,
+				1C9606A92EA9D0150033D6E2 /* LLMTokenizer.swift */,
 				1C4C8D042EA88FF2008E5E33 /* CoreMLLLMService.swift */,
 				1C4C8D052EA88FF2008E5E33 /* VISXService.swift */,
 				1C4C8CF82EA866AF008E5E33 /* MarketplaceService.swift */,
@@ -2257,6 +2260,14 @@
 			path = ChatAssistant;
 			sourceTree = "<group>";
 		};
+		1C4C8E992EA9878A008E5E33 /* VISXPackages */ = {
+			isa = PBXGroup;
+			children = (
+				1C4C8E982EA9878A008E5E33 /* VISXExtension.swift */,
+			);
+			path = VISXPackages;
+			sourceTree = "<group>";
+		};
 		24509F1455D67D501EFBD28C /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -2264,15 +2275,6 @@
 				945E7E3727CA79C900BA1D95 /* NodeMobile.xcframework */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		6B98370AB86EB995CBF36719 /* VISXPackages */ = {
-			isa = PBXGroup;
-			children = (
-				8CBBDEFDDF44FAE3AF22E1F9 /* VISXExtension.swift */,
-			);
-			name = VISXPackages;
-			path = Extensions/VISXPackages;
 			sourceTree = "<group>";
 		};
 		94369AFD25E3B933008419A0 /* NodeExtension */ = {
@@ -3013,6 +3015,7 @@
 		9F046C3729223CC000BDE4E9 /* Extensions */ = {
 			isa = PBXGroup;
 			children = (
+				1C4C8E992EA9878A008E5E33 /* VISXPackages */,
 				1C4C8E922EA89089008E5E33 /* ChatAssistant */,
 				1C4C8CDA2EA86398008E5E33 /* ExtensionsMarketplace */,
 				9FA122702A8B5A0200E7B417 /* RemoteAuxiliary */,
@@ -3027,7 +3030,6 @@
 				9FD5BCE729238B5800F20C4B /* TerminalService */,
 				9FD5BCE12923872800F20C4B /* MonacoLanguageService */,
 				9F046C3829223CCF00BDE4E9 /* RemoteExecution */,
-				6B98370AB86EB995CBF36719 /* VISXPackages */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
@@ -3421,8 +3423,6 @@
 			);
 			buildRules = (
 			);
-			dependencies = (
-			);
 			name = extension;
 			packageProductDependencies = (
 				946C67822C33C03400100F3F /* SwiftWS */,
@@ -3554,7 +3554,6 @@
 				};
 			};
 			buildConfigurationList = 944EEBEB2563C381009D77FE /* Build configuration list for PBXProject "Code" */;
-			compatibilityVersion = "Xcode 9.3";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -3577,6 +3576,7 @@
 				946DAB982BBD2F9600E73257 /* XCRemoteSwiftPackageReference "treesitterlanguages" */,
 				94F88FD72C5B4F3400326AD0 /* XCLocalSwiftPackageReference "SwiftWS" */,
 			);
+			preferredProjectObjectVersion = 90;
 			productRefGroup = 944EEBF12563C381009D77FE /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -3592,7 +3592,6 @@
 /* Begin PBXResourcesBuildPhase section */
 		9419699A280316C7008AAEB2 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				94127C41280335C8008C7F82 /* Themes in Resources */,
 				94EF4FDD2C6DF80700994D9C /* monaco-textmate.bundle in Resources */,
@@ -3612,11 +3611,9 @@
 				941969A8280316C7008AAEB2 /* Assets.xcassets in Resources */,
 				94F88FDB2C628AA800326AD0 /* FiraCode-Regular.ttf in Resources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		94369AFA25E3B933008419A0 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				9424437E2C6E337B00BC862F /* java-lsp in Resources */,
 				9484BDD12B46FAEE003BCB8A /* injection.js in Resources */,
@@ -3625,11 +3622,9 @@
 				945D4E232B4B174B00DE0DBA /* java-8-openjdk in Resources */,
 				940C68272C65D36700089EA3 /* commandDictionary.plist in Resources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		944EEBEE2563C381009D77FE /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				9424437F2C6F2DF100BC862F /* python-lsp in Resources */,
 				94127C40280335C8008C7F82 /* Themes in Resources */,
@@ -3651,14 +3646,11 @@
 				944EEBF82563C386009D77FE /* Assets.xcassets in Resources */,
 				94F88FDD2C628AB200326AD0 /* FiraCode-Regular.ttf in Resources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9FE3E290298A14BC00F63DD0 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
@@ -3666,46 +3658,45 @@
 		9419693B280316C7008AAEB2 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "export PATH=$PATH:/opt/homebrew/bin\nif command -v swift-format > /dev/null\nthen\n    swift-format format -i -r ${PROJECT_DIR}/CodeApp ${PROJECT_DIR}/CodeUITests ${PROJECT_DIR}/Extensions\n    swift-format lint -r -s ${PROJECT_DIR}/CodeApp ${PROJECT_DIR}/CodeUITests ${PROJECT_DIR}/Extensions\nelse\n    echo \"warning: swift-format not installed, install it by running brew install swift-format\"\nfi\n\n";
+			shellScript = (
+				"export PATH=$PATH:/opt/homebrew/bin",
+				"if command -v swift-format > /dev/null",
+				"then",
+				"    swift-format format -i -r ${PROJECT_DIR}/CodeApp ${PROJECT_DIR}/CodeUITests ${PROJECT_DIR}/Extensions",
+				"    swift-format lint -r -s ${PROJECT_DIR}/CodeApp ${PROJECT_DIR}/CodeUITests ${PROJECT_DIR}/Extensions",
+				"else",
+				"    echo \"warning: swift-format not installed, install it by running brew install swift-format\"",
+				"fi",
+				"",
+				"",
+				"",
+			);
 		};
 		9455423B27FC410F00DAF941 /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
 			name = "Run Script";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "export PATH=$PATH:/opt/homebrew/bin\nif command -v swift-format > /dev/null\nthen\n    swift-format format -i -r ${PROJECT_DIR}/CodeApp ${PROJECT_DIR}/CodeUITests ${PROJECT_DIR}/Extensions\n    swift-format lint -r -s ${PROJECT_DIR}/CodeApp ${PROJECT_DIR}/CodeUITests ${PROJECT_DIR}/Extensions\nelse\n    echo \"warning: swift-format not installed, install it by running brew install swift-format\"\nfi\n\n";
+			shellScript = (
+				"export PATH=$PATH:/opt/homebrew/bin",
+				"if command -v swift-format > /dev/null",
+				"then",
+				"    swift-format format -i -r ${PROJECT_DIR}/CodeApp ${PROJECT_DIR}/CodeUITests ${PROJECT_DIR}/Extensions",
+				"    swift-format lint -r -s ${PROJECT_DIR}/CodeApp ${PROJECT_DIR}/CodeUITests ${PROJECT_DIR}/Extensions",
+				"else",
+				"    echo \"warning: swift-format not installed, install it by running brew install swift-format\"",
+				"fi",
+				"",
+				"",
+				"",
+			);
 		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		9419693C280316C7008AAEB2 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				1C4C8D062EA88FF3008E5E33 /* VISXService.swift in Sources */,
 				1C4C8E962EA890A8008E5E33 /* RightPanelManager.swift in Sources */,
@@ -3756,6 +3747,7 @@
 				1C4C8E162EA89040008E5E33 /* ExplorerCell.swift in Sources */,
 				1C4C8E172EA89040008E5E33 /* PanelView.swift in Sources */,
 				1C4C8E182EA89040008E5E33 /* FileTreeView.swift in Sources */,
+				1C4C8E9B2EA9878A008E5E33 /* VISXExtension.swift in Sources */,
 				1C4C8E192EA89040008E5E33 /* RemoteImage.swift in Sources */,
 				1C4C8E1A2EA89040008E5E33 /* EditorView.swift in Sources */,
 				1C4C8E1B2EA89040008E5E33 /* HierarchyList.swift in Sources */,
@@ -3795,6 +3787,7 @@
 				1C4C8E3D2EA89040008E5E33 /* EditorTab.swift in Sources */,
 				1C4C8E3E2EA89040008E5E33 /* SettingsKeyboardShortcuts.swift in Sources */,
 				1C4C8E3F2EA89040008E5E33 /* SettingsThemeConfiguration.swift in Sources */,
+				1C9606B42EAA93950033D6E2 /* AgentService.swift in Sources */,
 				1C4C8E402EA89040008E5E33 /* SearchBar.swift in Sources */,
 				1C4C8E412EA89040008E5E33 /* ChatView.swift in Sources */,
 				1C4C8E422EA89040008E5E33 /* TopBar.swift in Sources */,
@@ -3863,9 +3856,11 @@
 				944112A2282181E500A8F1D7 /* SFTPTerminalServiceProvider.swift in Sources */,
 				94196980280316C7008AAEB2 /* URL+relativePath.swift in Sources */,
 				942A1886285B90650018801F /* Secrets.swift in Sources */,
+				1C9606AA2EA9D0150033D6E2 /* LLMTokenizer.swift in Sources */,
 				94196981280316C7008AAEB2 /* KeychainItemAccessibility.swift in Sources */,
 				94196982280316C7008AAEB2 /* ExplorerContainer.swift in Sources */,
 				9FA1226C2A8B519A00E7B417 /* CheckoutMenu.swift in Sources */,
+				1C9606B72EAA93990033D6E2 /* InlineCompletionService.swift in Sources */,
 				94196984280316C7008AAEB2 /* MainApp.swift in Sources */,
 				9FD0FAF12938A14C007170F5 /* EncodingMenu.swift in Sources */,
 				9FA122612A8B29FB00E7B417 /* MonacoEditorExtension.swift in Sources */,
@@ -3881,7 +3876,9 @@
 				94E6CC892807632B00939E4F /* biometricType.swift in Sources */,
 				9FA122682A8B2AC300E7B417 /* EditorLineColumnIndicator.swift in Sources */,
 				94795C4C293259080057C12F /* Encoding.swift in Sources */,
+				1C9606AE2EA9D0340033D6E2 /* CoreMLInference.swift in Sources */,
 				949CDF4B2C6658DC00FFC5B1 /* LanguageService.swift in Sources */,
+				1C9606B12EA9EA5D0033D6E2 /* CoreMLModelHandler.swift in Sources */,
 				FFD081BC29260B00001D9373 /* Libgit2Error.swift in Sources */,
 				9FAE4990292D062D00B1B962 /* ImageViewerExtension.swift in Sources */,
 				9FA122772A8B5A4800E7B417 /* RemoteConnectedLabel.swift in Sources */,
@@ -3890,11 +3887,9 @@
 				1C4C8CDC2EA86398008E5E33 /* ExtensionsExtension.swift in Sources */,
 				9F046C332922203E00BDE4E9 /* ToolbarManager.swift in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		94369AF825E3B933008419A0 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				949D788C2C33DC3F006D7480 /* AppExtensionError.swift in Sources */,
 				94369B0125E3B933008419A0 /* ActionRequestHandler.swift in Sources */,
@@ -3907,11 +3902,9 @@
 				949D787F2C33C4EB006D7480 /* Java.swift in Sources */,
 				949D78812C33C51E006D7480 /* OutputListener.swift in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		944EEBEC2563C381009D77FE /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				94A777EF257B9193008FE7B2 /* GitHubSearchManager.swift in Sources */,
 				94A77820257BC5AA008FE7B2 /* MainScene.swift in Sources */,
@@ -3962,6 +3955,7 @@
 				1C4C8E6F2EA89040008E5E33 /* MarkdownView.swift in Sources */,
 				1C4C8E702EA89040008E5E33 /* SourceControlIdentityConfiguration.swift in Sources */,
 				1C4C8E712EA89040008E5E33 /* SourceControlSection.swift in Sources */,
+				1C4C8E9A2EA9878A008E5E33 /* VISXExtension.swift in Sources */,
 				1C4C8E722EA89040008E5E33 /* DebugMenu.swift in Sources */,
 				1C4C8E732EA89040008E5E33 /* SourceControlTemplateSection.swift in Sources */,
 				1C4C8E742EA89040008E5E33 /* ActivityBar.swift in Sources */,
@@ -4001,6 +3995,7 @@
 				9FAE4997292DD76A00B1B962 /* MarkdownViewerExtension.swift in Sources */,
 				9FA1226E2A8B522100E7B417 /* AheadBehindIndicator.swift in Sources */,
 				9F046C3A29223D1600BDE4E9 /* RemoteExecutionExtension.swift in Sources */,
+				1C9606B32EAA93950033D6E2 /* AgentService.swift in Sources */,
 				9FD0FAF42939AD86007170F5 /* SimpleWebPreviewExtension.swift in Sources */,
 				942E31F828086FE800233441 /* KeyChainAccessor.swift in Sources */,
 				9F3C2DEA2918E19B00BFF14C /* Theme.swift in Sources */,
@@ -4069,9 +4064,11 @@
 				944112A1282181E500A8F1D7 /* SFTPTerminalServiceProvider.swift in Sources */,
 				949B3CB925DADCB900BC83B5 /* URL+relativePath.swift in Sources */,
 				942A1885285B90650018801F /* Secrets.swift in Sources */,
+				1C9606AB2EA9D0150033D6E2 /* LLMTokenizer.swift in Sources */,
 				94F52709259F9B7800337306 /* KeychainItemAccessibility.swift in Sources */,
 				94A777C4257B8042008FE7B2 /* ExplorerContainer.swift in Sources */,
 				9FA1226B2A8B519A00E7B417 /* CheckoutMenu.swift in Sources */,
+				1C9606B62EAA93990033D6E2 /* InlineCompletionService.swift in Sources */,
 				94A7779F257ABD7A008FE7B2 /* MainApp.swift in Sources */,
 				9FD0FAF02938A14C007170F5 /* EncodingMenu.swift in Sources */,
 				9FA122602A8B29FB00E7B417 /* MonacoEditorExtension.swift in Sources */,
@@ -4087,7 +4084,9 @@
 				94E6CC882807632B00939E4F /* biometricType.swift in Sources */,
 				9FA122672A8B2AC300E7B417 /* EditorLineColumnIndicator.swift in Sources */,
 				94795C4B293259080057C12F /* Encoding.swift in Sources */,
+				1C9606AD2EA9D0340033D6E2 /* CoreMLInference.swift in Sources */,
 				949CDF4A2C6658DC00FFC5B1 /* LanguageService.swift in Sources */,
+				1C9606B02EA9EA5D0033D6E2 /* CoreMLModelHandler.swift in Sources */,
 				FFD081BB29260B00001D9373 /* Libgit2Error.swift in Sources */,
 				9FAE498F292D062800B1B962 /* ImageViewerExtension.swift in Sources */,
 				9FA122762A8B5A4800E7B417 /* RemoteConnectedLabel.swift in Sources */,
@@ -4095,17 +4094,13 @@
 				9F062FE62B58D40D006210AA /* FileTreeViewController.swift in Sources */,
 				1C4C8CDB2EA86398008E5E33 /* ExtensionsExtension.swift in Sources */,
 				9F046C322922203E00BDE4E9 /* ToolbarManager.swift in Sources */,
-				70722D482025607475E0DFBD /* VISXExtension.swift in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9FE3E28E298A14BC00F63DD0 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				9FE3E295298A14BC00F63DD0 /* CodeUITests.swift in Sources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
@@ -4156,7 +4151,7 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
-		94196B16280316C7008AAEB2 /* Debug */ = {
+		94196B16280316C7008AAEB2 /* Debug configuration for PBXNativeTarget "CodeUI" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Iconv2;
@@ -4203,7 +4198,7 @@
 			};
 			name = Debug;
 		};
-		94196B17280316C7008AAEB2 /* Release */ = {
+		94196B17280316C7008AAEB2 /* Release configuration for PBXNativeTarget "CodeUI" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Iconv2;
@@ -4250,7 +4245,7 @@
 			};
 			name = Release;
 		};
-		94369B0925E3B933008419A0 /* Debug */ = {
+		94369B0925E3B933008419A0 /* Debug configuration for PBXNativeTarget "extension" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
@@ -4290,15 +4285,15 @@
 			};
 			name = Debug;
 		};
-		94369B0A25E3B933008419A0 /* Release */ = {
+		94369B0A25E3B933008419A0 /* Release configuration for PBXNativeTarget "extension" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = NodeExtension/extension.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Distribution";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 87;
-				DEVELOPMENT_TEAM = 69R94YG49H;
+				DEVELOPMENT_TEAM = 4TU5ZVD74N;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_BITCODE = NO;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
@@ -4317,9 +4312,9 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.7.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "thebaselab.VS-Code.extension";
+				PRODUCT_BUNDLE_IDENTIFIER = "vickiegpt.VS-Code.extension";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "match AppStore thebaselab.VS-Code.extension";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "NodeExtension/NodeRunner/extension-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
@@ -4328,7 +4323,7 @@
 			};
 			name = Release;
 		};
-		944EEBFD2563C386009D77FE /* Debug */ = {
+		944EEBFD2563C386009D77FE /* Debug configuration for PBXProject "Code" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -4393,7 +4388,7 @@
 			};
 			name = Debug;
 		};
-		944EEBFE2563C386009D77FE /* Release */ = {
+		944EEBFE2563C386009D77FE /* Release configuration for PBXProject "Code" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -4454,7 +4449,7 @@
 			};
 			name = Release;
 		};
-		944EEC002563C386009D77FE /* Debug */ = {
+		944EEC002563C386009D77FE /* Debug configuration for PBXNativeTarget "Code" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Iconv2;
@@ -4500,7 +4495,7 @@
 			};
 			name = Debug;
 		};
-		944EEC012563C386009D77FE /* Release */ = {
+		944EEC012563C386009D77FE /* Release configuration for PBXNativeTarget "Code" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Iconv2;
@@ -4546,7 +4541,7 @@
 			};
 			name = Release;
 		};
-		9FE3E298298A14BC00F63DD0 /* Debug */ = {
+		9FE3E298298A14BC00F63DD0 /* Debug configuration for PBXNativeTarget "CodeUITests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -4557,7 +4552,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = vickiegpt.CodeUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = "vickiegpt.VS-Code.codeuitests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
@@ -4566,7 +4561,7 @@
 			};
 			name = Debug;
 		};
-		9FE3E299298A14BC00F63DD0 /* Release */ = {
+		9FE3E299298A14BC00F63DD0 /* Release configuration for PBXNativeTarget "CodeUITests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -4577,7 +4572,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = vickiegpt.CodeUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = "vickiegpt.VS-Code.codeuitests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
@@ -4592,46 +4587,41 @@
 		94196B15280316C7008AAEB2 /* Build configuration list for PBXNativeTarget "CodeUI" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				94196B16280316C7008AAEB2 /* Debug */,
-				94196B17280316C7008AAEB2 /* Release */,
+				94196B16280316C7008AAEB2 /* Debug configuration for PBXNativeTarget "CodeUI" */,
+				94196B17280316C7008AAEB2 /* Release configuration for PBXNativeTarget "CodeUI" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		94369B0825E3B933008419A0 /* Build configuration list for PBXNativeTarget "extension" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				94369B0925E3B933008419A0 /* Debug */,
-				94369B0A25E3B933008419A0 /* Release */,
+				94369B0925E3B933008419A0 /* Debug configuration for PBXNativeTarget "extension" */,
+				94369B0A25E3B933008419A0 /* Release configuration for PBXNativeTarget "extension" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		944EEBEB2563C381009D77FE /* Build configuration list for PBXProject "Code" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				944EEBFD2563C386009D77FE /* Debug */,
-				944EEBFE2563C386009D77FE /* Release */,
+				944EEBFD2563C386009D77FE /* Debug configuration for PBXProject "Code" */,
+				944EEBFE2563C386009D77FE /* Release configuration for PBXProject "Code" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		944EEBFF2563C386009D77FE /* Build configuration list for PBXNativeTarget "Code" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				944EEC002563C386009D77FE /* Debug */,
-				944EEC012563C386009D77FE /* Release */,
+				944EEC002563C386009D77FE /* Debug configuration for PBXNativeTarget "Code" */,
+				944EEC012563C386009D77FE /* Release configuration for PBXNativeTarget "Code" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		9FE3E29A298A14BC00F63DD0 /* Build configuration list for PBXNativeTarget "CodeUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				9FE3E298298A14BC00F63DD0 /* Debug */,
-				9FE3E299298A14BC00F63DD0 /* Release */,
+				9FE3E298298A14BC00F63DD0 /* Debug configuration for PBXNativeTarget "CodeUITests" */,
+				9FE3E299298A14BC00F63DD0 /* Release configuration for PBXNativeTarget "CodeUITests" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */

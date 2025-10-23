@@ -94,7 +94,7 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
         }
 
         return cStrings.withUnsafeBufferPointer { argsBuffer in
-            return wasmer_execute(
+            return wasmer_execute(  
                 baseAddress.assumingMemoryBound(to: UInt8.self),
                 bytes.count,
                 argsBuffer.baseAddress!,
