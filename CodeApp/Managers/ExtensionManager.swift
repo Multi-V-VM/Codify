@@ -31,6 +31,7 @@ class ExtensionManager: ObservableObject {
         ExtensionsExtension(),
         ChatExtension(),
         DebuggerExtension(),
+        WasminspectExtension(), 
     ]
 
     func registerExtension(ex: CodeAppExtension) {

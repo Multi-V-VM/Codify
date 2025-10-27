@@ -722,7 +722,3 @@ extension MonacoImplementation: EditorImplementation {
         }
     }
 }
-        case "Breakpoint Toggled":
-            if let file = result["file"] as? String, let line = result["line"] as? Int {
-                DebuggerService.shared.toggleBreakpoint(file: file, line: line)
-            }
