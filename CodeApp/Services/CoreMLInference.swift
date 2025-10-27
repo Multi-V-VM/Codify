@@ -13,6 +13,7 @@ class CoreMLInferenceEngine {
 
     private var model: MLModel?
     private let tokenizer: LLMTokenizer
+    private var stateStore: [String: MLFeatureValue] = [:]
 
     // Generation parameters
     var maxTokens: Int = 512
@@ -34,6 +35,8 @@ class CoreMLInferenceEngine {
         let loadedModel = try CoreMLModelHandler.loadModel(from: url)
         model = loadedModel
 
+        // Avoid using non-public KVC fields to query initial states.
+
         // Log model input requirements for debugging
         print("Model loaded successfully")
         print("Required inputs:")
@@ -49,6 +52,41 @@ class CoreMLInferenceEngine {
     /// Unload the model
     func unloadModel() {
         model = nil
+    }
+
+    /// Quick heuristic to determine if the loaded model looks like a text LLM
+    func isLikelyTextModel() -> Bool {
+        guard let model = model else { return false }
+        let inputs = model.modelDescription.inputDescriptionsByName
+        let tokenKeys: [String] = ["input_ids", "inputIds", "token_ids", "tokens", "prompt_ids"]
+        if tokenKeys.contains(where: { inputs[$0] != nil }) { return true }
+        // If inputs look image-like (4D or named image/pixel), treat as incompatible
+        let has4D = inputs.values.contains { $0.multiArrayConstraint?.shape.count ?? 0 >= 4 }
+        let imageLike = inputs.keys.contains { $0.lowercased().contains("image") || $0.lowercased().contains("pixel") }
+        return !(has4D || imageLike)
+    }
+
+    /// Throw if the model appears incompatible with text generation
+    func validateModelCompatibility() throws {
+        if !isLikelyTextModel() {
+            throw InferenceError.incompatibleModel
+        }
+
+        // Detect models that require initial MLState caches like keyCache/valueCache.
+        if let model = model {
+            let inputs = model.modelDescription.inputDescriptionsByName
+            let names = inputs.keys.map { $0.lowercased() }
+            let requiresKV = names.contains("keycache") || names.contains("valuecache") || names.contains("kvcache")
+            if requiresKV {
+                // Without a public way to construct MLState, such models can’t be run from a cold start.
+                throw InferenceError.requiresInitialState
+            }
+        }
+    }
+
+    /// Clear any accumulated model state (e.g., KV caches)
+    func resetState() {
+        stateStore.removeAll()
     }
 
     // MARK: - Inference
@@ -71,7 +109,10 @@ class CoreMLInferenceEngine {
                 let input = try prepareInput(tokens: currentTokens)
 
                 // Run inference
-                let output = try model.prediction(from: input)
+                let output = try await model.prediction(from: input)
+
+                // Capture state outputs for next step
+                captureState(from: output)
 
                 // Log output info on first iteration
                 if step == 0 {
@@ -139,7 +180,10 @@ class CoreMLInferenceEngine {
                 let input = try prepareInput(tokens: currentTokens)
 
                 // Run inference
-                let output = try model.prediction(from: input)
+                let output = try await model.prediction(from: input)
+
+                // Capture state outputs for next step
+                captureState(from: output)
 
                 // Extract logits
                 guard let logits = extractLogits(from: output) else {
@@ -187,67 +231,120 @@ class CoreMLInferenceEngine {
             throw InferenceError.modelNotLoaded
         }
 
-        let batchSize = 1
         let sequenceLength = tokens.count
-        let shape = [batchSize, sequenceLength] as [NSNumber]
 
         var features: [String: Any] = [:]
 
         // Get the input descriptions to know what the model expects
         let inputDescriptions = model.modelDescription.inputDescriptionsByName
 
-        // Prepare input_ids (token IDs)
-        if inputDescriptions.keys.contains("input_ids") || inputDescriptions.keys.contains("inputIds") {
-            guard let inputIdsArray = try? MLMultiArray(shape: shape, dataType: .int32) else {
+        // Detect obviously incompatible models (e.g., vision models expecting 4D image inputs)
+        let tokenInputCandidates: [String] = ["input_ids", "inputIds", "token_ids", "tokens", "prompt_ids"]
+        let hasTokenLikeInput = tokenInputCandidates.contains(where: { inputDescriptions[$0] != nil })
+        if !hasTokenLikeInput {
+            let has4DInput = inputDescriptions.values.contains { desc in
+                guard let c = desc.multiArrayConstraint else { return false }
+                return c.shape.count >= 4
+            }
+            let hasImageLikeName = inputDescriptions.keys.contains { name in
+                let n = name.lowercased()
+                return n.contains("image") || n.contains("pixel")
+            }
+            if has4DInput || hasImageLikeName {
+                // Surface a clear error so the UI can inform the user
+                throw InferenceError.incompatibleModel
+            }
+        }
+
+        // If the model requires KV caches at step 1 and we have none, surface a clear error
+        for (name, desc) in inputDescriptions {
+            let lname = name.lowercased()
+            let requiresKV = (lname.contains("keycache") || lname.contains("valuecache") || lname.contains("kvcache"))
+            if requiresKV {
+                // If this input is required and we don't have state yet, we cannot proceed
+                let isOptional = (desc as MLFeatureDescription).isOptional
+                if !isOptional && stateStore[name] == nil {
+                    throw InferenceError.requiresInitialState
+                }
+            }
+        }
+
+        func isCacheLike(_ name: String) -> Bool {
+            let lname = name.lowercased()
+            // Be explicit about common KV cache names
+            return lname.contains("keycache") || lname.contains("valuecache") || lname.contains("cache") || lname.contains("kv") || lname.contains("past") || lname.contains("state")
+        }
+
+        // Helper to create an MLMultiArray matching the model's expected shape/dtype
+        func makeArray(for key: String, fallbackShape: [NSNumber]) throws -> MLMultiArray {
+            let dataType = inputDescriptions[key]?.multiArrayConstraint?.dataType ?? .int32
+            // Prefer the model-declared shape only if all dims are positive
+            let declaredShape = inputDescriptions[key]?.multiArrayConstraint?.shape
+            let useDeclared = declaredShape?.allSatisfy { $0.intValue > 0 } == true
+            let shape = useDeclared ? declaredShape! : fallbackShape
+            guard let arr = try? MLMultiArray(shape: shape, dataType: dataType) else {
                 throw InferenceError.failedToCreateInput
             }
+            // Zero-initialize to be safe
+            for i in 0..<arr.count { arr[i] = 0 }
+            return arr
+        }
 
-            for (i, token) in tokens.enumerated() {
-                inputIdsArray[[0, i] as [NSNumber]] = NSNumber(value: token)
+        // Helper to set values along a detected sequence dimension
+        func setSequenceValues(_ array: MLMultiArray, values: [NSNumber]) {
+            let dims = array.shape.map { $0.intValue }
+            guard !dims.isEmpty else { return }
+
+            // Prefer the last dimension; if it can't fit, find the first that can
+            var seqDim = max(0, dims.count - 1)
+            if dims[seqDim] < values.count, let idx = dims.firstIndex(where: { $0 >= values.count }) {
+                seqDim = idx
             }
 
-            let inputKey = inputDescriptions.keys.contains("input_ids") ? "input_ids" : "inputIds"
+            let limit = min(values.count, dims[seqDim])
+            for i in 0..<limit {
+                var coords = Array(repeating: 0, count: dims.count)
+                coords[seqDim] = i
+                array[coords.map { NSNumber(value: $0) }] = values[i]
+            }
+        }
+
+        // Provide state inputs (KV caches, etc.) — only if we have captured states
+        for (name, _) in inputDescriptions {
+            if let state = stateStore[name], isCacheLike(name) {
+                features[name] = state
+            }
+        }
+        // No initial-state seeding; models requiring MLState at step 1 should expose an initializer
+        // or optional caches. We rely on captured states for subsequent steps only.
+
+        // Provide token IDs
+        if let inputKey = tokenInputCandidates.first(where: { inputDescriptions[$0] != nil }) {
+            let fallbackShape: [NSNumber] = [1, NSNumber(value: sequenceLength)]
+            let inputIdsArray = try makeArray(for: inputKey, fallbackShape: fallbackShape)
+            setSequenceValues(inputIdsArray, values: tokens.map { NSNumber(value: $0) })
             features[inputKey] = inputIdsArray
         }
 
-        // Prepare causal mask (attention mask)
-        if inputDescriptions.keys.contains("causalMask") {
-            guard let maskArray = try? MLMultiArray(shape: shape, dataType: .int32) else {
-                throw InferenceError.failedToCreateInput
-            }
-
-            // Fill with 1s (attend to all tokens)
-            for i in 0..<sequenceLength {
-                maskArray[[0, i] as [NSNumber]] = NSNumber(value: 1)
-            }
-
+        // Provide attention/causal masks if requested by model
+        if let desc = inputDescriptions["causalMask"], desc.type == .multiArray {
+            let maskArray = try makeArray(for: "causalMask", fallbackShape: [1, NSNumber(value: sequenceLength)])
+            // For unknown higher-rank mask shapes, safest default is all-ones (attend to all)
+            for i in 0..<maskArray.count { maskArray[i] = 1 }
             features["causalMask"] = maskArray
         }
 
-        // Prepare attention_mask (alternative name)
-        if inputDescriptions.keys.contains("attention_mask") {
-            guard let maskArray = try? MLMultiArray(shape: shape, dataType: .int32) else {
-                throw InferenceError.failedToCreateInput
-            }
-
-            for i in 0..<sequenceLength {
-                maskArray[[0, i] as [NSNumber]] = NSNumber(value: 1)
-            }
-
+        if let desc = inputDescriptions["attention_mask"], desc.type == .multiArray {
+            let maskArray = try makeArray(for: "attention_mask", fallbackShape: [1, NSNumber(value: sequenceLength)])
+            for i in 0..<maskArray.count { maskArray[i] = 1 }
             features["attention_mask"] = maskArray
         }
 
-        // Prepare position_ids if required
-        if inputDescriptions.keys.contains("position_ids") {
-            guard let positionArray = try? MLMultiArray(shape: shape, dataType: .int32) else {
-                throw InferenceError.failedToCreateInput
-            }
-
-            for i in 0..<sequenceLength {
-                positionArray[[0, i] as [NSNumber]] = NSNumber(value: i)
-            }
-
-            features["position_ids"] = positionArray
+        // Provide position IDs if required
+        if let desc = inputDescriptions["position_ids"], desc.type == .multiArray {
+            let posArray = try makeArray(for: "position_ids", fallbackShape: [1, NSNumber(value: sequenceLength)])
+            setSequenceValues(posArray, values: (0..<sequenceLength).map { NSNumber(value: $0) })
+            features["position_ids"] = posArray
         }
 
         // Validate that we've provided all required inputs
@@ -259,36 +356,53 @@ class CoreMLInferenceEngine {
             print("Warning: Missing inputs for model: \(missingInputs)")
             print("Attempting to create default values for missing inputs...")
 
-            // Try to create default values for any missing inputs
             for inputName in missingInputs {
-                if let inputDescription = inputDescriptions[inputName],
-                   let multiArrayConstraint = inputDescription.multiArrayConstraint {
+                guard let inputDescription = inputDescriptions[inputName] else { continue }
 
-                    // Create a default array based on the shape
-                    let inputShape = multiArrayConstraint.shape
-                    print("Creating default input for \(inputName) with shape: \(inputShape)")
+                // Skip cache/state-like inputs entirely — models typically handle initial state when omitted
+                if isCacheLike(inputName) { continue }
 
-                    if let defaultArray = try? MLMultiArray(shape: inputShape, dataType: multiArrayConstraint.dataType) {
-                        // Fill with zeros or ones depending on the name
-                        if inputName.lowercased().contains("mask") {
-                            // Masks should be 1s (attend to all)
-                            for i in 0..<defaultArray.count {
-                                defaultArray[i] = NSNumber(value: 1)
-                            }
-                        } else if inputName.lowercased().contains("cache") {
-                            // Caches start empty (zeros)
-                            for i in 0..<defaultArray.count {
-                                defaultArray[i] = NSNumber(value: 0)
-                            }
-                        }
+                // Only auto-create defaults for multiArray-typed inputs
+                if inputDescription.type == .multiArray, let multiArrayConstraint = inputDescription.multiArrayConstraint {
+                    let shape = multiArrayConstraint.shape
+                    let dtype = multiArrayConstraint.dataType
+                    print("Creating default input for \(inputName) with shape: \(shape)")
 
+                    if let defaultArray = try? MLMultiArray(shape: shape, dataType: dtype) {
+                        // Sensible defaults: masks -> 1s, caches -> 0s, others -> 0s
+                        let isMask = inputName.lowercased().contains("mask")
+                        let fillValue: NSNumber = isMask ? 1 : 0
+                        for i in 0..<defaultArray.count { defaultArray[i] = fillValue }
                         features[inputName] = defaultArray
                     }
                 }
             }
         }
 
+        // Final safety: ensure we never include cache-like keys unless sourced from stateStore
+        for key in Array(features.keys) {
+            if isCacheLike(key) && stateStore[key] == nil {
+                features.removeValue(forKey: key)
+            }
+        }
+
+        print("Preparing features for prediction: \(Array(features.keys))")
+
         return try MLDictionaryFeatureProvider(dictionary: features)
+    }
+
+    /// Capture MLState outputs emitted by the model so we can feed them back in subsequent steps
+    private func captureState(from output: MLFeatureProvider) {
+        guard let model = model else { return }
+        let inputNames = Set(model.modelDescription.inputDescriptionsByName.keys)
+        for name in output.featureNames {
+            guard inputNames.contains(name), let value = output.featureValue(for: name) else { continue }
+            let lname = name.lowercased()
+            let looksLikeCache = lname.contains("cache") || lname.contains("kv") || lname.contains("past") || lname.contains("state")
+            if looksLikeCache {
+                stateStore[name] = value
+            }
+        }
     }
 
     /// Extract logits from model output
@@ -483,6 +597,8 @@ enum InferenceError: LocalizedError {
     case invalidOutput
     case failedToCreateInput
     case inferenceTimeout
+    case incompatibleModel
+    case requiresInitialState
 
     var errorDescription: String? {
         switch self {
@@ -494,6 +610,10 @@ enum InferenceError: LocalizedError {
             return "Failed to create model input from tokens."
         case .inferenceTimeout:
             return "Inference timed out. The model may be too large or complex."
+        case .incompatibleModel:
+            return "The selected Core ML model isn’t compatible with text generation (expects 4D inputs, e.g., images). Please load a text LLM model (.mlpackage/.mlmodelc) with token inputs."
+        case .requiresInitialState:
+            return "This Core ML model requires MLState cache inputs (e.g., keyCache/valueCache) on the first step. Initial states are not publicly constructible; please use a model that doesn’t require initial caches or provides an initializer/prefill."
         }
     }
 }

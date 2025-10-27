@@ -932,9 +932,6 @@ extension RunestoneImplementation: TextViewDelegate {
         guard let currentURL, var modifiedState = states[currentURL] else { return }
         modifiedState.selectedTextRange = textView.selectedTextRange
         states[currentURL] = modifiedState
-
-        // Cancel completion when moving cursor
-        InlineCompletionService.cancelCompletion()
     }
 }
 

@@ -41,6 +41,57 @@ This will:
 
 The build may take 10-30 minutes on the first run as it downloads and compiles Wasmer dependencies.
 
+## Python via Wasmer
+
+You can run CPython (WASI/WASIX) under Wasmer and ship it as an XCFramework to replace a native Python runtime.
+
+### Build the Python XCFramework
+
+Run:
+
+```bash
+./build_python_xcframework.sh
+```
+
+This produces `WasmerPython.xcframework` that exposes a Python-focused C API in `include/wasmer_python.h` while reusing the same static library.
+
+### Add a Python WASM runtime
+
+Obtain a CPython WASI/WASIX build (e.g., CPython 3.11 WASI). Add the `python.wasm` to your app bundle (e.g., in `Resources`). This repository does not bundle Python to keep size and licensing separate.
+
+### Swift usage example
+
+Minimal wrapper to forward pipes and argv to Python WASM:
+
+```swift
+import Foundation
+
+// Bridging header should import: #include "wasmer_python.h"
+
+@_cdecl("python")
+public func swift_python(argc: Int32, argv: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>!) -> Int32 {
+    // Load python.wasm from your app bundle
+    guard let url = Bundle.main.url(forResource: "python", withExtension: "wasm"),
+          let data = try? Data(contentsOf: url) else {
+        fputs("python.wasm not found\n", stderr)
+        return -1
+    }
+
+    // Forward stdin/stdout/stderr file descriptors
+    let stdinFD: Int32 = 0
+    let stdoutFD: Int32 = 1
+    let stderrFD: Int32 = 2
+
+    // Call into the runtime
+    return data.withUnsafeBytes { buf -> Int32 in
+        let ptr = buf.bindMemory(to: UInt8.self).baseAddress!
+        return wasmer_python_execute(ptr, data.count, argv, Int(argc), stdinFD, stdoutFD, stderrFD)
+    }
+}
+```
+
+In your app, register `python` to point at `swift_python` so existing Python workflows keep working.
+
 ## Integration into Code App
 
 ### 1. Copy XCFramework
@@ -74,6 +125,8 @@ In `CodeApp/CodeApp.swift`, add to the `setupEnvironment()` function:
 
 ```swift
 replaceCommand("wasmer", "wasmer", true)
+// If using Python under Wasmer, register the python command similarly:
+// replaceCommand("python", "python", true)
 ```
 
 ### 5. Build and Run

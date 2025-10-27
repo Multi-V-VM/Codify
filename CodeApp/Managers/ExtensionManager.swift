@@ -7,6 +7,7 @@
 
 import Foundation
 
+@available(iOS 18.0, *)
 class ExtensionManager: ObservableObject {
     @Published var panelManager = PanelManager()
     @Published var toolbarManager = ToolbarManager()
@@ -29,7 +30,7 @@ class ExtensionManager: ObservableObject {
         RemoteAuxiliaryExtension(),
         ExtensionsExtension(),
         ChatExtension(),
-        VISXExtension(),
+        DebuggerExtension(),
     ]
 
     func registerExtension(ex: CodeAppExtension) {

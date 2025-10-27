@@ -108,6 +108,9 @@ class CoreMLLLMService: ObservableObject {
             // Load the model
             try inferenceEngine?.loadModel(from: url)
 
+            // Validate model compatibility early to avoid runtime shape errors
+            try inferenceEngine?.validateModelCompatibility()
+
             await MainActor.run {
                 modelLoaded = true
                 isGenerating = false
@@ -152,6 +155,8 @@ class CoreMLLLMService: ObservableObject {
         }
 
         // Generate response
+        // Reset model state for a fresh generation
+        inferenceEngine?.resetState()
         let response = await generateResponse(for: conversationHistory)
 
         // Add assistant message to history

@@ -135,6 +135,7 @@ class MainStateManager: ObservableObject {
     @Published var isSystemExtensionsInitialized = false
 }
 
+@available(iOS 18.0, *)
 class MainApp: ObservableObject {
     let extensionManager = ExtensionManager()
     let rightPanelManager = RightPanelManager()
@@ -1173,6 +1174,7 @@ class MainApp: ObservableObject {
     }
 }
 
+@available(iOS 18.0, *)
 extension MainApp: EditorImplementationDelegate {
     func didEnterFocus() {
         let notification = Notification(

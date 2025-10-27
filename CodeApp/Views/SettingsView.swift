@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+@available(iOS 18.0, *)
 struct SettingsView: View {
 
     @EnvironmentObject var App: MainApp

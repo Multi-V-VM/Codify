@@ -6,8 +6,7 @@ use std::os::unix::io::{RawFd, FromRawFd};
 use std::io::SeekFrom;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use wasmer::{Store, Module, Instance, Value, Engine};
-use wasmer::sys::NativeEngineExt;
+use wasmer::{Store, Module, Instance, Value};
 use wasmer_wasix::{WasiEnvBuilder, PluggableRuntime};
 use wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager;
 use wasmer_wasix::virtual_fs::{VirtualFile, FsError};
@@ -167,6 +166,30 @@ pub extern "C" fn wasmer_execute(
     }
 }
 
+/// Convenience entrypoint to execute a CPython WASM runtime using Wasmer.
+/// This simply forwards to `wasmer_execute` and exists to provide a stable
+/// symbol tailored for Python integrations on iOS.
+#[no_mangle]
+pub extern "C" fn wasmer_python_execute(
+    python_wasm_bytes_ptr: *const u8,
+    python_wasm_bytes_len: usize,
+    args_ptr: *const *const c_char,
+    args_len: usize,
+    stdin_fd: i32,
+    stdout_fd: i32,
+    stderr_fd: i32,
+) -> i32 {
+    wasmer_execute(
+        python_wasm_bytes_ptr,
+        python_wasm_bytes_len,
+        args_ptr,
+        args_len,
+        stdin_fd,
+        stdout_fd,
+        stderr_fd,
+    )
+}
+
 fn execute_wasm(
     wasm_bytes: &[u8],
     args: &[String],
@@ -209,13 +232,12 @@ async fn execute_wasm_async(
         return Err("Invalid WASM binary: unsupported version".into());
     }
 
-    // Create a headless engine (interpreter-only, no JIT)
-    // This is required for iOS where JIT compilation is not allowed
-    let engine = Engine::headless();
-    let mut store = Store::new(engine);
+    // Create a WAMR store (interpreter-only, no JIT)
+    // WAMR is set as the default backend via the "wamr-default" feature
+    // This provides both validation and execution using the WAMR interpreter
+    let mut store = Store::default();
 
-    // Load the WASM module
-    // The module will be validated using singlepass compiler, but executed using WAMR interpreter
+    // Load the WASM module using WAMR interpreter
     let module = Module::new(&store, wasm_bytes)?;
 
     // Get environment variables

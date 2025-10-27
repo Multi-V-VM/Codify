@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo build --target aarch64-apple-ios)",
+      "Bash(./build_xcframework.sh)",
+      "Bash(tee /tmp/build_output.log)",
+      "Bash(tee /tmp/build_output2.log)",
+      "Read(//private/tmp/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

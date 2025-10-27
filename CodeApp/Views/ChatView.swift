@@ -161,6 +161,7 @@ private struct TypingIndicator: View {
 
 // MARK: - Chat Toolbar
 
+@available(iOS 18.0, *)
 struct ChatToolbarView: View {
     @EnvironmentObject var App: MainApp
     @StateObject private var llmService = CoreMLLLMService.shared

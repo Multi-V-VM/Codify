@@ -100,7 +100,7 @@ class LLMTokenizer {
 
     /// Decode token IDs back to text
     func decode(_ tokens: [Int], skipSpecialTokens: Bool = true) -> String {
-        var words: [String] = []
+        var out = ""
 
         for tokenId in tokens {
             // Skip special tokens if requested
@@ -108,12 +108,25 @@ class LLMTokenizer {
                 continue
             }
 
-            if let word = reverseVocab[tokenId] {
-                words.append(word)
+            if let raw = reverseVocab[tokenId] {
+                // Handle common HF tokenizer artifacts (e.g., GPT2-style)
+                var piece = raw
+                if piece.contains("Ġ") {
+                    // Leading space marker: replace "Ġword" -> " word"
+                    piece = piece.replacingOccurrences(of: "Ġ", with: " ")
+                }
+                if piece.contains("Ċ") {
+                    // Newline marker
+                    piece = piece.replacingOccurrences(of: "Ċ", with: "\n")
+                }
+                out += piece
+            } else {
+                // Fallback: show unknown token id to avoid empty output
+                out += "<\(tokenId)>"
             }
         }
 
-        return words.joined(separator: " ")
+        return out
     }
 
     /// Check if a token ID is a special token

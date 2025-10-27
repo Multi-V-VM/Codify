@@ -170,6 +170,94 @@ app.get('/api/marketplace/publishers/:publisher/vsextensions/:extension/:version
     }
 });
 
+// API: Serve local .visx files
+app.get('/api/extensions/:filename', async (req, res) => {
+    try {
+        const { filename } = req.params;
+        const fs = require('fs');
+        const path = require('path');
+
+        // Security check: prevent directory traversal
+        if (filename.includes('..') || filename.includes('/')) {
+            return res.status(400).json({ error: 'Invalid filename' });
+        }
+
+        // Only allow .visx files
+        if (!filename.endsWith('.visx')) {
+            return res.status(400).json({ error: 'Only .visx files are supported' });
+        }
+
+        const filePath = path.join(__dirname, filename);
+
+        // Check if file exists
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({
+                error: 'Extension not found',
+                filename: filename
+            });
+        }
+
+        console.log(`📦 Serving local extension: ${filename}`);
+
+        // Get file stats
+        const stats = fs.statSync(filePath);
+
+        // Set headers
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('Content-Length', stats.size);
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Access-Control-Allow-Origin', '*');
+
+        // Stream the file
+        const fileStream = fs.createReadStream(filePath);
+        fileStream.pipe(res);
+
+        fileStream.on('error', (err) => {
+            console.error('❌ File stream error:', err);
+            if (!res.headersSent) {
+                res.status(500).json({ error: 'Failed to stream file' });
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Serve error:', error.message);
+        res.status(500).json({
+            error: 'Failed to serve extension',
+            message: error.message
+        });
+    }
+});
+
+// API: List available local extensions
+app.get('/api/extensions', (req, res) => {
+    try {
+        const fs = require('fs');
+        const path = require('path');
+
+        const files = fs.readdirSync(__dirname)
+            .filter(file => file.endsWith('.visx'))
+            .map(file => {
+                const stats = fs.statSync(path.join(__dirname, file));
+                return {
+                    filename: file,
+                    size: stats.size,
+                    modified: stats.mtime,
+                    url: `/api/extensions/${file}`
+                };
+            });
+
+        res.json({
+            count: files.length,
+            extensions: files
+        });
+    } catch (error) {
+        res.status(500).json({
+            error: 'Failed to list extensions',
+            message: error.message
+        });
+    }
+});
+
 // API: Get featured/popular extensions
 app.get('/api/marketplace/featured', cacheMiddleware(CACHE_DURATION * 2), async (req, res) => {
     try {

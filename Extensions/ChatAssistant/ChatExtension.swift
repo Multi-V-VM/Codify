@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+@available(iOS 18.0, *)
 class ChatExtension: CodeAppExtension {
     override func onInitialize(app: MainApp, contribution: CodeAppExtension.Contribution) {
         // Register the chat panel in the right panel

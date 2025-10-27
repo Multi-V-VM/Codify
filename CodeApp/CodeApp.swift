@@ -241,6 +241,10 @@ private func setupEnvironment() {
     replaceCommand("npx", "npx", true)
     replaceCommand("java", "java", true)
     replaceCommand("javac", "javac", true)
+    // Map Python commands to Wasmer-backed implementations
+    replaceCommand("python", "python", true)
+    replaceCommand("python3", "python", true)
+    replaceCommand("pip", "pip", true)
     NSLog("✅ Custom commands registered")
 
     joinMainThread = false

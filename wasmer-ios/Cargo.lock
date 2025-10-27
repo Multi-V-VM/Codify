@@ -764,33 +764,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
-name = "dynasm"
-version = "4.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a31e49f416ec431ceef002ee220eee9da97687ec3ecea8040703edbaa75e157"
-dependencies = [
- "bitflags 2.9.4",
- "byteorder",
- "lazy_static",
- "proc-macro-error2",
- "proc-macro2",
- "quote",
- "syn 2.0.107",
-]
-
-[[package]]
-name = "dynasmrt"
-version = "4.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81897269eb88949825a9add5a33fb4456ba6a39811e0909172f21c841457d347"
-dependencies = [
- "byteorder",
- "dynasm",
- "fnv",
- "memmap2 0.9.9",
-]
-
-[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -864,12 +837,6 @@ dependencies = [
  "libc",
  "windows-sys 0.61.2",
 ]
-
-[[package]]
-name = "fallible-iterator"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2acce4a10f12dc2fb14a218589d4f1f62ef011b2d0cc4b3cb1bba8e94da14649"
 
 [[package]]
 name = "fastrand"
@@ -1078,11 +1045,6 @@ name = "gimli"
 version = "0.32.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e629b9b98ef3dd8afe6ca2bd0f89306cec16d43d907889945bc5d6687f2f13c7"
-dependencies = [
- "fallible-iterator",
- "indexmap",
- "stable_deref_trait",
-]
 
 [[package]]
 name = "glob"
@@ -1532,12 +1494,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "lazy_static"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
-
-[[package]]
 name = "leb128"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1718,15 +1674,6 @@ name = "memmap2"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d28bba84adfe6646737845bc5ebbfa2c08424eb1c37e94a1fd2a82adb56a872"
-dependencies = [
- "libc",
-]
-
-[[package]]
-name = "memmap2"
-version = "0.9.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "744133e4a0e0a658e1374cf3bf8e415c4052a15a111acd372764c55b4177d490"
 dependencies = [
  "libc",
 ]
@@ -2316,26 +2263,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rayon"
-version = "1.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "368f01d005bf8fd9b1206fb6fa653e6c4a81ceb1466406b81792d87c5677a58f"
-dependencies = [
- "either",
- "rayon-core",
-]
-
-[[package]]
-name = "rayon-core"
-version = "1.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22e18b0f0062d30d4230b2e85ff77fdfe4326feb054b9783a3460d8435c8ab91"
-dependencies = [
- "crossbeam-deque",
- "crossbeam-utils",
-]
-
-[[package]]
 name = "redox_syscall"
 version = "0.5.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2826,7 +2753,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6c99835bad52957e7aa241d3975ed17c1e5f8c92026377d117a606f36b84b16"
 dependencies = [
  "bytes",
- "memmap2 0.6.2",
+ "memmap2",
 ]
 
 [[package]]
@@ -3769,7 +3696,6 @@ dependencies = [
  "ureq",
  "wasm-bindgen",
  "wasmer-compiler",
- "wasmer-compiler-singlepass",
  "wasmer-derive",
  "wasmer-types",
  "wasmer-vm",
@@ -3792,7 +3718,7 @@ dependencies = [
  "leb128",
  "libc",
  "macho-unwind-info",
- "memmap2 0.6.2",
+ "memmap2",
  "more-asserts",
  "object 0.32.2",
  "region",
@@ -3804,25 +3730,8 @@ dependencies = [
  "thiserror 1.0.69",
  "wasmer-types",
  "wasmer-vm",
- "wasmparser 0.224.1",
  "windows-sys 0.59.0",
  "xxhash-rust",
-]
-
-[[package]]
-name = "wasmer-compiler-singlepass"
-version = "6.1.0"
-dependencies = [
- "byteorder",
- "dynasm",
- "dynasmrt",
- "enumset",
- "gimli",
- "more-asserts",
- "rayon",
- "smallvec",
- "wasmer-compiler",
- "wasmer-types",
 ]
 
 [[package]]
