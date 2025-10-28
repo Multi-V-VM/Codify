@@ -8,21 +8,13 @@
 import Foundation
 import Combine
 
-@_silgen_name("wasmer_execute")
-private func wasmer_execute(
-    _ wasmBytes: UnsafePointer<UInt8>,
-    _ wasmBytesLen: Int,
-    _ args: UnsafePointer<UnsafePointer<Int8>?>,
-    _ argsLen: Int,
-    _ stdinFd: Int32,
-    _ stdoutFd: Int32,
-    _ stderrFd: Int32
-) -> Int32
+// Note: wasmer_execute is declared in CodeApp/Utilities/wasm.swift
+// Both DebuggerService and WasminspectService use that global declaration
 
 class DebuggerService: ObservableObject {
     static let shared = DebuggerService()
 
-    enum State {
+    enum State: Equatable {
         case disconnected
         case launching
         case connected

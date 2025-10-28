@@ -137,13 +137,13 @@ struct WasminspectSidebarView: View {
                     }
                 }) {
                     HStack {
-                        Image(systemName: case .disconnected = service.state ? "play.fill" : "stop.fill")
-                        Text(case .disconnected = service.state ? "Launch" : "Stop")
+                        Image(systemName: service.state == .disconnected ? "play.fill" : "stop.fill")
+                        Text(service.state == .disconnected ? "Launch" : "Stop")
                     }
                     .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(case .disconnected = service.state ? .green : .red)
+                .tint(service.state == .disconnected ? .green : .red)
 
                 Button(action: {
                     if case .stopped = service.state {
