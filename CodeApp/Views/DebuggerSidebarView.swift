@@ -10,10 +10,25 @@ struct DebuggerSidebarView: View {
 
     var body: some View {
         VStack(spacing: 8) {
+            // Backend selector
+            HStack {
+                Text("Backend:")
+                    .fontWeight(.semibold)
+                Picker("", selection: $dbg.selectedBackend) {
+                    ForEach(DebuggerService.DebuggerBackend.allCases) { backend in
+                        Text(backend.rawValue).tag(backend)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .disabled(dbg.state != .disconnected)
+            }
+
+            Divider()
+
             // Connection/config row
             HStack {
-                Text("gdb.wasm:")
-                TextField("/path/to/gdb.wasm", text: $dbg.gdbWasmPath)
+                Text(dbg.selectedBackend == .gdb ? "gdb.wasm:" : "wasminspect:")
+                TextField(dbg.selectedBackend == .gdb ? "/path/to/gdb.wasm" : "/path/to/wasminspect.wasm", text: $dbg.gdbWasmPath)
                     .textFieldStyle(.roundedBorder)
             }
             HStack {

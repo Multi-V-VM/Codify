@@ -153,25 +153,49 @@ class VisxExtractor: ObservableObject {
         let extractPath = extensionsDir.appendingPathComponent(extensionID)
         try FileManager.default.createDirectory(at: extractPath, withIntermediateDirectories: true)
 
-        // Extract using ZipArchive
+        NSLog("📦 Extracting .visx file: \(fileURL.path)")
+        NSLog("📂 Destination: \(extractPath.path)")
+
+        // Extract using ZipArchive with improved error handling
+        var extractionError: Error? = nil
         let success = SSZipArchive.unzipFile(
             atPath: fileURL.path,
             toDestination: extractPath.path,
+            overwrite: true,
+            password: nil,
             progressHandler: { [weak self] entryNumber, total, completedSize, totalSize in
                 let progress = Double(completedSize) / Double(totalSize)
                 Task { @MainActor in
                     self?.progress = 0.3 + (progress * 0.5) // 30-80% progress
                 }
+                NSLog("📊 Extracting: \(entryNumber)/\(total) files, \(completedSize)/\(totalSize) bytes")
             },
             completionHandler: { path, succeeded, error in
                 if let error = error {
-                    print("Unzip error: \(error)")
+                    NSLog("❌ Unzip error: \(error.localizedDescription)")
+                    extractionError = error
+                } else if succeeded {
+                    NSLog("✅ Unzip completed: \(path)")
                 }
             }
         )
 
         if !success {
+            if let error = extractionError {
+                throw error
+            }
             throw VisxError.extractionFailed
+        }
+
+        // Verify extraction
+        let extractedContents = try FileManager.default.contentsOfDirectory(
+            at: extractPath,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: []
+        )
+        NSLog("📁 Extracted \(extractedContents.count) items:")
+        for item in extractedContents.prefix(10) {
+            NSLog("  - \(item.lastPathComponent)")
         }
 
         return extractPath

@@ -31,7 +31,7 @@ class ExtensionManager: ObservableObject {
         ExtensionsExtension(),
         ChatExtension(),
         DebuggerExtension(),
-        WasminspectExtension(), 
+        // WasminspectExtension removed - debug功能已集成到gdb.wasm侧栏
     ]
 
     func registerExtension(ex: CodeAppExtension) {

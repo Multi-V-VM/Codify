@@ -135,54 +135,14 @@ class DebuggerService: ObservableObject {
             }
 
         case .wasminspect:
-            // Auto-detect wasminspect.wasm if path is empty
-            if gdbWasmPath.isEmpty {
-                // Try common locations for wasminspect.wasm
-                let searchPaths: [String] = {
-                    var paths: [String] = []
-
-                    // 1. Bundle resources
-                    if let url = Bundle.main.url(forResource: "wasminspect", withExtension: "wasm") {
-                        paths.append(url.path)
-                    }
-
-                    // 2. Documents/Tools/
-                    if let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
-                        paths.append(docs.appendingPathComponent("Tools/wasminspect.wasm").path)
-                        paths.append(docs.appendingPathComponent("wasminspect.wasm").path)
-                    }
-
-                    // 3. Check VISX extensions directory
-                    if let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
-                        let extDir = docs.appendingPathComponent("Extensions")
-                        if let enumerator = FileManager.default.enumerator(at: extDir, includingPropertiesForKeys: [.isDirectoryKey]) {
-                            for case let fileURL as URL in enumerator {
-                                if fileURL.lastPathComponent == "wasminspect.wasm" {
-                                    paths.append(fileURL.path)
-                                }
-                            }
-                        }
-                    }
-
-                    return paths
-                }()
-
-                // Find first existing path
-                for path in searchPaths {
-                    if FileManager.default.fileExists(atPath: path) {
-                        gdbWasmPath = path
-                        NSLog("✅ Auto-detected wasminspect.wasm at: \(path)")
-                        break
-                    }
-                }
-
-                if gdbWasmPath.isEmpty {
-                    NSLog("⚠️ wasminspect.wasm not found. Please set path manually or download from Extensions.")
-                }
+            wasminspectAdapter.configureDefaultsIfNeeded()
+            // Sync paths back
+            if wasminspectAdapter.wasminspectWasmPath.isEmpty && !gdbWasmPath.isEmpty {
+                wasminspectAdapter.wasminspectWasmPath = gdbWasmPath
+            } else if !wasminspectAdapter.wasminspectWasmPath.isEmpty {
+                gdbWasmPath = wasminspectAdapter.wasminspectWasmPath
             }
 
-            // Sync to adapter
-            wasminspectAdapter.wasminspectWasmPath = gdbWasmPath
             wasminspectAdapter.targetWasmPath = targetWasmPath
             wasminspectAdapter.targetArgs = targetArgs
         }
