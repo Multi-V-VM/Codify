@@ -103,48 +103,26 @@ platform :ios do
       skip_package_ipa: true
     )
 
-    # Export manually with Xcode 26 compatible plist (uses 'destination' instead of 'method')
+    # Xcode 26 xcodebuild -exportArchive injects a default 'method: development' internally
+    # even when the plist omits it, then rejects it. Bypass by creating IPA from archive directly.
     archive_path = lane_context[SharedValues::XCODEBUILD_ARCHIVE]
     export_path = File.expand_path("../build_output", __dir__)
-    plist_path = File.expand_path("../ExportOptions.plist", __dir__)
 
-    # Write plist XML directly to avoid any gem/intermediary injecting 'method'
-    FileUtils.rm_f(plist_path)
-    plist_xml = <<~PLIST
-      <?xml version="1.0" encoding="UTF-8"?>
-      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-      <plist version="1.0">
-      <dict>
-        <key>destination</key>
-        <string>upload</string>
-        <key>signingStyle</key>
-        <string>manual</string>
-        <key>teamID</key>
-        <string>#{ENV["DEVELOPER_PORTAL_TEAM_ID"]}</string>
-        <key>uploadSymbols</key>
-        <true/>
-        <key>provisioningProfiles</key>
-        <dict>
-          <key>#{DEVELOPER_APP_IDENTIFIER}</key>
-          <string>match AppStore #{DEVELOPER_APP_IDENTIFIER}</string>
-          <key>#{DEVELOPER_APP_EXTENSION_IDENTIFIER}</key>
-          <string>match AppStore #{DEVELOPER_APP_EXTENSION_IDENTIFIER}</string>
-        </dict>
-      </dict>
-      </plist>
-    PLIST
-    File.write(plist_path, plist_xml)
-    UI.message("ExportOptions.plist content:\n#{File.read(plist_path)}")
+    app_path = Dir["#{archive_path}/Products/Applications/*.app"].first
+    UI.user_error!("No .app found in archive at #{archive_path}") unless app_path
 
     FileUtils.mkdir_p(export_path)
-    sh("xcodebuild -exportArchive " \
-      "-archivePath '#{archive_path}' " \
-      "-exportOptionsPlist '#{plist_path}' " \
-      "-exportPath '#{export_path}'")
+    payload_dir = File.join(export_path, "Payload")
+    FileUtils.rm_rf(payload_dir)
+    FileUtils.mkdir_p(payload_dir)
+    FileUtils.cp_r(app_path, payload_dir)
 
-    # Move exported IPA to expected location
-    ipa_path = Dir["#{export_path}/*.ipa"].first
-    FileUtils.cp(ipa_path, File.expand_path("../Code.ipa", __dir__))
+    ipa_output = File.join(export_path, "Code.ipa")
+    Dir.chdir(export_path) do
+      sh("zip -r '#{ipa_output}' Payload")
+    end
+
+    FileUtils.cp(ipa_output, File.expand_path("../Code.ipa", __dir__))
 
     pilot(
       apple_id: "#{DEVELOPER_APP_ID}",
