@@ -1,4 +1,4 @@
-git_url("https://github.com/vickiegpt/certificates")
+git_url("https://github.com/vickieGPT/certificates")
 
 storage_mode("git")
 
