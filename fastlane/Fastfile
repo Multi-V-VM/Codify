@@ -99,7 +99,6 @@ platform :ios do
       configuration: "Release",
       project: "Code.xcodeproj",
       scheme: "Code App",
-      export_method: "app-store",
       export_options: {
         provisioningProfiles: {
           "#{DEVELOPER_APP_IDENTIFIER}" => "match AppStore #{DEVELOPER_APP_IDENTIFIER}",
