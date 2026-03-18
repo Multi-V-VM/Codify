@@ -91,9 +91,10 @@ private func runNodeWasm(args: [String]) -> Int32 {
 
     return nodeData.withUnsafeBytes { buf -> Int32 in
         guard let base = buf.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return -1 }
-        return cStrings.withUnsafeBufferPointer { ptr in
-            wasmer_node_run(base, buf.count, ptr.baseAddress, args.count,
-                            stdinFd, stdoutFd, stderrFd)
+        return cStrings.withUnsafeBufferPointer { ptr -> Int32 in
+            guard let argsPtr = ptr.baseAddress else { return -1 }
+            return wasmer_execute(base, buf.count, argsPtr, args.count,
+                                  stdinFd, stdoutFd, stderrFd)
         }
     }
 }
