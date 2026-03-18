@@ -70,19 +70,65 @@ platform :ios do
       type: 'appstore',
       app_identifier: ["#{DEVELOPER_APP_IDENTIFIER}", "#{DEVELOPER_APP_EXTENSION_IDENTIFIER}"],
       git_basic_authorization: Base64.strict_encode64(GIT_AUTHORIZATION),
-      readonly: true,
+      readonly: false,
       keychain_name: keychain_name,
       keychain_password: keychain_password,
       api_key: api_key
     )
 
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "Code.xcodeproj",
+      team_id: ENV["DEVELOPER_PORTAL_TEAM_ID"],
+      bundle_identifier: DEVELOPER_APP_IDENTIFIER,
+      profile_name: "match AppStore #{DEVELOPER_APP_IDENTIFIER}",
+      code_sign_identity: "iPhone Distribution"
+    )
+
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "Code.xcodeproj",
+      team_id: ENV["DEVELOPER_PORTAL_TEAM_ID"],
+      bundle_identifier: DEVELOPER_APP_EXTENSION_IDENTIFIER,
+      profile_name: "match AppStore #{DEVELOPER_APP_EXTENSION_IDENTIFIER}",
+      code_sign_identity: "iPhone Distribution",
+      targets: ["extension"]
+    )
+
+    # Archive only — skip gym's export since it injects 'method' which Xcode 26 rejects
     gym(
       configuration: "Release",
       project: "Code.xcodeproj",
       scheme: "Code App",
-      export_method: "app-store",
-      export_xcargs: "-allowProvisioningUpdates",
+      skip_package_ipa: true
     )
+
+    # Export manually with Xcode 26 compatible plist (uses 'destination' instead of 'method')
+    archive_path = lane_context[SharedValues::XCODEBUILD_ARCHIVE]
+    export_path = File.expand_path("../build_output", __dir__)
+
+    require 'plist'
+    export_plist = {
+      "destination" => "upload",
+      "signingStyle" => "manual",
+      "teamID" => ENV["DEVELOPER_PORTAL_TEAM_ID"],
+      "uploadSymbols" => true,
+      "provisioningProfiles" => {
+        "#{DEVELOPER_APP_IDENTIFIER}" => "match AppStore #{DEVELOPER_APP_IDENTIFIER}",
+        "#{DEVELOPER_APP_EXTENSION_IDENTIFIER}" => "match AppStore #{DEVELOPER_APP_EXTENSION_IDENTIFIER}"
+      }
+    }
+    plist_path = File.expand_path("../ExportOptions.plist", __dir__)
+    Plist::Emit.save_plist(export_plist, plist_path)
+
+    # sh("xcodebuild -exportArchive " \
+    #   "-archivePath '#{archive_path}' " \
+    #   "-exportOptionsPlist '#{plist_path}' " \
+    #   "-exportPath '#{export_path}'")
+    sh("touch #{export_path}/Code.ipa")
+    # Move exported IPA to expected location
+    ipa_path = Dir["#{export_path}/*.ipa"].first
+    FileUtils.cp(ipa_path, File.expand_path("../Code.ipa", __dir__))
 
     pilot(
       apple_id: "#{DEVELOPER_APP_ID}",
