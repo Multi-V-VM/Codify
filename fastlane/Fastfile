@@ -76,11 +76,36 @@ platform :ios do
       api_key: api_key
     )
 
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "Code.xcodeproj",
+      team_id: ENV["DEVELOPER_PORTAL_TEAM_ID"],
+      bundle_identifier: DEVELOPER_APP_IDENTIFIER,
+      profile_name: "match AppStore #{DEVELOPER_APP_IDENTIFIER}",
+      code_sign_identity: "iPhone Distribution"
+    )
+
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "Code.xcodeproj",
+      team_id: ENV["DEVELOPER_PORTAL_TEAM_ID"],
+      bundle_identifier: DEVELOPER_APP_EXTENSION_IDENTIFIER,
+      profile_name: "match AppStore #{DEVELOPER_APP_EXTENSION_IDENTIFIER}",
+      code_sign_identity: "iPhone Distribution",
+      targets: ["extension"]
+    )
+
     gym(
       configuration: "Release",
       project: "Code.xcodeproj",
       scheme: "Code App",
       export_method: "app-store",
+      export_options: {
+        provisioningProfiles: {
+          "#{DEVELOPER_APP_IDENTIFIER}" => "match AppStore #{DEVELOPER_APP_IDENTIFIER}",
+          "#{DEVELOPER_APP_EXTENSION_IDENTIFIER}" => "match AppStore #{DEVELOPER_APP_EXTENSION_IDENTIFIER}"
+        }
+      }
     )
 
     pilot(
