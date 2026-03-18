@@ -1,7 +1,3 @@
-# Clean previous downloads
-rm -rf Resources
-
-mkdir -p Resources
 cd Resources
 
 # Python
