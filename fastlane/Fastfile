@@ -138,7 +138,6 @@ platform :ios do
 
     sh("xcodebuild -exportArchive " \
        "-archivePath '#{archive_path}' " \
-       "-exportOptionsPlist '#{plist_path}' " \
        "-exportPath '#{export_path}'")
 
     # Move exported IPA to expected location
