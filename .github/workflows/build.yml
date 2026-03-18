@@ -19,8 +19,9 @@ jobs:
           fetch-depth: 0
 
       - name: Deploy iOS Beta to TestFlight via Fastlane
-        run: fastlane beta
+        run: echo "$MATCH_DEPLOY_KEY" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa && fastlane beta
         env:
+          MATCH_DEPLOY_KEY: "${{ secrets.MATCH_DEPLOY_KEY }}"
           APP_STORE_CONNECT_TEAM_ID: "${{ secrets.APP_STORE_CONNECT_TEAM_ID }}"
           DEVELOPER_APP_ID: "${{ secrets.DEVELOPER_APP_ID }}"
           DEVELOPER_APP_IDENTIFIER: "${{ secrets.DEVELOPER_APP_IDENTIFIER }}"
