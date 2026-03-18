@@ -98,16 +98,14 @@ platform :ios do
     # Xcode 26 renamed 'app-store' to 'app-store-connect' in ExportOptions.plist.
     # Monkey-patch gym to emit the new value since fastlane hasn't been updated yet.
     require 'gym'
-    module Gym
-      class PackageCommandGeneratorXcode7
-        class << self
-          alias_method :original_config_content, :config_content unless method_defined?(:original_config_content)
-          def config_content
-            content = original_config_content
-            hash = Plist.parse_xml(content)
-            hash['method'] = 'app-store-connect' if hash['method'] == 'app-store'
-            Plist::Emit.dump(hash)
-          end
+    ::Gym::PackageCommandGeneratorXcode7.class_eval do
+      class << self
+        alias_method :original_config_content, :config_content unless method_defined?(:original_config_content)
+        def config_content
+          content = original_config_content
+          hash = Plist.parse_xml(content)
+          hash['method'] = 'app-store-connect' if hash['method'] == 'app-store'
+          Plist::Emit.dump(hash)
         end
       end
     end
