@@ -107,19 +107,34 @@ platform :ios do
     archive_path = lane_context[SharedValues::XCODEBUILD_ARCHIVE]
     export_path = File.expand_path("../build_output", __dir__)
 
-    require 'plist'
-    export_plist = {
-      "destination" => "upload",
-      "signingStyle" => "manual",
-      "teamID" => ENV["DEVELOPER_PORTAL_TEAM_ID"],
-      "uploadSymbols" => true,
-      "provisioningProfiles" => {
-        "#{DEVELOPER_APP_IDENTIFIER}" => "match AppStore #{DEVELOPER_APP_IDENTIFIER}",
-        "#{DEVELOPER_APP_EXTENSION_IDENTIFIER}" => "match AppStore #{DEVELOPER_APP_EXTENSION_IDENTIFIER}"
-      }
-    }
     plist_path = File.expand_path("../ExportOptions.plist", __dir__)
-    Plist::Emit.save_plist(export_plist, plist_path)
+    FileUtils.rm_f(plist_path)
+
+    plist_xml = <<~PLIST
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+        <key>destination</key>
+        <string>upload</string>
+        <key>signingStyle</key>
+        <string>manual</string>
+        <key>teamID</key>
+        <string>#{ENV["DEVELOPER_PORTAL_TEAM_ID"]}</string>
+        <key>uploadSymbols</key>
+        <true/>
+        <key>provisioningProfiles</key>
+        <dict>
+          <key>#{DEVELOPER_APP_IDENTIFIER}</key>
+          <string>match AppStore #{DEVELOPER_APP_IDENTIFIER}</string>
+          <key>#{DEVELOPER_APP_EXTENSION_IDENTIFIER}</key>
+          <string>match AppStore #{DEVELOPER_APP_EXTENSION_IDENTIFIER}</string>
+        </dict>
+      </dict>
+      </plist>
+    PLIST
+    File.write(plist_path, plist_xml)
+    UI.message("ExportOptions.plist contents:\n#{File.read(plist_path)}")
 
     sh("xcodebuild -exportArchive " \
        "-archivePath '#{archive_path}' " \
