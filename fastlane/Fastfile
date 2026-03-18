@@ -81,6 +81,7 @@ platform :ios do
       project: "Code.xcodeproj",
       scheme: "Code App",
       export_method: "app-store",
+      export_xcargs: "-allowProvisioningUpdates",
     )
 
     pilot(
