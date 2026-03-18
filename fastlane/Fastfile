@@ -95,23 +95,6 @@ platform :ios do
       targets: ["extension"]
     )
 
-    # Xcode 26 renamed 'app-store' to 'app-store-connect' in ExportOptions.plist.
-    # Monkey-patch gym's generate to rewrite the plist after gym writes it.
-    require 'gym'
-    orig_generate = ::Gym::PackageCommandGeneratorXcode7.method(:generate)
-    ::Gym::PackageCommandGeneratorXcode7.define_singleton_method(:generate) do
-      result = orig_generate.call
-      plist_path = ::Gym::PackageCommandGeneratorXcode7.config_path
-      content = File.read(plist_path)
-      hash = Plist.parse_xml(content)
-      if hash['method'] == 'app-store'
-        hash.delete('method')
-        File.write(plist_path, hash.to_plist)
-        UI.message("Patched ExportOptions: method -> app-store-connect")
-      end
-      result
-    end
-
     gym(
       configuration: "Release",
       project: "Code.xcodeproj",
