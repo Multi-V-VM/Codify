@@ -251,7 +251,7 @@ class TerminalManager: ObservableObject {
         }
     }
 
-    /// Close all terminals exepct the first one, and reset that terminal's state
+    /// Close all terminals except the first one, and reset that terminal's state
     func resetAndSetNewRootDirectory(url: URL) {
         assertMainThread()
         rootURL = url
