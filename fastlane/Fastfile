@@ -95,7 +95,18 @@ platform :ios do
       targets: ["extension"]
     )
 
-    # Xcode 26 uses 'destination' instead of 'method' in export options
+    # Archive only — skip gym's export since it injects 'method' which Xcode 26 rejects
+    gym(
+      configuration: "Release",
+      project: "Code.xcodeproj",
+      scheme: "Code App",
+      skip_package_ipa: true
+    )
+
+    # Export manually with Xcode 26 compatible plist (uses 'destination' instead of 'method')
+    archive_path = lane_context[SharedValues::XCODEBUILD_ARCHIVE]
+    export_path = File.expand_path("../build_output", __dir__)
+
     require 'plist'
     export_plist = {
       "destination" => "upload",
@@ -110,12 +121,14 @@ platform :ios do
     plist_path = File.expand_path("../ExportOptions.plist", __dir__)
     Plist::Emit.save_plist(export_plist, plist_path)
 
-    gym(
-      configuration: "Release",
-      project: "Code.xcodeproj",
-      scheme: "Code App",
-      export_options: plist_path
-    )
+    sh("xcodebuild -exportArchive " \
+       "-archivePath '#{archive_path}' " \
+       "-exportOptionsPlist '#{plist_path}' " \
+       "-exportPath '#{export_path}'")
+
+    # Move exported IPA to expected location
+    ipa_path = Dir["#{export_path}/*.ipa"].first
+    FileUtils.cp(ipa_path, File.expand_path("../Code.ipa", __dir__))
 
     pilot(
       apple_id: "#{DEVELOPER_APP_ID}",
