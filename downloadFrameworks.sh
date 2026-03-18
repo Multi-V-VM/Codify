@@ -52,6 +52,7 @@ done
 # Node.js
 mkdir -p NodeJS
 cd NodeJS
+wget https://asplos.dev/about/node.wasm
 curl -OL https://github.com/1Conan/nodejs-mobile/releases/download/v18.19.0-ios/NodeMobile.xcframework.zip
 unzip -q NodeMobile.xcframework.zip
 rm -f NodeMobile.xcframework.zip
