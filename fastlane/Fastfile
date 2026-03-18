@@ -104,7 +104,7 @@ platform :ios do
         def config_content
           content = original_config_content
           hash = Plist.parse_xml(content)
-          hash['method'] = '' if hash['method'] == 'app-store'
+          hash['method'] = {} if hash['method'] == 'app-store'
           Plist::Emit.dump(hash)
         end
       end
