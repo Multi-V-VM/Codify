@@ -92,4 +92,10 @@ curl -OL https://github.com/thebaselab/codeapp-java/releases/download/2024.8.16/
 unzip -q java-lsp.zip
 rm -f java-lsp.zip
 
+mkdir -p Models
+cd Models
+curl -L -C - -o Qwen3.5-0.8B-Q8_0.gguf \
+  "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q8_0.gguf?download=true"
+cd ..
+
 echo "Done!"
