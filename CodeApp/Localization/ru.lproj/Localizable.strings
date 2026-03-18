@@ -8,7 +8,7 @@
 
 "Welcome Message" =
 "# CodifyOne
-##### **v1.11.0 (Октябрь 2025)**
+##### **v1.12.0 (Февраль 2026)**
 #### Начало
 [Новый файл](https://thebaselab.com/code/newfile)
 [Открыть файл](https://thebaselab.com/code/openfile)
@@ -22,7 +22,14 @@
 ";
 
 "Changelog.message" =
-"
+"### 1.12.0 (Feburary 2026)
+- Поддержка нескольких терминалов
+- Поддержка клавиш-модификаторов терминала
+- Особая благодарность @ThalesMMS за вклад
+
+### 1.11.0 (Январь 2026)
+- Принята Liquid Glass UI
+
 ### 1.10.4 (Сентябрь 2025)
 - Исправлены ошибки, связанные с редактором различий
 
@@ -701,3 +708,11 @@
 "remote.port_forward.address_example" = "пр. 6000 или 127.0.0.1:6000";
 "remote.settings.ssh_remote" = "SSH-подключение";
 "remote.settings.resolve_home_path" = "Открывать домашний каталог";
+"terminal.tab.accessibility.active" = "Активна";
+"terminal.tab.accessibility.running" = "Выполняется";
+"terminal.tab.accessibility.hint" = "Нажмите, чтобы переключиться на этот терминал";
+"terminal.tab.kill" = "Закрыть терминал";
+"terminal.tab.kill_confirmation.title" = "Закрыть терминал?";
+"terminal.tab.kill_confirmation.cancel" = "Отмена";
+"terminal.tab.kill_confirmation.kill" = "Закрыть";
+"terminal.tab.kill_confirmation.message" = "Этот терминал имеет запущенный процесс. Вы уверены, что хотите его закрыть?";

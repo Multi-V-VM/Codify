@@ -176,11 +176,7 @@ struct RemoteContainer: View {
             continuation.resume(throwing: error)
         } else {
             DispatchQueue.main.async {
-                App.loadRepository(url: hostUrl)
-                App.notificationManager.showInformationMessage(
-                    "remote.connected")
-                App.terminalInstance.terminalServiceProvider =
-                    App.workSpaceStorage.terminalServiceProvider
+                App.loadFolder(url: hostUrl)
             }
             continuation.resume(returning: ())
         }

@@ -18,7 +18,11 @@ struct TerminalOptions: Codable {
     // subsequent options must be made optional
 }
 
-class TerminalInstance: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
+class TerminalInstance: NSObject, WKScriptMessageHandler, WKNavigationDelegate, Identifiable {
+
+    let id: UUID
+    var name: String
+    private(set) var isReady = false
 
     var options: TerminalOptions {
         didSet {
@@ -34,11 +38,10 @@ class TerminalInstance: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
             if terminalServiceProvider != nil {
                 self.startInteractive()
             }
-            terminalServiceProvider?.onDisconnect(callback: {
+            if terminalServiceProvider == nil && oldValue != nil {
                 self.stopInteractive()
-                self.terminalServiceProvider = nil
                 self.clearLine()
-            })
+            }
         }
     }
     public var webView: WebViewBase = WebViewBase()
@@ -50,6 +53,10 @@ class TerminalInstance: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
 
     func blur() {
         executeScript("document.getElementById('overlay').focus()")
+    }
+
+    func focus() {
+        executeScript("term.focus()")
     }
 
     func sendInterrupt() {
@@ -233,14 +240,47 @@ class TerminalInstance: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
                 if let input = result["Input"] as? String {
                     ts.write(data: "\(input)".data(using: .utf8)!)
                 }
+            case "ControlReset":
+                let generation = result["Generation"] as? Int ?? 0
+                NotificationCenter.default.post(
+                    name: .terminalControlReset,
+                    object: self,
+                    userInfo: ["generation": generation]
+                )
+            case "AltReset":
+                let generation = result["Generation"] as? Int ?? 0
+                NotificationCenter.default.post(
+                    name: .terminalAltReset,
+                    object: self,
+                    userInfo: ["generation": generation]
+                )
             default:
                 return
             }
             return
         }
 
-        if self.executor?.state == .interactive && event == "Data" {
-            self.executor?.sendInput(input: result["Input"] as! String)
+        if self.executor?.state == .interactive {
+            switch event {
+            case "Data":
+                self.executor?.sendInput(input: result["Input"] as! String)
+            case "ControlReset":
+                let generation = result["Generation"] as? Int ?? 0
+                NotificationCenter.default.post(
+                    name: .terminalControlReset,
+                    object: self,
+                    userInfo: ["generation": generation]
+                )
+            case "AltReset":
+                let generation = result["Generation"] as? Int ?? 0
+                NotificationCenter.default.post(
+                    name: .terminalAltReset,
+                    object: self,
+                    userInfo: ["generation": generation]
+                )
+            default:
+                break
+            }
             return
         }
 
@@ -350,6 +390,8 @@ class TerminalInstance: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
                 self.applyTheme(rawTheme: darkTheme.dictionary)
             }
             configureCustomOptions()
+            isReady = true
+            NotificationCenter.default.post(name: .terminalDidInitialize, object: self)
         case "window.size.change":
             let cols = result["Cols"] as! Int
             let rows = result["Rows"] as! Int
@@ -368,6 +410,20 @@ class TerminalInstance: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
                     executor?.kill()
                 }
             }
+        case "ControlReset":
+            let generation = result["Generation"] as? Int ?? 0
+            NotificationCenter.default.post(
+                name: .terminalControlReset,
+                object: self,
+                userInfo: ["generation": generation]
+            )
+        case "AltReset":
+            let generation = result["Generation"] as? Int ?? 0
+            NotificationCenter.default.post(
+                name: .terminalAltReset,
+                object: self,
+                userInfo: ["generation": generation]
+            )
         default:
             print("\(result) Event not handled")
         }
@@ -393,11 +449,14 @@ class TerminalInstance: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
         }
     }
 
-    init(root: URL, options: TerminalOptions) {
+    init(root: URL, options: TerminalOptions, name: String = "Terminal", id: UUID = UUID()) {
+        self.id = id
+        self.name = name
         self.options = options
         super.init()
         self.executor = Executor(
             root: root,
+            sessionIdentifier: "com.thebaselab.terminal.\(id.uuidString)",
             onStdout: { [weak self] data in
                 self?.writeToLocalTerminal(data: data)
             },
@@ -488,15 +547,88 @@ extension TerminalInstance: WKUIDelegate {
     }
 }
 
+// Cleanup method
+
+extension TerminalInstance {
+    /// Cleans up resources before the terminal is deallocated.
+    /// Call this method before removing the terminal from TerminalManager.
+    func cleanup() {
+        if executor?.state != .idle {
+            executor?.kill()
+        }
+        terminalServiceProvider?.kill()
+        terminalServiceProvider = nil
+        webView.stopLoading()
+        webView.navigationDelegate = nil
+        webView.uiDelegate = nil
+        webView.removeFromSuperview()
+        webView.configuration.userContentController.removeAllScriptMessageHandlers()
+        executor = nil
+        openEditor = nil
+    }
+}
+
+struct ModifierStates: Codable {
+    var controlActive: Bool
+    var controlLocked: Bool
+    var controlGeneration: Int
+    var altActive: Bool
+    var altLocked: Bool
+    var altGeneration: Int
+}
+
 // Keyboard toolbar methods
 
 extension TerminalInstance {
     func type(text: String) {
         guard let base64 = text.base64Encoded() else { return }
-        executeScript("term.input(base64ToString(`\(base64)`))")
+        executeScript("inputWithModifiers(base64ToString(`\(base64)`))")
     }
 
     func moveCursor(codeSequence: String) {
-        executeScript("term.input(String.fromCharCode(0x1b)+'\(codeSequence)')")
+        executeScript("inputWithModifiers(String.fromCharCode(0x1b)+'\(codeSequence)')")
     }
+
+    func setControlActive(_ active: Bool, generation: Int) {
+        executeScript("setControlActive(\(active), \(generation))")
+    }
+
+    func setControlLocked(_ locked: Bool) {
+        executeScript("setControlLocked(\(locked))")
+    }
+
+    func setAltActive(_ active: Bool, generation: Int) {
+        executeScript("setAltActive(\(active), \(generation))")
+    }
+
+    func setAltLocked(_ locked: Bool) {
+        executeScript("setAltLocked(\(locked))")
+    }
+
+    /// Asynchronously obtains all modifier states from JavaScript in a single call
+    func getModifierStates() async -> ModifierStates {
+        guard
+            let dict = try? await webView.evaluateJavaScript("getModifierStates()")
+                as? [String: Any],
+            let jsonData = try? JSONSerialization.data(withJSONObject: dict),
+            let states = try? JSONDecoder().decode(ModifierStates.self, from: jsonData)
+        else {
+            return ModifierStates(
+                controlActive: false,
+                controlLocked: false,
+                controlGeneration: 0,
+                altActive: false,
+                altLocked: false,
+                altGeneration: 0
+            )
+        }
+
+        return states
+    }
+}
+
+extension Notification.Name {
+    static let terminalControlReset = Notification.Name("terminalControlReset")
+    static let terminalAltReset = Notification.Name("terminalAltReset")
+    static let terminalDidInitialize = Notification.Name("terminalDidInitialize")
 }

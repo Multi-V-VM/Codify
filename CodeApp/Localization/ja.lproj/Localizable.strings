@@ -8,7 +8,7 @@
 
 "Welcome Message" =
 "# CodifyOne
-##### **v1.11.0 (2025年10月)**
+##### **v1.12.0 (2026 年 2 月)**
 #### 開始
 [新しいファイル](https://thebaselab.com/code/newfile)
 [ファイルを開く](https://thebaselab.com/code/openfile)
@@ -22,7 +22,14 @@
 ";
 
 "Changelog.message" =
-"
+"### 1.12.0 (Feburary 2026)
+- マルチターミナルに対応
+- ターミナルの修飾キーに対応
+- @ThalesMMS の貢献に特別感謝
+
+### 1.11.0 (2026 年 1 月)
+- Liquid Glass UI の採用
+
 ### 1.10.4 (2025 年 9 月)
 - diff エディターに関するバグ修正
 
@@ -225,13 +232,15 @@
 
 ---
 
-### v1.2.3 (2021年 4月)
+### 1.12.0 (2026年2月)
+- マルチターミナルに対応
+- ターミナルの修飾キーに対応
+- @ThalesMMS の貢献に特別感謝
+
 - エディター
    - 6 つの追加カラー テーマ
    - 読み取り専用モード
-   - Node.js の組み込み型
    - @types 定義のサポート
-- エクスプローラー
    - 複数ファイル検索
 - Python ランタイム
    - 組み込みの Matplotlib、Pandas
@@ -664,3 +673,12 @@
 "remote.port_forward.address_example" = "例えば 6000 または 127.0.0.1:6000";
 "remote.settings.ssh_remote" = "SSH リモート";
 "remote.settings.resolve_home_path" = "ホーム パスを解決する";
+
+"terminal.tab.accessibility.active" = "アクティブ";
+"terminal.tab.accessibility.running" = "実行中";
+"terminal.tab.accessibility.hint" = "タップしてこのターミナルに切り替える";
+"terminal.tab.kill" = "ターミナルを閉じる";
+"terminal.tab.kill_confirmation.title" = "ターミナルを閉じますか?";
+"terminal.tab.kill_confirmation.cancel" = "キャンセル";
+"terminal.tab.kill_confirmation.kill" = "閉じる";
+"terminal.tab.kill_confirmation.message" = "このターミナルは実行中のプロセスを持っています。本当に閉じますか?";

@@ -8,7 +8,7 @@
 
 "Welcome Message" =
 "# CodifyOne
-##### **v1.11.0 (October 2025)**
+##### **v1.12.0 (February 2026)**
 #### Start
 [New file](https://thebaselab.com/code/newfile)
 [Open file](https://thebaselab.com/code/openfile)
@@ -23,6 +23,14 @@
 
 "Changelog.message" =
 "
+### 1.12.0 (Feburary 2026)
+- Support multi-terminal
+- Support terminal key modifiers
+- Special thanks to @ThalesMMS for contribution
+
+### 1.11.0 (January 2026)
+- Adopt Liquid Glass UI
+
 ### 1.10.4 (September 2025)
 - Bug fixes regarding diff editor
 
@@ -558,3 +566,11 @@ are licensed under [BSD-3-Clause License](https://en.wikipedia.org/wiki/BSD_lice
 "remote.port_forward.address_example" = "e.g. 6000 or 127.0.0.1:6000";
 "remote.settings.ssh_remote" = "SSH Remote";
 "remote.settings.resolve_home_path" = "Resolve Home Path";
+"terminal.tab.accessibility.active" = "Active";
+"terminal.tab.accessibility.running" = "Running";
+"terminal.tab.accessibility.hint" = "Tap to switch to this terminal";
+"terminal.tab.kill" = "Kill Terminal";
+"terminal.tab.kill_confirmation.title" = "Kill Terminal?";
+"terminal.tab.kill_confirmation.cancel" = "Cancel";
+"terminal.tab.kill_confirmation.kill" = "Kill";
+"terminal.tab.kill_confirmation.message" = "This terminal has a running process. Are you sure you want to kill it?";
