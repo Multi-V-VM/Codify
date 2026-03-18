@@ -1,6 +1,6 @@
 //
 //  App.swift
-//  Code App
+//  CodifyOne
 //
 //  Created by Ken Chung on 5/12/2020.
 //
@@ -747,7 +747,7 @@ class MainApp: ObservableObject {
                     }
                 },
                 secondaryTitle: "common.overwrite",
-                source: "Code App")
+                source: "CodifyOne")
         } catch {
             self.notificationManager.showErrorMessage(error.localizedDescription)
         }

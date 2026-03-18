@@ -1,6 +1,6 @@
 //
 //  highlightedText.swift
-//  Code App
+//  CodifyOne
 //
 //  @Alladinian
 //  https://stackoverflow.com/questions/59426359/swiftui-is-there-exist-modifier-to-highlight-substring-of-text-view

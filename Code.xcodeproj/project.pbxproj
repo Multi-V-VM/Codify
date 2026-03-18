@@ -2005,7 +2005,7 @@
 		94A56831257CC3A1008A6530 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		94A56833257CC3AF008A6530 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		94A56834257CC60E008A6530 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
-		94A56854257CEBC8008A6530 /* Code App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Code App.entitlements"; sourceTree = "<group>"; };
+		94A56854257CEBC8008A6530 /* CodifyOne.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "CodifyOne.entitlements"; sourceTree = "<group>"; };
 		94A77795257ABB69008FE7B2 /* EditorInstance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorInstance.swift; sourceTree = "<group>"; };
 		94A7779E257ABD7A008FE7B2 /* MainApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainApp.swift; sourceTree = "<group>"; };
 		94A777A1257ABDC3008FE7B2 /* WorkSpaceStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkSpaceStorage.swift; sourceTree = "<group>"; };
@@ -2399,7 +2399,7 @@
 				94B99D9527D4A622005B5E3A /* Packages */,
 				94A4438225A389FF006643FF /* README.md */,
 				94F5270E25A37E8D00337306 /* .gitignore */,
-				94A56854257CEBC8008A6530 /* Code App.entitlements */,
+				94A56854257CEBC8008A6530 /* CodifyOne.entitlements */,
 				948D11FF2583F20C008F877A /* commandDictionary.plist */,
 				948D11FE2583F20C008F877A /* extraCommandsDictionary.plist */,
 				94B3D5D525F776A900C4F2B1 /* cacert.pem */,
@@ -4266,7 +4266,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = "Code App.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "CodifyOne.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 87;
@@ -4314,7 +4314,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = "Code App.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "CodifyOne.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 87;
@@ -4565,7 +4565,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = Iconv2;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = "Code App.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "CodifyOne.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 87;
@@ -4612,7 +4612,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = Iconv2;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = "Code App.entitlements";
+				CODE_SIGN_ENTITLEMENTS = "CodifyOne.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 87;

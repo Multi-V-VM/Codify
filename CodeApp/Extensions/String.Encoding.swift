@@ -1,6 +1,6 @@
 //
 //  encoding.swift
-//  Code App
+//  CodifyOne
 //
 //  Created by Ken Chung on 13/12/2020.
 //

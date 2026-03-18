@@ -1,6 +1,6 @@
 //
 //  CodeApp.swift
-//  Code App
+//  CodifyOne
 //
 //  Created by Ken Chung on 17/11/2020.
 //

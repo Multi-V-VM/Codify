@@ -1,6 +1,6 @@
 //
 //  AppExtensionService.swift
-//  Code App
+//  CodifyOne
 //
 //  Created by Ken Chung on 02/07/2024.
 //

@@ -1,13 +1,13 @@
 /*
   Localizable.strings
-  Code App
+  CodifyOne
 
   Created by yuki futami on 2023/01/05.
   
 */
 
 "Welcome Message" =
-"# Code App
+"# CodifyOne
 ##### **v1.11.0 (2025年10月)**
 #### 開始
 [新しいファイル](https://thebaselab.com/code/newfile)
@@ -317,7 +317,7 @@
    - ドットで始まるファイルまたはディレクトリはデフォルトで非表示になりました
    - 2 本指のパン ジェスチャでアイテムを選択する機能
 - その他の改善
-   - Code App を使用してファイル アプリまたは他のアプリから直接ファイルを開くことができるようになりました
+   - CodifyOne を使用してファイル アプリまたは他のアプリから直接ファイルを開くことができるようになりました
    - ホーム画面からアプリのアイコンを長押しして、最近のドキュメントを表示できるようになりました
    - タイプミスを修正
 ";
@@ -373,7 +373,7 @@
 "Terminal Font Size" = "ターミナルのフォントサイズ";
 "Bracket Completion" = "ブラケットの補完";
 "Theme" = "テーマ";
-"Rate Code App" = "Code App を評価";
+"Rate CodifyOne" = "CodifyOne を評価";
 "About" = "製品について";
 "Version" = "バージョン";
 
@@ -437,7 +437,7 @@
 "Welcome" = "作業の開始";
 "Licenses" = "ライセンス";
 "Version" = "バージョン";
-"Code App by thebaselab" = "Code App by thebaselab";
+"CodifyOne by thebaselab" = "CodifyOne by thebaselab";
 "Themes" = "テーマ";
 "Read-only Mode" = "読み取り専用モード";
 "Show Welcome Page" = "ウェルカムページを表示";

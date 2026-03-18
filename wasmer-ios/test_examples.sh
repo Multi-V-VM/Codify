@@ -1,6 +1,6 @@
 #!/bin/bash
-# Test examples for WASM execution in Code App
-# Run these tests in Code App's terminal after integration is complete
+# Test examples for WASM execution in CodifyOne
+# Run these tests in CodifyOne's terminal after integration is complete
 
 echo "================================"
 echo "WASM Command Test Suite"

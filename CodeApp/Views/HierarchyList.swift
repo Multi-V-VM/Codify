@@ -1,6 +1,6 @@
 //
 //  HierarchyList.swift
-//  Code App
+//  CodifyOne
 //
 //  Created by Ken Chung on 31/1/2021.
 //

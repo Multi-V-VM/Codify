@@ -116,7 +116,7 @@ public func javac(argc: Int32, argv: UnsafeMutablePointer<UnsafeMutablePointer<I
 @_cdecl("node")
 public func node(argc: Int32, argv: UnsafeMutablePointer<UnsafeMutablePointer<Int8>?>?) -> Int32 {
     guard let args = convertCArguments(argc: argc, argv: argv), args.count > 1 else {
-        fputs("Welcome to Node.js (WASM). REPL is unavailable in Code App.\n", thread_stderr)
+        fputs("Welcome to Node.js (WASM). REPL is unavailable in CodifyOne.\n", thread_stderr)
         return 1
     }
     return runNodeWasm(args: args)

@@ -5,4 +5,4 @@
   Created by Ken Chung on 2/5/2021.
   
 */
-"NSPhotoLibraryAddUsageDescription" = "이미지를 저장하기 위해 사진 라이브러리에 대한 Code App의 접근 권한이 필요합니다.";
+"NSPhotoLibraryAddUsageDescription" = "이미지를 저장하기 위해 사진 라이브러리에 대한 CodifyOne의 접근 권한이 필요합니다.";

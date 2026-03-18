@@ -1,6 +1,6 @@
 //
 //  SourceControlAuthenticationConfiguration.swift
-//  Code App
+//  CodifyOne
 //
 //  Created by Ken Chung on 2/1/2021.
 //

@@ -852,7 +852,7 @@ Tue Jun  1 20:06:44 1999  Guido van Rossum  <guido@cnri.reston.va.us>
 	I have <whew!>.  You can make it slow by, e.g., creating an open list with
 	5,000 90-character identifiers (+ trailing comma) each on its own line, then
 	adding an item to the end -- but that still consumes less than a second on
-	my P5-166.  Response time in real code appears instantaneous.
+	my P5-166.  Response time in real CodifyOneears instantaneous.
 
 	Fixed some bugs.
 

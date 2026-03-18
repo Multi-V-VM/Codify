@@ -1,6 +1,6 @@
 //
 //  SettingsView.swift
-//  Code App
+//  CodifyOne
 //
 //  Created by Ken Chung on 5/12/2020.
 //
@@ -94,7 +94,7 @@ struct SettingsView: View {
                             else { return }
                             UIApplication.shared.open(writeReviewURL)
                         }) {
-                            Text(NSLocalizedString("Rate Code App", comment: ""))
+                            Text(NSLocalizedString("Rate CodifyOne", comment: ""))
                         }
                     }
 
@@ -371,7 +371,7 @@ struct SettingsView: View {
                                 }, secondaryButton: .cancel())
                         }
 
-                        Text("Code App by thebaselab").font(.footnote).foregroundColor(.gray)
+                        Text("CodifyOne by thebaselab").font(.footnote).foregroundColor(.gray)
                             .onTapGesture(
                                 count: 2,
                                 perform: {

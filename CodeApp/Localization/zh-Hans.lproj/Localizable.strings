@@ -1,13 +1,13 @@
 /* 
   Localizable.strings
-  Code App
+  CodifyOne
 
   Created by Ken Chung on 6/12/2020.
   
 */
 
 "Welcome Message" =
-"# Code App
+"# CodifyOne
 ##### **v1.11.0 (2025 年 10 月)**
 #### 开始
 [新文件](https://thebaselab.com/code/newfile)
@@ -311,7 +311,7 @@
   - 现在默认隐藏以点开头的文件或目录
   - 能够以两指平移手势选择项目
 - 其他改进
-  - 您可以直接从文件应用程序或其他应用程序中使用 Code App 打开文件
+  - 您可以直接从文件应用程序或其他应用程序中使用 CodifyOne 打开文件
   - 可以在主屏幕上按住应用程序图标以打开最近文档
 ";
 
@@ -366,7 +366,7 @@
 "Terminal Font Size" = "控制台字体大小";
 "Bracket Completion" = "自动输入括号";
 "Theme" = "主题";
-"Rate Code App" = "为 Code App 打分";
+"Rate CodifyOne" = "为 CodifyOne 打分";
 "About" = "关于";
 "Version" = "版本";
 

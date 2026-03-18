@@ -1,6 +1,6 @@
 //
 //  gitCell.swift
-//  Code App
+//  CodifyOne
 //
 //  Created by Ken Chung on 8/12/2020.
 //

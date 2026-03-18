@@ -1,13 +1,13 @@
 /*
   Localizable.strings
-  Code App
+  CodifyOne
 
   Created by Ken Chung on 6/12/2020.
   
 */
 
 "Welcome Message" =
-"# Code App
+"# CodifyOne
 ##### **v1.11.0 (2025년 10월)**
 #### 시작
 [새 파일...](https://thebaselab.com/code/newfile)
@@ -372,7 +372,7 @@
 "Terminal Font Size" = "터미널 글꼴 크기";
 "Bracket Completion" = "괄호 자동 완성";
 "Theme" = "테마";
-"Rate Code App" = "Code App 평가하기";
+"Rate CodifyOne" = "CodifyOne 평가하기";
 "About" = "정보";
 "Version" = "버전";
 
@@ -436,7 +436,7 @@
 "Welcome" = "시작하기";
 "Licenses" = "라이선스";
 "Version" = "버전";
-"Code App by thebaselab" = "thebaselab의 Code App";
+"CodifyOne by thebaselab" = "thebaselab의 CodifyOne";
 "Themes" = "테마";
 "Read-only Mode" = "읽기 전용 모드";
 "Show Welcome Page" = "시작하기 화면 보기";

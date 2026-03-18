@@ -1,13 +1,13 @@
 /* 
   Localizable.strings
-  Code App
+  CodifyOne
 
   Created by Ken Chung on 6/12/2020.
   
 */
 
 "Welcome Message" =
-"# Code App
+"# CodifyOne
 ##### **v1.11.0 (October 2025)**
 #### Start
 [New file](https://thebaselab.com/code/newfile)
@@ -317,7 +317,7 @@
   - Files or directories starting with a dot are now hidden by default
   - Ability to select items with a Two-Finger pan gesture
 - Other improvements
-  - You can now open files with Code App from Files app or other Apps directly
+  - You can now open files with CodifyOne from Files app or other Apps directly
   - You can now hold the app icon from Home Screen to reveal recent documents
   - Fixed a typo
 ";

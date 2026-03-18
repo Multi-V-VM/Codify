@@ -1,6 +1,6 @@
 //
 //  markdown.swift
-//  Code App
+//  CodifyOne
 //
 //  Created by Ken Chung on 6/12/2020.
 //

@@ -350,7 +350,7 @@ struct ExtensionsContainer: View {
                 name: "Monaco Editor",
                 description: "Code editor with syntax highlighting",
                 version: "1.0.0",
-                author: "Code App",
+                author: "CodifyOne",
                 isEnabled: true
             ),
             ExtensionInfo(
@@ -358,7 +358,7 @@ struct ExtensionsContainer: View {
                 name: "Terminal",
                 description: "Integrated terminal emulator",
                 version: "1.0.0",
-                author: "Code App",
+                author: "CodifyOne",
                 isEnabled: true
             ),
             ExtensionInfo(
@@ -366,7 +366,7 @@ struct ExtensionsContainer: View {
                 name: "Git",
                 description: "Source control management",
                 version: "1.0.0",
-                author: "Code App",
+                author: "CodifyOne",
                 isEnabled: true
             )
         ]

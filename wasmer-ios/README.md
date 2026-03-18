@@ -92,7 +92,7 @@ public func swift_python(argc: Int32, argv: UnsafeMutablePointer<UnsafeMutablePo
 
 In your app, register `python` to point at `swift_python` so existing Python workflows keep working.
 
-## Integration into Code App
+## Integration into CodifyOne
 
 ### 1. Copy XCFramework
 
@@ -103,7 +103,7 @@ cp -r WasmerRuntime.xcframework ../Resources/
 ### 2. Link in Xcode
 
 Open `Code.xcodeproj` and:
-1. Select the "Code App" target
+1. Select the "CodifyOne" target
 2. Go to "General" → "Frameworks, Libraries, and Embedded Content"
 3. Click "+" and add `WasmerRuntime.xcframework`
 4. Set "Embed" to "Do Not Embed" (it's a static library)
@@ -131,7 +131,7 @@ replaceCommand("wasmer", "wasmer", true)
 
 ### 5. Build and Run
 
-Build the Code App. The `wasmer` command should now be available in the terminal.
+Build the CodifyOne. The `wasmer` command should now be available in the terminal.
 
 ## Usage
 
@@ -227,4 +227,4 @@ Check that:
 
 ## License
 
-This wrapper is part of the Code App project. Wasmer is licensed under the MIT License.
+This wrapper is part of the CodifyOne project. Wasmer is licensed under the MIT License.

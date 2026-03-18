@@ -87,9 +87,9 @@ GET /api/marketplace/publishers/:publisher/vsextensions/:extension/:version/vspa
 GET /api/marketplace/featured?count=20
 ```
 
-## Integration with Code App
+## Integration with CodifyOne
 
-1. Open Code App
+1. Open CodifyOne
 2. Go to Extensions (Cmd+Shift+X)
 3. Click the menu (⋯) → Extension Settings
 4. Set Marketplace URL to:
@@ -100,7 +100,7 @@ GET /api/marketplace/featured?count=20
 
 ```
 ┌─────────────┐
-│  Code App   │
+│  CodifyOne   │
 └──────┬──────┘
        │
        ↓
@@ -311,4 +311,4 @@ MIT License - see LICENSE file for details
 
 ---
 
-Made with ❤️ for Code App
+Made with ❤️ for CodifyOne

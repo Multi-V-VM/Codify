@@ -5,4 +5,4 @@
   Created by Ken Chung on 2/5/2021.
   
 */
-"NSPhotoLibraryAddUsageDescription" = "Code App需要访问照片库以保存图像。";
+"NSPhotoLibraryAddUsageDescription" = "CodifyOne需要访问照片库以保存图像。";

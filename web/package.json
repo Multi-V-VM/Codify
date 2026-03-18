@@ -15,7 +15,7 @@
     "proxy",
     "api"
   ],
-  "author": "Code App",
+  "author": "CodifyOne",
   "license": "MIT",
   "dependencies": {
     "express": "^4.18.2",
