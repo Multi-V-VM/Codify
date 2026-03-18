@@ -95,17 +95,26 @@ platform :ios do
       targets: ["extension"]
     )
 
+    # Xcode 26 uses 'destination' instead of 'method' in export options
+    require 'plist'
+    export_plist = {
+      "destination" => "upload",
+      "signingStyle" => "manual",
+      "teamID" => ENV["DEVELOPER_PORTAL_TEAM_ID"],
+      "uploadSymbols" => true,
+      "provisioningProfiles" => {
+        "#{DEVELOPER_APP_IDENTIFIER}" => "match AppStore #{DEVELOPER_APP_IDENTIFIER}",
+        "#{DEVELOPER_APP_EXTENSION_IDENTIFIER}" => "match AppStore #{DEVELOPER_APP_EXTENSION_IDENTIFIER}"
+      }
+    }
+    plist_path = File.expand_path("../ExportOptions.plist", __dir__)
+    Plist::Emit.save_plist(export_plist, plist_path)
+
     gym(
       configuration: "Release",
       project: "Code.xcodeproj",
       scheme: "Code App",
-      export_method: "development",
-      export_options: {
-        provisioningProfiles: {
-          "#{DEVELOPER_APP_IDENTIFIER}" => "match AppStore #{DEVELOPER_APP_IDENTIFIER}",
-          "#{DEVELOPER_APP_EXTENSION_IDENTIFIER}" => "match AppStore #{DEVELOPER_APP_EXTENSION_IDENTIFIER}"
-        }
-      }
+      export_options: plist_path
     )
 
     pilot(
