@@ -753,6 +753,8 @@
 		947BBCF82C12F5AA00FFD0C5 /* TreeSitterYAMLRunestone in Frameworks */ = {isa = PBXBuildFile; productRef = 947BBCF72C12F5AA00FFD0C5 /* TreeSitterYAMLRunestone */; };
 		947BF349262453040015DAEB /* SearchManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947BF348262453040015DAEB /* SearchManager.swift */; };
 		94801F93266FB5E400B29D80 /* TerminalInstance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94801F92266FB5E400B29D80 /* TerminalInstance.swift */; };
+		94801F97266FB5E500B29D80 /* TerminalManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94801F96266FB5E500B29D80 /* TerminalManager.swift */; };
+		94801F98266FB5E500B29D80 /* TerminalManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94801F96266FB5E500B29D80 /* TerminalManager.swift */; };
 		9484BDD12B46FAEE003BCB8A /* injection.js in Resources */ = {isa = PBXBuildFile; fileRef = 9484BDD02B46FAEE003BCB8A /* injection.js */; };
 		948A5FE92A87B09500303C12 /* NSError+init.swift in Sources */ = {isa = PBXBuildFile; fileRef = 948A5FE82A87B09500303C12 /* NSError+init.swift */; };
 		948A5FEA2A87B09500303C12 /* NSError+init.swift in Sources */ = {isa = PBXBuildFile; fileRef = 948A5FE82A87B09500303C12 /* NSError+init.swift */; };
@@ -803,6 +805,8 @@
 		94A7781E257BC473008FE7B2 /* ArchiveDir.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A7781D257BC473008FE7B2 /* ArchiveDir.swift */; };
 		94A77820257BC5AA008FE7B2 /* MainScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A7781F257BC5AA008FE7B2 /* MainScene.swift */; };
 		94A7782D257BCEE2008FE7B2 /* getRootDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A7782C257BCEE2008FE7B2 /* getRootDirectory.swift */; };
+		94A77831257BD681008FE7B2 /* TerminalTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A77830257BD681008FE7B2 /* TerminalTabBar.swift */; };
+		94A77832257BD682008FE7B2 /* TerminalTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A77830257BD681008FE7B2 /* TerminalTabBar.swift */; };
 		94A7FFB3268D085300369147 /* BottomBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A7FFB2268D085300369147 /* BottomBar.swift */; };
 		94AA00022E7F886A00BBCC02 /* node.wasm in Resources */ = {isa = PBXBuildFile; fileRef = 94AA00012E7F886A00BBCC01 /* node.wasm */; };
 		94AA00032E7F886A00BBCC03 /* node.wasm in Resources */ = {isa = PBXBuildFile; fileRef = 94AA00012E7F886A00BBCC01 /* node.wasm */; };
@@ -1982,6 +1986,7 @@
 		947A9D8827D3C562007680C3 /* UIApplication+getSafeArea.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIApplication+getSafeArea.swift"; sourceTree = "<group>"; };
 		947BF348262453040015DAEB /* SearchManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchManager.swift; sourceTree = "<group>"; };
 		94801F92266FB5E400B29D80 /* TerminalInstance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalInstance.swift; sourceTree = "<group>"; };
+		94801F96266FB5E500B29D80 /* TerminalManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalManager.swift; sourceTree = "<group>"; };
 		9484BDD02B46FAEE003BCB8A /* injection.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = injection.js; sourceTree = "<group>"; };
 		948A5FE82A87B09500303C12 /* NSError+init.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSError+init.swift"; sourceTree = "<group>"; };
 		948D11FE2583F20C008F877A /* extraCommandsDictionary.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = extraCommandsDictionary.plist; sourceTree = "<group>"; };
@@ -2022,6 +2027,7 @@
 		94A7781D257BC473008FE7B2 /* ArchiveDir.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveDir.swift; sourceTree = "<group>"; };
 		94A7781F257BC5AA008FE7B2 /* MainScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainScene.swift; sourceTree = "<group>"; };
 		94A7782C257BCEE2008FE7B2 /* getRootDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = getRootDirectory.swift; sourceTree = "<group>"; };
+		94A77830257BD681008FE7B2 /* TerminalTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalTabBar.swift; sourceTree = "<group>"; };
 		94A7FFB2268D085300369147 /* BottomBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomBar.swift; sourceTree = "<group>"; };
 		94AA00012E7F886A00BBCC01 /* node.wasm */ = {isa = PBXFileReference; lastKnownFileType = file; path = node.wasm; sourceTree = "<group>"; };
 		94B3D5D525F776A900C4F2B1 /* cacert.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = cacert.pem; sourceTree = "<group>"; };
@@ -3126,72 +3132,73 @@
 		9F3C2DEF291CAD2200BFF14C /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				1C4C8DCD2EA89040008E5E33 /* ActivityBar.swift */,
-				1C4C8DCE2EA89040008E5E33 /* ActivityBarItemView.swift */,
-				1C4C8DCF2EA89040008E5E33 /* ChatView.swift */,
-				1C4C8DD02EA89040008E5E33 /* CompactSidebar.swift */,
-				1C4C8DD12EA89040008E5E33 /* DebugMenu.swift */,
-				1C4C8DD22EA89040008E5E33 /* DescriptionText.swift */,
-				F97209442F4638C200DA803A /* DebuggerSidebarView.swift */,
-				1C4C8DD32EA89040008E5E33 /* DirectoryPickerView.swift */,
-				1C4C8DD42EA89040008E5E33 /* DocumentPickerView.swift */,
-				1C4C8DD52EA89040008E5E33 /* EditorContextMenu.swift */,
-				1C4C8DD62EA89040008E5E33 /* EditorKeyboardToolBar.swift */,
-				1C4C8DD72EA89040008E5E33 /* EditorTab.swift */,
-				1C4C8DD82EA89040008E5E33 /* EditorTabs.swift */,
-				1C4C8DD92EA89040008E5E33 /* EditorView.swift */,
-				1C4C8DDA2EA89040008E5E33 /* ExplorerCell.swift */,
-				1C4C8DDB2EA89040008E5E33 /* ExplorerEditorListSection.swift */,
-				1C4C8DDC2EA89040008E5E33 /* ExplorerFileTreeSection.swift */,
-				1C4C8DDD2EA89040008E5E33 /* ExtensionSettingsView.swift */,
-				1C4C8DDE2EA89040008E5E33 /* FileDisplayName.swift */,
-				1C4C8DDF2EA89040008E5E33 /* FileIcon.swift */,
-				1C4C8DE02EA89040008E5E33 /* FileTreeView.swift */,
-				1C4C8DE12EA89040008E5E33 /* GitHubSearchView.swift */,
-				1C4C8DE22EA89040008E5E33 /* HierarchyList.swift */,
-				1C4C8DE32EA89040008E5E33 /* HighlightedText.swift */,
-				1C4C8DE42EA89040008E5E33 /* InfiniteProgressView.swift */,
-				1C4C8DE52EA89040008E5E33 /* MarkdownView.swift */,
-				1C4C8DE62EA89040008E5E33 /* MenuButtonView.swift */,
-				1C4C8DE72EA89040008E5E33 /* ModelSettingsView.swift */,
-				1C4C8DE82EA89040008E5E33 /* NewFileView.swift */,
-				1C4C8DE92EA89040008E5E33 /* NotificationCentreView.swift */,
-				1C4C8DEA2EA89040008E5E33 /* PanelSelector.swift */,
-				1C4C8DEB2EA89040008E5E33 /* PanelView.swift */,
-				1C4C8DEC2EA89040008E5E33 /* RegularSidebar.swift */,
-				1C4C8DED2EA89040008E5E33 /* RemoteConnectedSection.swift */,
-				1C4C8DEE2EA89040008E5E33 /* RemoteCreateSection.swift */,
-				1C4C8DEF2EA89040008E5E33 /* RemoteHostCell.swift */,
-				1C4C8DF02EA89040008E5E33 /* RemoteImage.swift */,
-				1C4C8DF12EA89040008E5E33 /* RemoteListSection.swift */,
-				1C4C8DF22EA89040008E5E33 /* RemoteTypeLabel.swift */,
-				1C4C8DF32EA89040008E5E33 /* RightPanelView.swift */,
-				1C4C8DF42EA89040008E5E33 /* SafariView.swift */,
-				1C4C8DF52EA89040008E5E33 /* SearchBar.swift */,
-				1C4C8DF62EA89040008E5E33 /* SearchResultsSection.swift */,
-				1C4C8DF72EA89040008E5E33 /* SearchSection.swift */,
-				1C4C8DF82EA89040008E5E33 /* SearchUnsupportedSection.swift */,
-				1C4C8DF92EA89040008E5E33 /* SettingsFontPicker.swift */,
-				1C4C8DFA2EA89040008E5E33 /* SettingsKeyboardShortcuts.swift */,
-				1C4C8DFB2EA89040008E5E33 /* SettingsThemeConfiguration.swift */,
-				1C4C8DFC2EA89040008E5E33 /* SettingsView.swift */,
-				1C4C8DFD2EA89040008E5E33 /* SideBarButton.swift */,
-				1C4C8DFE2EA89040008E5E33 /* SourceControlAuthenticationConfiguration.swift */,
-				1C4C8DFF2EA89040008E5E33 /* SourceControlCloneSection.swift */,
-				1C4C8E002EA89040008E5E33 /* SourceControlEmptySection.swift */,
-				1C4C8E012EA89040008E5E33 /* SourceControlEntry.swift */,
-				1C4C8E022EA89040008E5E33 /* SourceControlIdentityConfiguration.swift */,
-				1C4C8E032EA89040008E5E33 /* SourceControlSection.swift */,
-				1C4C8E042EA89040008E5E33 /* SourceControlTemplateSection.swift */,
-				1C4C8E052EA89040008E5E33 /* SourceControlTextFieldAlert.swift */,
-				1C4C8E062EA89040008E5E33 /* SourceControlUnsupportedSection.swift */,
-				1C4C8E072EA89040008E5E33 /* TableView.swift */,
-				1C4C8E082EA89040008E5E33 /* TerminalKeyboardToolbar.swift */,
-				1C4C8E092EA89040008E5E33 /* TextEditorWithPlaceholder.swift */,
-				1C4C8E0A2EA89040008E5E33 /* TopBar.swift */,
-				1C4C8E0B2EA89040008E5E33 /* ViewRepresentable.swift */,
-				AAB10005302B000100AABB01 /* VibeCodingView.swift */,
-				1C4C8E0C2EA89040008E5E33 /* VISXPackageManager.swift */,
+1C4C8DCD2EA89040008E5E33 /* ActivityBar.swift */,
+1C4C8DCE2EA89040008E5E33 /* ActivityBarItemView.swift */,
+1C4C8DCF2EA89040008E5E33 /* ChatView.swift */,
+1C4C8DD02EA89040008E5E33 /* CompactSidebar.swift */,
+1C4C8DD12EA89040008E5E33 /* DebugMenu.swift */,
+1C4C8DD22EA89040008E5E33 /* DescriptionText.swift */,
+F97209442F4638C200DA803A /* DebuggerSidebarView.swift */,
+1C4C8DD32EA89040008E5E33 /* DirectoryPickerView.swift */,
+1C4C8DD42EA89040008E5E33 /* DocumentPickerView.swift */,
+1C4C8DD52EA89040008E5E33 /* EditorContextMenu.swift */,
+1C4C8DD62EA89040008E5E33 /* EditorKeyboardToolBar.swift */,
+1C4C8DD72EA89040008E5E33 /* EditorTab.swift */,
+1C4C8DD82EA89040008E5E33 /* EditorTabs.swift */,
+1C4C8DD92EA89040008E5E33 /* EditorView.swift */,
+1C4C8DDA2EA89040008E5E33 /* ExplorerCell.swift */,
+1C4C8DDB2EA89040008E5E33 /* ExplorerEditorListSection.swift */,
+1C4C8DDC2EA89040008E5E33 /* ExplorerFileTreeSection.swift */,
+1C4C8DDD2EA89040008E5E33 /* ExtensionSettingsView.swift */,
+1C4C8DDE2EA89040008E5E33 /* FileDisplayName.swift */,
+1C4C8DDF2EA89040008E5E33 /* FileIcon.swift */,
+1C4C8DE02EA89040008E5E33 /* FileTreeView.swift */,
+1C4C8DE12EA89040008E5E33 /* GitHubSearchView.swift */,
+1C4C8DE22EA89040008E5E33 /* HierarchyList.swift */,
+1C4C8DE32EA89040008E5E33 /* HighlightedText.swift */,
+1C4C8DE42EA89040008E5E33 /* InfiniteProgressView.swift */,
+1C4C8DE52EA89040008E5E33 /* MarkdownView.swift */,
+1C4C8DE62EA89040008E5E33 /* MenuButtonView.swift */,
+1C4C8DE72EA89040008E5E33 /* ModelSettingsView.swift */,
+1C4C8DE82EA89040008E5E33 /* NewFileView.swift */,
+1C4C8DE92EA89040008E5E33 /* NotificationCentreView.swift */,
+1C4C8DEA2EA89040008E5E33 /* PanelSelector.swift */,
+1C4C8DEB2EA89040008E5E33 /* PanelView.swift */,
+1C4C8DEC2EA89040008E5E33 /* RegularSidebar.swift */,
+1C4C8DED2EA89040008E5E33 /* RemoteConnectedSection.swift */,
+1C4C8DEE2EA89040008E5E33 /* RemoteCreateSection.swift */,
+1C4C8DEF2EA89040008E5E33 /* RemoteHostCell.swift */,
+1C4C8DF02EA89040008E5E33 /* RemoteImage.swift */,
+1C4C8DF12EA89040008E5E33 /* RemoteListSection.swift */,
+1C4C8DF22EA89040008E5E33 /* RemoteTypeLabel.swift */,
+1C4C8DF32EA89040008E5E33 /* RightPanelView.swift */,
+1C4C8DF42EA89040008E5E33 /* SafariView.swift */,
+1C4C8DF52EA89040008E5E33 /* SearchBar.swift */,
+1C4C8DF62EA89040008E5E33 /* SearchResultsSection.swift */,
+1C4C8DF72EA89040008E5E33 /* SearchSection.swift */,
+1C4C8DF82EA89040008E5E33 /* SearchUnsupportedSection.swift */,
+1C4C8DF92EA89040008E5E33 /* SettingsFontPicker.swift */,
+1C4C8DFA2EA89040008E5E33 /* SettingsKeyboardShortcuts.swift */,
+1C4C8DFB2EA89040008E5E33 /* SettingsThemeConfiguration.swift */,
+1C4C8DFC2EA89040008E5E33 /* SettingsView.swift */,
+1C4C8DFD2EA89040008E5E33 /* SideBarButton.swift */,
+1C4C8DFE2EA89040008E5E33 /* SourceControlAuthenticationConfiguration.swift */,
+1C4C8DFF2EA89040008E5E33 /* SourceControlCloneSection.swift */,
+1C4C8E002EA89040008E5E33 /* SourceControlEmptySection.swift */,
+1C4C8E012EA89040008E5E33 /* SourceControlEntry.swift */,
+1C4C8E022EA89040008E5E33 /* SourceControlIdentityConfiguration.swift */,
+1C4C8E032EA89040008E5E33 /* SourceControlSection.swift */,
+1C4C8E042EA89040008E5E33 /* SourceControlTemplateSection.swift */,
+1C4C8E052EA89040008E5E33 /* SourceControlTextFieldAlert.swift */,
+1C4C8E062EA89040008E5E33 /* SourceControlUnsupportedSection.swift */,
+1C4C8E072EA89040008E5E33 /* TableView.swift */,
+1C4C8E082EA89040008E5E33 /* TerminalKeyboardToolbar.swift */,
+94A77830257BD681008FE7B2 /* TerminalTabBar.swift */,
+1C4C8E092EA89040008E5E33 /* TextEditorWithPlaceholder.swift */,
+1C4C8E0A2EA89040008E5E33 /* TopBar.swift */,
+1C4C8E0B2EA89040008E5E33 /* ViewRepresentable.swift */,
+AAB10005302B000100AABB01 /* VibeCodingView.swift */,
+1C4C8E0C2EA89040008E5E33 /* VISXPackageManager.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -3326,6 +3333,7 @@
 				94A777BD257B74EE008FE7B2 /* NotificationManager.swift */,
 				942ACB9C281312900067114D /* SpellChecker.swift */,
 				94801F92266FB5E400B29D80 /* TerminalInstance.swift */,
+				94801F96266FB5E500B29D80 /* TerminalManager.swift */,
 				9F046C312922203E00BDE4E9 /* ToolbarManager.swift */,
 				9F046C3429222D8E00BDE4E9 /* ExtensionManager.swift */,
 				9FA1225B2A8B209500E7B417 /* CodeAppContributionPointManager.swift */,
@@ -3927,6 +3935,7 @@
 				1C4C8E932EA89089008E5E33 /* ChatExtension.swift in Sources */,
 				AAB10001302B000100AABB01 /* VibeCodingView.swift in Sources */,
 				94E6CC7C2806FBAF00939E4F /* SFTPFileSystemProvider.swift in Sources */,
+				94A77832257BD682008FE7B2 /* TerminalTabBar.swift in Sources */,
 				94196974280316C7008AAEB2 /* LocalGitServiceProvider.swift in Sources */,
 				9474D2982B6B4B1300CCC530 /* EditorImplemenationView.swift in Sources */,
 				94196976280316C7008AAEB2 /* SearchContainer.swift in Sources */,
@@ -3963,6 +3972,7 @@
 				947313132BDFB80D004A9960 /* ExtensionCommunicationHelper.swift in Sources */,
 				94196986280316C7008AAEB2 /* node.swift in Sources */,
 				94196988280316C7008AAEB2 /* TerminalInstance.swift in Sources */,
+				94801F98266FB5E500B29D80 /* TerminalManager.swift in Sources */,
 				94196989280316C7008AAEB2 /* convertCArguments.swift in Sources */,
 				9FD5BCED292495DF00F20C4B /* DefaultUIState.swift in Sources */,
 				9419698B280316C7008AAEB2 /* EditorInstance.swift in Sources */,
@@ -4149,6 +4159,7 @@
 				94F52707259F9B4800337306 /* KeychainWrapper.swift in Sources */,
 				942ACB9D281312900067114D /* SpellChecker.swift in Sources */,
 				94E6CC7B2806FBAF00939E4F /* SFTPFileSystemProvider.swift in Sources */,
+				94A77831257BD681008FE7B2 /* TerminalTabBar.swift in Sources */,
 				944FC3FF25C543CD00C7C43C /* LocalGitServiceProvider.swift in Sources */,
 				9474D2972B6B4B1300CCC530 /* EditorImplemenationView.swift in Sources */,
 				94A777D2257B8A32008FE7B2 /* SearchContainer.swift in Sources */,
@@ -4185,6 +4196,7 @@
 				947313122BDFB80D004A9960 /* ExtensionCommunicationHelper.swift in Sources */,
 				949B3CC725DEAAA700BC83B5 /* node.swift in Sources */,
 				94801F93266FB5E400B29D80 /* TerminalInstance.swift in Sources */,
+				94801F97266FB5E500B29D80 /* TerminalManager.swift in Sources */,
 				94F2FEA926A2EB0E007EBC6D /* convertCArguments.swift in Sources */,
 				9FD5BCEC292495DF00F20C4B /* DefaultUIState.swift in Sources */,
 				94A77796257ABB69008FE7B2 /* EditorInstance.swift in Sources */,
@@ -4291,7 +4303,7 @@
 					"@executable_path/Frameworks",
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
-				MARKETING_VERSION = 1.11.0;
+				MARKETING_VERSION = 1.12.0;
 				OTHER_SWIFT_FLAGS = "-Xcc -Wno-incomplete-umbrella";
 				PRODUCT_BUNDLE_IDENTIFIER = "vickiegpt.VS-Code";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -4340,7 +4352,7 @@
 					"@executable_path/Frameworks",
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
-				MARKETING_VERSION = 1.11.0;
+				MARKETING_VERSION = 1.12.0;
 				OTHER_SWIFT_FLAGS = "-Xcc -Wno-incomplete-umbrella";
 				PRODUCT_BUNDLE_IDENTIFIER = "vickiegpt.VS-Code";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -4591,7 +4603,7 @@
 					"@executable_path/Frameworks",
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
-				MARKETING_VERSION = 1.11.0;
+				MARKETING_VERSION = 1.12.0;
 				OTHER_SWIFT_FLAGS = "-Xcc -Wno-incomplete-umbrella";
 				PRODUCT_BUNDLE_IDENTIFIER = "vickiegpt.VS-Code";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -4639,7 +4651,7 @@
 					"@executable_path/Frameworks",
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
-				MARKETING_VERSION = 1.11.0;
+				MARKETING_VERSION = 1.12.0;
 				OTHER_SWIFT_FLAGS = "-Xcc -Wno-incomplete-umbrella";
 				PRODUCT_BUNDLE_IDENTIFIER = "vickiegpt.VS-Code";
 				PRODUCT_NAME = "$(TARGET_NAME)";

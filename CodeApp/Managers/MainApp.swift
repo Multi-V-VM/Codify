@@ -11,6 +11,9 @@ import SwiftGit2
 import SwiftUI
 import UniformTypeIdentifiers
 import ios_system
+import os.log
+
+private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Code", category: "MainApp")
 
 struct CheckoutDestination: Identifiable {
     var id = UUID()
@@ -193,8 +196,9 @@ class MainApp: ObservableObject {
     var editorShortcuts: [MonacoEditorAction] = []
     var monacoStateToRestore: String? = nil
 
-    var terminalInstance: TerminalInstance! = nil
+    let terminalManager: TerminalManager
     var monacoInstance: EditorImplementation! = nil
+
     var editorTypesMonitor: FolderMonitor? = nil
     let deviceSupportsBiometricAuth: Bool = biometricAuthSupported()
     let sceneIdentifier = UUID()
@@ -204,6 +208,8 @@ class MainApp: ObservableObject {
     private var searchCancellable: AnyCancellable? = nil
     private var textSearchCancellable: AnyCancellable? = nil
     private var workSpaceCancellable: AnyCancellable? = nil
+    private var cancellables = Set<AnyCancellable>()
+    private var isConfiguringOpenEditors = false
 
     @AppStorage("alwaysOpenInNewTab") var alwaysOpenInNewTab: Bool = false
     @AppStorage("explorer.confirmBeforeDelete") var confirmBeforeDelete = false
@@ -223,18 +229,23 @@ class MainApp: ObservableObject {
 
         self.workSpaceStorage = WorkSpaceStorage(url: rootDir)
 
-        terminalInstance = TerminalInstance(root: rootDir, options: terminalOptions.value)
+        // Use helper to read options before self is fully initialized
+        let options = TerminalManager.readTerminalOptionsFromDefaults()
+        self.terminalManager = TerminalManager(rootURL: rootDir, options: options)
         setUpEditorInstance()
 
-        terminalInstance.openEditor = { [weak self] url in
-            if url.isDirectory {
-                DispatchQueue.main.async {
-                    self?.loadFolder(url: url)
-                }
-            } else {
-                self?.openFile(url: url)
+        // Set up openEditor callback for initial terminal
+        configureOpenEditorForTerminals()
+
+        // Forward terminalManager changes to MainApp so UI updates
+        terminalManager.objectWillChange.sink { [weak self] _ in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.objectWillChange.send()
+                // Set up openEditor for any new terminals
+                self.scheduleConfigureOpenEditorForTerminals()
             }
-        }
+        }.store(in: &cancellables)
 
         // TODO: Support deleted files detection for remote files
         workSpaceStorage.onDirectoryChange { [weak self] url in
@@ -250,7 +261,22 @@ class MainApp: ObservableObject {
             }
         }
         workSpaceStorage.onTerminalData { [weak self] data in
-            self?.terminalInstance.write(data: data)
+            guard let self = self else { return }
+            // Use the tracked remote terminal for consistent data routing
+            if let terminal = self.terminalManager.remoteTerminal {
+                terminal.write(data: data)
+            } else {
+                logger.warning(
+                    "Remote terminal data dropped: no remote terminal available (\(data.count) bytes)"
+                )
+            }
+        }
+        workSpaceStorage.onRemoteDisconnect { [weak self] in
+            guard let self = self else { return }
+            Task { @MainActor in
+                let documentDir = getRootDirectory()
+                self.loadFolder(url: documentDir)
+            }
         }
         loadRepository(url: rootDir)
 
@@ -299,6 +325,30 @@ class MainApp: ObservableObject {
         monacoInstance.delegate = self
         for textEditor in textEditors {
             textEditor.view = AnyView(EditorImplementationView(implementation: monacoInstance))
+        }
+    }
+
+    private func configureOpenEditorForTerminals() {
+        for terminal in terminalManager.terminals where terminal.openEditor == nil {
+            terminal.openEditor = { [weak self] url in
+                if url.isDirectory {
+                    DispatchQueue.main.async {
+                        self?.loadFolder(url: url)
+                    }
+                } else {
+                    self?.openFile(url: url)
+                }
+            }
+        }
+    }
+
+    private func scheduleConfigureOpenEditorForTerminals() {
+        guard !isConfiguringOpenEditors else { return }
+        isConfiguringOpenEditors = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.configureOpenEditorForTerminals()
+            self.isConfiguringOpenEditors = false
         }
     }
 
@@ -459,7 +509,7 @@ class MainApp: ObservableObject {
                         self.stateManager.showsNewFileSheet.toggle()
                     },
                     onSelectFolderAsWorkspaceStorage: { url in
-                        self.loadFolder(url: url, resetEditors: true)
+                        self.loadFolder(url: url)
                     },
                     onSelectFolder: {
                         self.stateManager.showsDirectoryPicker.toggle()
@@ -758,7 +808,7 @@ class MainApp: ObservableObject {
         guard let url = URL(string: workSpaceStorage.currentDirectory.url) else {
             return
         }
-        loadFolder(url: url, resetEditors: false)
+        loadFolder(url: url, resetEditorsAndTerminals: false)
     }
 
     private func groupStatusEntries(entries: [StatusEntry]) -> (
@@ -899,49 +949,62 @@ class MainApp: ObservableObject {
         updateGitRepositoryStatus()
     }
 
-    func loadFolder(url: URL, resetEditors: Bool = true) {
-        let url = url.standardizedFileURL
-        if workSpaceStorage.remoteConnected && url.isFileURL {
-            workSpaceStorage.disconnect()
+    private func saveLocalURLToRecentFolders(url: URL) {
+        guard url.isFileURL,
+            let newBookmark = try? url.bookmarkData()
+        else {
+            return
+        }
+        if var bookmarks = UserDefaults.standard.value(forKey: "recentFolder") as? [Data] {
+            bookmarks = bookmarks.filter {
+                var isStale = false
+                guard
+                    let newURL = try? URL(
+                        resolvingBookmarkData: $0, bookmarkDataIsStale: &isStale)
+                else {
+                    return false
+                }
+                // We do not have a stable identity of a url due to sandboxing, compare lastPathComponent instead
+                return (newURL.lastPathComponent != url.lastPathComponent && !isStale)
+            }
+            bookmarks = [newBookmark] + bookmarks
+            if bookmarks.count > 5 {
+                bookmarks.removeLast()
+            }
+            UserDefaults.standard.setValue(bookmarks, forKey: "recentFolder")
+        } else {
+            UserDefaults.standard.setValue([newBookmark], forKey: "recentFolder")
+        }
+    }
+
+    /// Set the specified url as the root directory of the working space. The url can either be a local path or a remote path like sftp://xxxxx
+    @MainActor
+    func loadFolder(url: URL, resetEditorsAndTerminals: Bool = true) {
+        if resetEditorsAndTerminals {
+            self.closeAllEditors()
+            self.terminalManager.resetAndSetNewRootDirectory(url: url)
         }
 
-        ios_setDirectoryURL(url)
-
-        self.workSpaceStorage.updateDirectory(
-            name: url.lastPathComponent, url: url.absoluteString)
+        let url = url.standardizedFileURL
+        if url.isFileURL {
+            // Local urls
+            ios_setDirectoryURL(url)
+            if workSpaceStorage.remoteConnected && url.isFileURL {
+                workSpaceStorage.disconnect()
+            }
+            self.workSpaceStorage.updateDirectory(
+                name: url.lastPathComponent, url: url.absoluteString)
+            saveLocalURLToRecentFolders(url: url)
+        } else {
+            // Remote urls
+            notificationManager.showInformationMessage(
+                "remote.connected")
+            // Set terminal service provider for the active terminal
+            terminalManager.setTerminalServiceProviderForActiveTerminal(
+                workSpaceStorage.terminalServiceProvider)
+        }
 
         loadRepository(url: url)
-
-        if url.isFileURL,
-            let newBookmark = try? url.bookmarkData()
-        {
-            if var bookmarks = UserDefaults.standard.value(forKey: "recentFolder") as? [Data] {
-                bookmarks = bookmarks.filter {
-                    var isStale = false
-                    guard
-                        let newURL = try? URL(
-                            resolvingBookmarkData: $0, bookmarkDataIsStale: &isStale)
-                    else {
-                        return false
-                    }
-                    // We do not have a stable identity of a url due to sandboxing, compare lastPathComponent instead
-                    return (newURL.lastPathComponent != url.lastPathComponent && !isStale)
-                }
-                bookmarks = [newBookmark] + bookmarks
-                if bookmarks.count > 5 {
-                    bookmarks.removeLast()
-                }
-                UserDefaults.standard.setValue(bookmarks, forKey: "recentFolder")
-            } else {
-                UserDefaults.standard.setValue([newBookmark], forKey: "recentFolder")
-            }
-        }
-        if resetEditors {
-            DispatchQueue.main.async {
-                self.closeAllEditors()
-                self.terminalInstance.resetAndSetNewRootDirectory(url: url)
-            }
-        }
         extensionManager.onWorkSpaceStorageChanged(newUrl: url)
     }
 
