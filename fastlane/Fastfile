@@ -130,6 +130,6 @@ platform :ios do
     Dir.chdir("..") do
       sh("./downloadFrameworks.sh")
     end
-    run_tests(scheme: "Code UI")
+    run_tests(scheme: "CodifyOne")
   end
 end
