@@ -5,6 +5,9 @@ on:
       - "*"
       - "!gitbook"
 
+permissions:
+  contents: read
+
 jobs:
   Linting:
     runs-on: macOS-26
