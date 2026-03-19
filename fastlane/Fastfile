@@ -82,7 +82,7 @@ platform :ios do
       team_id: ENV["DEVELOPER_PORTAL_TEAM_ID"],
       bundle_identifier: DEVELOPER_APP_IDENTIFIER,
       profile_name: "match AppStore #{DEVELOPER_APP_IDENTIFIER}",
-      code_sign_identity: "iPhone Distribution"
+      code_sign_identity: "Apple Distribution"
     )
 
     update_code_signing_settings(
@@ -91,44 +91,33 @@ platform :ios do
       team_id: ENV["DEVELOPER_PORTAL_TEAM_ID"],
       bundle_identifier: DEVELOPER_APP_EXTENSION_IDENTIFIER,
       profile_name: "match AppStore #{DEVELOPER_APP_EXTENSION_IDENTIFIER}",
-      code_sign_identity: "iPhone Distribution",
+      code_sign_identity: "Apple Distribution",
       targets: ["extension"]
     )
-    # Archive only — skip gym's export since it injects 'method' which Xcode 26 rejects
+
     gym(
       configuration: "Release",
       project: "Code.xcodeproj",
       scheme: "CodifyOne",
-      skip_package_ipa: true
+      output_name: "Code",
+      output_directory: File.expand_path("..", __dir__),
+      export_method: "app-store",
+      export_options: {
+        method: "app-store",
+        signingStyle: "manual",
+        provisioningProfiles: {
+          DEVELOPER_APP_IDENTIFIER => "match AppStore #{DEVELOPER_APP_IDENTIFIER}",
+          DEVELOPER_APP_EXTENSION_IDENTIFIER => "match AppStore #{DEVELOPER_APP_EXTENSION_IDENTIFIER}"
+        }
+      }
     )
-
-    # Xcode 26 xcodebuild -exportArchive injects a default 'method: development' internally
-    # even when the plist omits it, then rejects it. Bypass by creating IPA from archive directly.
-    archive_path = lane_context[SharedValues::XCODEBUILD_ARCHIVE]
-    export_path = File.expand_path("../build_output", __dir__)
-
-    app_path = Dir["#{archive_path}/Products/Applications/*.app"].first
-    UI.user_error!("No .app found in archive at #{archive_path}") unless app_path
-
-    FileUtils.mkdir_p(export_path)
-    payload_dir = File.join(export_path, "Payload")
-    FileUtils.rm_rf(payload_dir)
-    FileUtils.mkdir_p(payload_dir)
-    FileUtils.cp_r(app_path, payload_dir)
-
-    ipa_output = File.join(export_path, "Code.ipa")
-    Dir.chdir(export_path) do
-      sh("zip -r '#{ipa_output}' Payload")
-    end
-
-    FileUtils.cp(ipa_output, File.expand_path("../Code.ipa", __dir__))
 
     pilot(
       apple_id: "#{DEVELOPER_APP_ID}",
       app_identifier: "#{DEVELOPER_APP_IDENTIFIER}",
       distribute_external: DISTRIBUTE_EXTERNAL,
       notify_external_testers: DISTRIBUTE_EXTERNAL,
-      ipa: "./Code.ipa",
+      ipa: File.expand_path("../Code.ipa", __dir__),
       changelog: "GitHub Action automated build. For detailed changes, " + 
       "visit https://github.com/thebaselab/codeapp.\n" + 
       "\nGenerated Changelog:\n" + changelog,
