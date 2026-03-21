@@ -159,11 +159,17 @@ platform :ios do
       UI.important("Warning: Could not find main provisioning profile '#{main_profile}'")
     end
 
-    # Re-sign embedded frameworks
+    # Extract entitlements from the already-signed app in the archive
+    # (codesign -d --entitlements extracts the embedded entitlements)
+    main_entitlements_file = File.join(export_path, "main.entitlements.plist")
+    sh("codesign -d --entitlements '#{main_entitlements_file}' '#{exported_app}' 2>/dev/null || true")
+    has_main_entitlements = File.exist?(main_entitlements_file) && File.size(main_entitlements_file) > 0
+
+    # Re-sign embedded frameworks (no entitlements needed for frameworks)
     frameworks_path = File.join(exported_app, "Frameworks")
     if File.directory?(frameworks_path)
       Dir["#{frameworks_path}/*.framework", "#{frameworks_path}/*.dylib"].each do |fw|
-        sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --timestamp=none '#{fw}'")
+        sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --timestamp '#{fw}'")
       end
     end
 
@@ -176,23 +182,24 @@ platform :ios do
       appex_fw = File.join(appex, "Frameworks")
       if File.directory?(appex_fw)
         Dir["#{appex_fw}/*.framework", "#{appex_fw}/*.dylib"].each do |fw|
-          sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --timestamp=none '#{fw}'")
+          sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --timestamp '#{fw}'")
         end
       end
-      entitlements_appex = File.join(appex, "archived-expanded-entitlements.xcent")
-      if File.exist?(entitlements_appex)
-        sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --entitlements '#{entitlements_appex}' --timestamp=none '#{appex}'")
+      # Extract extension entitlements from existing signature
+      ext_entitlements_file = File.join(export_path, "ext_#{File.basename(appex)}.entitlements.plist")
+      sh("codesign -d --entitlements '#{ext_entitlements_file}' '#{appex}' 2>/dev/null || true")
+      if File.exist?(ext_entitlements_file) && File.size(ext_entitlements_file) > 0
+        sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --entitlements '#{ext_entitlements_file}' --timestamp '#{appex}'")
       else
-        sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --timestamp=none '#{appex}'")
+        sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --timestamp '#{appex}'")
       end
     end
 
     # Re-sign the main app bundle
-    entitlements_main = File.join(exported_app, "archived-expanded-entitlements.xcent")
-    if File.exist?(entitlements_main)
-      sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --entitlements '#{entitlements_main}' --timestamp=none '#{exported_app}'")
+    if has_main_entitlements
+      sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --entitlements '#{main_entitlements_file}' --timestamp '#{exported_app}'")
     else
-      sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --timestamp=none '#{exported_app}'")
+      sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --timestamp '#{exported_app}'")
     end
 
     ipa_output = File.join(export_path, "Code.ipa")

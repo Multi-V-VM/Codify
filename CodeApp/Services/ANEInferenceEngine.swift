@@ -202,10 +202,19 @@ class ANEInferenceEngine {
         // Group RMSNorm
         y = groupRMSNorm(y, weight: w.ssmNorm)
 
-        // Gate
+        // D skip connection (feedthrough: y += D * x)
+        let D = w.ssmBeta.matvec(xNorm)
+        for g in 0..<nGroups {
+            for j in 0..<dInnerPerGroup {
+                let ch = g * dInnerPerGroup + j
+                y[ch] += D[g] * xSsm[ch]
+            }
+        }
+
+        // Gate (SiLU, NOT sigmoid)
         let gateRaw = w.attnGate.matvec(xNorm)
         for i in 0..<ssmInner {
-            y[i] *= 1.0 / (1.0 + exp(-gateRaw[i]))
+            y[i] *= gateRaw[i] / (1.0 + exp(-gateRaw[i]))
         }
 
         // Output projection + residual
@@ -431,6 +440,7 @@ class ANEInferenceEngine {
     }
 
     private func groupRMSNorm(_ x: [Float], weight: [Float]) -> [Float] {
+        let perChannel = weight.count > dInnerPerGroup
         var result = x
         for g in 0..<nGroups {
             let off = g * dInnerPerGroup
@@ -438,7 +448,8 @@ class ANEInferenceEngine {
             for j in 0..<dInnerPerGroup { sumSq += result[off + j] * result[off + j] }
             let rms = sqrt(sumSq / Float(dInnerPerGroup) + rmsEps)
             for j in 0..<dInnerPerGroup {
-                result[off + j] = (result[off + j] / rms) * weight[j]
+                let wIdx = perChannel ? (off + j) : j
+                result[off + j] = (result[off + j] / rms) * weight[wIdx]
             }
         }
         return result
