@@ -222,7 +222,10 @@ platform :ios do
 
     ipa_output = File.join(export_path, "Code.ipa")
     Dir.chdir(export_path) do
-      sh("zip -r '#{ipa_output}' Payload")
+      # Use ditto instead of zip — ditto preserves symlinks inside frameworks,
+      # extended attributes, and resource forks that code signatures depend on.
+      # Standard zip follows symlinks, corrupting framework structure and signatures.
+      sh("ditto -c -k --sequesterRsrc --keepParent Payload '#{ipa_output}'")
     end
 
     FileUtils.cp(ipa_output, File.expand_path("../Code.ipa", __dir__))
