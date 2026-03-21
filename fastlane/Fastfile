@@ -116,6 +116,67 @@ platform :ios do
     FileUtils.mkdir_p(payload_dir)
     FileUtils.cp_r(app_path, payload_dir)
 
+    # Re-sign with the Apple Distribution certificate before creating IPA.
+    # exportArchive normally does this, but we bypass it for Xcode 26 compat.
+    exported_app = File.join(payload_dir, File.basename(app_path))
+    sign_identity = "iPhone Distribution"
+    main_profile = ENV["PROVISIONING_PROFILE_SPECIFIER"] ||
+                   "match AppStore #{DEVELOPER_APP_IDENTIFIER}"
+    ext_profile  = "match AppStore #{DEVELOPER_APP_EXTENSION_IDENTIFIER}"
+
+    # Locate provisioning profiles installed by match
+    profiles_dir = File.expand_path("~/Library/MobileDevice/Provisioning Profiles")
+    main_profile_path = Dir["#{profiles_dir}/*.mobileprovision"].find do |p|
+      `/usr/libexec/PlistBuddy -c 'Print :Name' /dev/stdin <<< "$(/usr/bin/security cms -D -i '#{p}' 2>/dev/null)"`.strip == main_profile
+    end
+    ext_profile_path = Dir["#{profiles_dir}/*.mobileprovision"].find do |p|
+      `/usr/libexec/PlistBuddy -c 'Print :Name' /dev/stdin <<< "$(/usr/bin/security cms -D -i '#{p}' 2>/dev/null)"`.strip == ext_profile
+    end
+
+    # Embed provisioning profile in main app
+    if main_profile_path
+      FileUtils.cp(main_profile_path, File.join(exported_app, "embedded.mobileprovision"))
+      UI.message("Embedded main provisioning profile: #{main_profile}")
+    else
+      UI.important("Warning: Could not find main provisioning profile '#{main_profile}'")
+    end
+
+    # Re-sign embedded frameworks
+    frameworks_path = File.join(exported_app, "Frameworks")
+    if File.directory?(frameworks_path)
+      Dir["#{frameworks_path}/*.framework", "#{frameworks_path}/*.dylib"].each do |fw|
+        sh("codesign --force --sign '#{sign_identity}' --timestamp=none '#{fw}'")
+      end
+    end
+
+    # Re-sign app extensions with their provisioning profile
+    Dir["#{exported_app}/PlugIns/*.appex"].each do |appex|
+      if ext_profile_path
+        FileUtils.cp(ext_profile_path, File.join(appex, "embedded.mobileprovision"))
+      end
+      # Re-sign frameworks inside the extension first
+      appex_fw = File.join(appex, "Frameworks")
+      if File.directory?(appex_fw)
+        Dir["#{appex_fw}/*.framework", "#{appex_fw}/*.dylib"].each do |fw|
+          sh("codesign --force --sign '#{sign_identity}' --timestamp=none '#{fw}'")
+        end
+      end
+      entitlements_appex = File.join(appex, "archived-expanded-entitlements.xcent")
+      if File.exist?(entitlements_appex)
+        sh("codesign --force --sign '#{sign_identity}' --entitlements '#{entitlements_appex}' --timestamp=none '#{appex}'")
+      else
+        sh("codesign --force --sign '#{sign_identity}' --timestamp=none '#{appex}'")
+      end
+    end
+
+    # Re-sign the main app bundle
+    entitlements_main = File.join(exported_app, "archived-expanded-entitlements.xcent")
+    if File.exist?(entitlements_main)
+      sh("codesign --force --sign '#{sign_identity}' --entitlements '#{entitlements_main}' --timestamp=none '#{exported_app}'")
+    else
+      sh("codesign --force --sign '#{sign_identity}' --timestamp=none '#{exported_app}'")
+    end
+
     ipa_output = File.join(export_path, "Code.ipa")
     Dir.chdir(export_path) do
       sh("zip -r '#{ipa_output}' Payload")
