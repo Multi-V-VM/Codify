@@ -129,6 +129,19 @@ platform :ios do
     sh("security set-keychain-settings '#{keychain_path}'")
     sh("security unlock-keychain -p '#{keychain_password}' '#{keychain_path}'")
 
+    # Import Apple WWDR intermediate certificates so the full certificate chain
+    # is available. Without these, codesign embeds only the leaf cert and Apple
+    # rejects the signature as "not signed using an Apple submission certificate."
+    wwdr_urls = [
+      "https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer",
+      "https://www.apple.com/certificateauthority/AppleWWDRCAG6.cer"
+    ]
+    wwdr_urls.each do |url|
+      cer_file = File.join(export_path, File.basename(url))
+      sh("curl -sL '#{url}' -o '#{cer_file}'")
+      sh("security import '#{cer_file}' -k '#{keychain_path}' -T /usr/bin/codesign 2>/dev/null || true")
+    end
+
     # Find the distribution signing identity (SHA-1) from the temp keychain.
     # Match installs "Apple Distribution" (modern) or "iPhone Distribution" (legacy).
     identity_output = `security find-identity -v -p codesigning '#{keychain_path}'`
@@ -201,6 +214,11 @@ platform :ios do
     else
       sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --timestamp '#{exported_app}'")
     end
+
+    # Verify the signature is valid before creating IPA
+    sh("codesign --verify --deep --strict '#{exported_app}'")
+    UI.message("Signature verification details:")
+    sh("codesign -dvvv '#{exported_app}' 2>&1 || true")
 
     ipa_output = File.join(export_path, "Code.ipa")
     Dir.chdir(export_path) do
