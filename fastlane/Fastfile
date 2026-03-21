@@ -119,7 +119,25 @@ platform :ios do
     # Re-sign with the Apple Distribution certificate before creating IPA.
     # exportArchive normally does this, but we bypass it for Xcode 26 compat.
     exported_app = File.join(payload_dir, File.basename(app_path))
-    sign_identity = "iPhone Distribution"
+
+    # Ensure the temp keychain is in the search list so codesign can find the cert
+    keychain_path = File.expand_path("~/Library/Keychains/#{keychain_name}-db")
+    existing = `security list-keychains -d user`.scan(/"(.+?)"/).flatten
+    unless existing.any? { |k| k.include?(keychain_name) }
+      sh("security list-keychains -d user -s #{existing.map { |k| %Q["#{k}"] }.join(' ')} '#{keychain_path}'")
+    end
+    sh("security set-keychain-settings '#{keychain_path}'")
+    sh("security unlock-keychain -p '#{keychain_password}' '#{keychain_path}'")
+
+    # Find the distribution signing identity (SHA-1) from the temp keychain.
+    # Match installs "Apple Distribution" (modern) or "iPhone Distribution" (legacy).
+    identity_output = `security find-identity -v -p codesigning '#{keychain_path}'`
+    UI.message("Available signing identities:\n#{identity_output}")
+    identity_match = identity_output.match(/([0-9A-F]{40})\s+"(Apple Distribution|iPhone Distribution)[^"]*"/)
+    UI.user_error!("No distribution signing identity found in keychain '#{keychain_name}'") unless identity_match
+    sign_identity = identity_match[1]  # Use SHA-1 hash — unambiguous
+    UI.message("Using signing identity: #{identity_match[2]} (#{sign_identity})")
+
     main_profile = ENV["PROVISIONING_PROFILE_SPECIFIER"] ||
                    "match AppStore #{DEVELOPER_APP_IDENTIFIER}"
     ext_profile  = "match AppStore #{DEVELOPER_APP_EXTENSION_IDENTIFIER}"
@@ -145,7 +163,7 @@ platform :ios do
     frameworks_path = File.join(exported_app, "Frameworks")
     if File.directory?(frameworks_path)
       Dir["#{frameworks_path}/*.framework", "#{frameworks_path}/*.dylib"].each do |fw|
-        sh("codesign --force --sign '#{sign_identity}' --timestamp=none '#{fw}'")
+        sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --timestamp=none '#{fw}'")
       end
     end
 
@@ -158,23 +176,23 @@ platform :ios do
       appex_fw = File.join(appex, "Frameworks")
       if File.directory?(appex_fw)
         Dir["#{appex_fw}/*.framework", "#{appex_fw}/*.dylib"].each do |fw|
-          sh("codesign --force --sign '#{sign_identity}' --timestamp=none '#{fw}'")
+          sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --timestamp=none '#{fw}'")
         end
       end
       entitlements_appex = File.join(appex, "archived-expanded-entitlements.xcent")
       if File.exist?(entitlements_appex)
-        sh("codesign --force --sign '#{sign_identity}' --entitlements '#{entitlements_appex}' --timestamp=none '#{appex}'")
+        sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --entitlements '#{entitlements_appex}' --timestamp=none '#{appex}'")
       else
-        sh("codesign --force --sign '#{sign_identity}' --timestamp=none '#{appex}'")
+        sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --timestamp=none '#{appex}'")
       end
     end
 
     # Re-sign the main app bundle
     entitlements_main = File.join(exported_app, "archived-expanded-entitlements.xcent")
     if File.exist?(entitlements_main)
-      sh("codesign --force --sign '#{sign_identity}' --entitlements '#{entitlements_main}' --timestamp=none '#{exported_app}'")
+      sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --entitlements '#{entitlements_main}' --timestamp=none '#{exported_app}'")
     else
-      sh("codesign --force --sign '#{sign_identity}' --timestamp=none '#{exported_app}'")
+      sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --timestamp=none '#{exported_app}'")
     end
 
     ipa_output = File.join(export_path, "Code.ipa")
