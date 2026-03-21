@@ -159,10 +159,10 @@ platform :ios do
       UI.important("Warning: Could not find main provisioning profile '#{main_profile}'")
     end
 
-    # Extract entitlements from the already-signed app in the archive
-    # (codesign -d --entitlements extracts the embedded entitlements)
+    # Extract entitlements from the already-signed app in the archive.
+    # The ':' prefix strips the binary blob header so the output is a clean XML plist.
     main_entitlements_file = File.join(export_path, "main.entitlements.plist")
-    sh("codesign -d --entitlements '#{main_entitlements_file}' '#{exported_app}' 2>/dev/null || true")
+    sh("codesign -d --entitlements ':#{main_entitlements_file}' '#{exported_app}' 2>/dev/null || true")
     has_main_entitlements = File.exist?(main_entitlements_file) && File.size(main_entitlements_file) > 0
 
     # Re-sign embedded frameworks (no entitlements needed for frameworks)
@@ -187,7 +187,7 @@ platform :ios do
       end
       # Extract extension entitlements from existing signature
       ext_entitlements_file = File.join(export_path, "ext_#{File.basename(appex)}.entitlements.plist")
-      sh("codesign -d --entitlements '#{ext_entitlements_file}' '#{appex}' 2>/dev/null || true")
+      sh("codesign -d --entitlements ':#{ext_entitlements_file}' '#{appex}' 2>/dev/null || true")
       if File.exist?(ext_entitlements_file) && File.size(ext_entitlements_file) > 0
         sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --entitlements '#{ext_entitlements_file}' --timestamp '#{appex}'")
       else
