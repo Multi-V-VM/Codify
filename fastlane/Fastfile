@@ -239,7 +239,7 @@ platform :ios do
       changelog: "GitHub Action automated build. For detailed changes, " + 
       "visit https://github.com/thebaselab/codeapp.\n" + 
       "\nGenerated Changelog:\n" + changelog,
-      groups: (DISTRIBUTE_EXTERNAL ? ["Public"] : []),
+      groups: (DISTRIBUTE_EXTERNAL ? ["external"] : ["new"]),
       wait_processing_interval: 300
     )
     
