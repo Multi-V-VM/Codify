@@ -6,6 +6,13 @@ edition = "2021"
 [lib]
 crate-type = ["staticlib"]
 
+[features]
+# Enables the Cranelift compiling engine + AOT artifact cache when the host
+# allows JIT (simulator/macOS/JIT-entitled device). Devices without JIT always
+# fall back to the interpreter at runtime regardless of this feature.
+default = ["cranelift"]
+cranelift = ["wasmer/cranelift"]
+
 [dependencies]
 wasmer = { path = "../../wasmer/lib/api", default-features = false, features = ["mvvm", "cranelift"] }
 wasmer-wasix = "0.601.0"

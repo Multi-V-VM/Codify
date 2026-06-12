@@ -98,13 +98,15 @@ platform :ios do
     # archive -> cp_r -> codesign -> ditto packaging produced an IPA whose
     # Frameworks/ directory never reached the App Store, so the app died at
     # launch with dyld "Library not loaded: @rpath/ios_system.framework"
-    # (App Review rejection, Guideline 2.1). Xcode 26 expects the modern
-    # method name "app-store-connect", not the legacy "app-store".
+    # (App Review rejection, Guideline 2.1).
+    # gym only accepts the legacy method names and maps "app-store" to the
+    # modern "app-store-connect" itself when Xcode >= 15.3 is selected, so
+    # "app-store" is the correct value here despite Xcode 26's new naming.
     gym(
       configuration: "Release",
       project: "Code.xcodeproj",
       scheme: "CodifyOne",
-      export_method: "app-store-connect",
+      export_method: "app-store",
       output_directory: File.expand_path("../build_output", __dir__),
       output_name: "Code.ipa",
       export_options: {

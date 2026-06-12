@@ -169,22 +169,29 @@ class Executor {
             return
         }
 
+        let cmdName = command.split(separator: " ", maxSplits: 1).first.map(String.init) ?? command
+
         // Intercept wasm command and handle it directly
         if command.starts(with: "wasm ") || command == "wasm" {
             handleWasmCommand(command: command, completionHandler: completionHandler)
             return
         }
 
-        // Check if executing a file directly (e.g., ./a.out)
+        // Check if executing a file directly (e.g., ./a.out, a.out, build/main.wasm)
         // If it's a WASM file, forward to wasm runtime
         if let wasmCommand = detectAndForwardWasmFile(command: command) {
             handleWasmCommand(command: wasmCommand, completionHandler: completionHandler)
             return
         }
 
+        // gdb / wasminspect: debug a wasm binary with the wasminspect debugger
+        if ["gdb", "wasminspect"].contains(cmdName) {
+            handleDebuggerCommand(command: command, completionHandler: completionHandler)
+            return
+        }
+
         // Intercept node/npm/npx directly to avoid iOS dlsym limitations
         // (replaceCommand can't find @_cdecl functions via dlsym on iOS)
-        let cmdName = command.split(separator: " ", maxSplits: 1).first.map(String.init) ?? command
         if ["node", "npm", "npx", "nodeg"].contains(cmdName) {
             handleNodeCommand(command: command, cmdName: cmdName, completionHandler: completionHandler)
             return
@@ -307,11 +314,17 @@ class Executor {
         let filePath: String
         if executable.hasPrefix("/") {
             filePath = executable
-        } else if executable.hasPrefix("./") || executable.hasPrefix("../") {
+        } else if executable.hasPrefix("./") || executable.hasPrefix("../")
+            || executable.contains("/")
+        {
             filePath = currentWorkingDirectory.path + "/" + executable
         } else {
-            // Not a direct file execution, let ios_system handle it
-            return nil
+            // Bare name (e.g. `a.out`, `main.wasm`): resolve against the working
+            // directory, but never shadow a real command — PATH lookup wins.
+            guard ios_executable(executable.toCString()) == 0 else {
+                return nil
+            }
+            filePath = currentWorkingDirectory.path + "/" + executable
         }
 
         // Check if file exists
@@ -341,6 +354,47 @@ class Executor {
         } else {
             return "wasm \(filePath)"
         }
+    }
+
+    /// Rewrite `gdb [flags] <target.wasm> [args...]` / `wasminspect <target.wasm> [args...]`
+    /// into a wasminspect debugger session running on the wasm runtime.
+    private func handleDebuggerCommand(
+        command: String, completionHandler: @escaping (Int32) -> Void
+    ) {
+        let fail: (String) -> Void = { message in
+            DispatchQueue.main.async {
+                self.receivedStderr((message + "\r\n").data(using: .utf8)!)
+                completionHandler(127)
+            }
+        }
+
+        guard let inspectorPath = WasminspectService.resolveDebuggerWasm() else {
+            fail(
+                "wasminspect.wasm not found. Place it in Documents/Tools/wasminspect.wasm "
+                    + "or install the wasminspect extension.")
+            return
+        }
+
+        // Drop the command name and common gdb flags (-q, --quiet, -nx, --args);
+        // what remains is the target wasm binary and its arguments.
+        let tokens = command.split(separator: " ").map(String.init).dropFirst()
+            .filter { !["-q", "-quiet", "--quiet", "-nx", "--nx", "--args"].contains($0) }
+
+        guard let target = tokens.first else {
+            fail("Usage: gdb <file.wasm> [args...]")
+            return
+        }
+
+        let targetPath =
+            target.hasPrefix("/") ? target : currentWorkingDirectory.path + "/" + target
+        guard FileManager.default.fileExists(atPath: targetPath) else {
+            fail("gdb: \(target): No such file or directory")
+            return
+        }
+
+        let rest = tokens.dropFirst().joined(separator: " ")
+        let wasmCommand = "wasm \(inspectorPath) \(targetPath)" + (rest.isEmpty ? "" : " \(rest)")
+        handleWasmCommand(command: wasmCommand, completionHandler: completionHandler)
     }
 
     private func handleWasmCommand(command: String, completionHandler: @escaping (Int32) -> Void) {

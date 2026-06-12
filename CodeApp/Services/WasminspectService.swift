@@ -74,17 +74,32 @@ class WasminspectService: ObservableObject {
     private init() {}
 
     func configureDefaultsIfNeeded() {
-        if wasminspectWasmPath.isEmpty {
-            // Try common locations
-            if let url = Bundle.main.url(forResource: "wasminspect", withExtension: "wasm") {
-                wasminspectWasmPath = url.path
-            } else if let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
-                let candidate = docs.appendingPathComponent("Tools/wasminspect.wasm").path
-                if FileManager.default.fileExists(atPath: candidate) {
-                    wasminspectWasmPath = candidate
-                }
-            }
+        if wasminspectWasmPath.isEmpty,
+            let resolved = WasminspectService.resolveDebuggerWasm()
+        {
+            wasminspectWasmPath = resolved
         }
+    }
+
+    /// Locate wasminspect.wasm: app bundle, Documents/Tools, the wasm sysroot
+    /// Tools directory, or an installed VISX package.
+    static func resolveDebuggerWasm() -> String? {
+        if let url = Bundle.main.url(forResource: "wasminspect", withExtension: "wasm") {
+            return url.path
+        }
+
+        let fileManager = FileManager.default
+        var candidates: [String] = []
+        if let docs = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first {
+            candidates.append(docs.appendingPathComponent("Tools/wasminspect.wasm").path)
+            candidates.append(
+                docs.appendingPathComponent("VISX/Packages/WASM/wasminspect/wasminspect.wasm")
+                    .path)
+        }
+        candidates.append(
+            wasmSysrootURL().appendingPathComponent("Tools/wasminspect.wasm").path)
+
+        return candidates.first { fileManager.fileExists(atPath: $0) }
     }
 
     func launch() {
@@ -100,6 +115,11 @@ class WasminspectService: ObservableObject {
 
         state = .launching
         log("Launching wasminspect for \(targetWasmPath)…")
+
+        // The debugger runs as a WASI guest and reads the target module (and
+        // its DWARF sources) through the virtual filesystem — set up the
+        // sysroot so those host paths are reachable.
+        setupWASMSysroot(currentDirectory: FileManager.default.currentDirectoryPath)
 
         // Build argv
         var argv: [String] = ["wasminspect", targetWasmPath]

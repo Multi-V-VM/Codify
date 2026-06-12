@@ -1,5 +1,6 @@
 use std::ffi::CStr;
 use std::os::raw::c_char;
+use std::path::Path;
 use std::slice;
 use std::sync::Arc;
 use std::os::unix::io::{RawFd, FromRawFd};
@@ -208,16 +209,29 @@ async fn execute_wasm_async(
         return Err("Invalid WASM binary: unsupported version".into());
     }
 
-    // Create a WAMR store (interpreter-only, no JIT)
-    // WAMR is set as the default backend via the "wamr-default" feature
-    // This provides both validation and execution using the WAMR interpreter
-    let mut store = Store::default();
+    // Engine selection:
+    // - When JIT is possible (RWX pages allowed: simulator, macOS, or a device
+    //   with the JIT entitlement) use the Cranelift compiling engine and cache
+    //   the compiled artifact for AOT-style instant reloads.
+    // - Otherwise fall back to the default interpreter (WAMR via the
+    //   "wamr-default" feature), the only App Store-legal option on devices.
+    let (mut store, jit_enabled) = create_store();
 
-    // Load the WASM module using WAMR interpreter
-    let module = Module::new(&store, wasm_bytes)?;
+    // Load the WASM module, going through the AOT cache when compiling
+    let module = load_module(&store, wasm_bytes, jit_enabled)?;
 
-    // Get environment variables
-    let env_vars: Vec<(String, String)> = std::env::vars().collect();
+    // Get environment variables, applying guest-only overrides
+    let guest_home = std::env::var("WASM_GUEST_HOME").ok();
+    let env_vars: Vec<(String, String)> = std::env::vars()
+        .map(|(key, value)| {
+            if key == "HOME" {
+                if let Some(home) = &guest_home {
+                    return (key, home.clone());
+                }
+            }
+            (key, value)
+        })
+        .collect();
 
     // Build WASI environment with WASIX p1 support
     // Create a PluggableRuntime with tokio task manager
@@ -257,12 +271,36 @@ async fn execute_wasm_async(
         }
     }
 
-    // Preopen host directories listed in WASM_PREOPENS (colon-separated)
+    // --- Sysroot ---
+
+    // Preopen host directories listed in WASM_PREOPENS (colon-separated);
+    // the guest sees them under their host paths, so absolute paths into the
+    // app sandbox resolve.
     if let Ok(preopens) = std::env::var("WASM_PREOPENS") {
         for dir in preopens.split(':') {
-            if !dir.is_empty() {
+            if !dir.is_empty() && Path::new(dir).is_dir() {
                 wasi_env_builder = wasi_env_builder.preopen_dir(dir)?;
             }
+        }
+    }
+
+    // Map standard Unix locations (/tmp, /home, /etc, ...) onto host sysroot
+    // directories. WASM_MAP_DIRS is ;-separated "guest::host" pairs.
+    if let Ok(map_dirs) = std::env::var("WASM_MAP_DIRS") {
+        for pair in map_dirs.split(';') {
+            if let Some((guest, host)) = pair.split_once("::") {
+                if !guest.is_empty() && Path::new(host).is_dir() {
+                    wasi_env_builder = wasi_env_builder.map_dir(guest, host)?;
+                }
+            }
+        }
+    }
+
+    // Start the guest in the host working directory so relative paths behave
+    // like a normal binary launched from the shell.
+    if let Ok(cwd) = std::env::var("WASM_CWD") {
+        if Path::new(&cwd).is_dir() {
+            wasi_env_builder = wasi_env_builder.current_dir(cwd);
         }
     }
 
@@ -342,6 +380,98 @@ async fn execute_wasm_async(
     };
 
     Ok(exit_code)
+}
+
+/// Whether the process can map writable+executable pages. True on the
+/// simulator, macOS, and devices running with the JIT entitlement; false on
+/// normal iOS devices, where only the interpreter is allowed.
+fn jit_available() -> bool {
+    unsafe {
+        let page = libc::mmap(
+            std::ptr::null_mut(),
+            4096,
+            libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
+            libc::MAP_PRIVATE | libc::MAP_ANON,
+            -1,
+            0,
+        );
+        if page == libc::MAP_FAILED {
+            return false;
+        }
+        libc::munmap(page, 4096);
+        true
+    }
+}
+
+/// Pick the execution engine. Returns the store and whether a compiling
+/// (JIT-capable) engine was selected, which also enables the AOT cache.
+fn create_store() -> (Store, bool) {
+    if std::env::var_os("WASM_FORCE_INTERPRETER").is_some() {
+        return (Store::default(), false);
+    }
+
+    #[cfg(feature = "cranelift")]
+    {
+        if jit_available() {
+            use wasmer::sys::{Cranelift, EngineBuilder};
+            let engine = EngineBuilder::new(Cranelift::default()).engine();
+            return (Store::new(engine), true);
+        }
+    }
+
+    (Store::default(), false)
+}
+
+/// FNV-1a 64-bit hash, used to key AOT cache artifacts by module content.
+fn hash_bytes(bytes: &[u8]) -> u64 {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for &byte in bytes {
+        hash ^= byte as u64;
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    hash
+}
+
+/// Load a module. With a compiling engine, compiled artifacts are cached in
+/// WASM_AOT_CACHE so subsequent runs deserialize the native code (AOT) instead
+/// of recompiling. Cache failures fall back to a fresh compile; deserializing
+/// is only attempted on artifacts this runtime wrote itself.
+fn load_module(
+    store: &Store,
+    wasm_bytes: &[u8],
+    jit_enabled: bool,
+) -> Result<Module, Box<dyn std::error::Error>> {
+    if jit_enabled {
+        if let Ok(cache_dir) = std::env::var("WASM_AOT_CACHE") {
+            let cache_path = Path::new(&cache_dir).join(format!(
+                "{:016x}-{}.wasmu",
+                hash_bytes(wasm_bytes),
+                wasm_bytes.len()
+            ));
+
+            if cache_path.is_file() {
+                // SAFETY: the artifact was serialized by this same runtime for
+                // an identical module (content-hash keyed).
+                match unsafe { Module::deserialize_from_file(store, &cache_path) } {
+                    Ok(module) => return Ok(module),
+                    Err(_) => {
+                        // Stale or corrupt artifact (e.g. runtime upgrade):
+                        // drop it and recompile.
+                        let _ = std::fs::remove_file(&cache_path);
+                    }
+                }
+            }
+
+            let module = Module::new(store, wasm_bytes)?;
+            if let Ok(serialized) = module.serialize() {
+                let _ = std::fs::create_dir_all(&cache_dir);
+                let _ = std::fs::write(&cache_path, serialized);
+            }
+            return Ok(module);
+        }
+    }
+
+    Ok(Module::new(store, wasm_bytes)?)
 }
 
 fn extract_exit_code(error: &wasmer::RuntimeError) -> Option<i32> {

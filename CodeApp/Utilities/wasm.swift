@@ -56,6 +56,8 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
     let currentDirectory = FileManager.default.currentDirectoryPath
     let fileName = wasmFile.hasPrefix("/") ? wasmFile : currentDirectory + "/" + wasmFile
 
+    setupWASMSysroot(currentDirectory: currentDirectory)
+
     // Load WASM file
     guard let wasmData = try? Data(contentsOf: URL(fileURLWithPath: fileName)) else {
         let stderr = thread_stderr ?? fdopen(STDERR_FILENO, "w")
@@ -107,6 +109,86 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
     }
 
     return exitCode
+}
+
+/// Root of the persistent guest filesystem skeleton (/tmp, /home, /etc, Tools)
+/// exposed to every WASM program.
+func wasmSysrootURL() -> URL {
+    URL(fileURLWithPath: NSHomeDirectory())
+        .appendingPathComponent("Library/wasm-sysroot")
+}
+
+/// Prepare the WASI sysroot for a WASM program and expose it through the
+/// environment variables the Wasmer runtime reads:
+///   WASM_PREOPENS  - colon-separated host directories preopened for the guest
+///   WASM_MAP_DIRS  - ;-separated guest::host mappings (e.g. /tmp::<host tmp>)
+///   WASM_CWD       - guest working directory
+///   WASM_AOT_CACHE - directory for AOT-compiled module artifacts
+///
+/// The sandbox home directory is preopened so absolute paths into Documents
+/// and Library resolve, and a persistent skeleton (/tmp, /home, /etc) gives
+/// libc-based binaries the files they expect.
+func setupWASMSysroot(currentDirectory: String) {
+    let fileManager = FileManager.default
+    let home = NSHomeDirectory()
+    let sysroot = wasmSysrootURL()
+
+    // Build the skeleton once; subsequent runs reuse it so guest state persists.
+    let skeletonDirs = ["tmp", "home", "etc", "usr", "Tools"]
+    for dir in skeletonDirs {
+        try? fileManager.createDirectory(
+            at: sysroot.appendingPathComponent(dir), withIntermediateDirectories: true)
+    }
+
+    let etcFiles: [String: String] = [
+        "etc/passwd": "root:x:0:0:root:/home:/bin/sh\nmobile:x:501:501:mobile:/home:/bin/sh\n",
+        "etc/group": "root:x:0:\nmobile:x:501:\n",
+        "etc/hosts": "127.0.0.1 localhost\n::1 localhost\n",
+        "etc/resolv.conf": "nameserver 1.1.1.1\nnameserver 8.8.8.8\n",
+    ]
+    for (path, content) in etcFiles {
+        let url = sysroot.appendingPathComponent(path)
+        if !fileManager.fileExists(atPath: url.path) {
+            try? content.write(to: url, atomically: true, encoding: .utf8)
+        }
+    }
+
+    // Preopen the entire app sandbox plus the working directory (which can sit
+    // outside the sandbox when a folder is opened via a security-scoped URL).
+    var preopens = [home, NSTemporaryDirectory()]
+    if !currentDirectory.hasPrefix(home) {
+        preopens.append(currentDirectory)
+    }
+    setenv("WASM_PREOPENS", preopens.joined(separator: ":"), 1)
+
+    // Map standard Unix locations onto the persistent skeleton. The guest
+    // /usr is the on-device wasi-sysroot (headers + wasm32-wasi libs) that
+    // createCSDK() materializes in Library/usr, so compilers and tools running
+    // as wasm guests see a complete sysroot; fall back to the skeleton until
+    // the SDK has been created.
+    let deviceSDK = URL(fileURLWithPath: home).appendingPathComponent("Library/usr")
+    let usrHost =
+        fileManager.fileExists(atPath: deviceSDK.appendingPathComponent("include").path)
+        ? deviceSDK.path : sysroot.appendingPathComponent("usr").path
+    let mapDirs = [
+        "/tmp::\(sysroot.appendingPathComponent("tmp").path)",
+        "/home::\(sysroot.appendingPathComponent("home").path)",
+        "/etc::\(sysroot.appendingPathComponent("etc").path)",
+        "/usr::\(usrHost)",
+    ]
+    setenv("WASM_MAP_DIRS", mapDirs.joined(separator: ";"), 1)
+
+    setenv("WASM_CWD", currentDirectory, 1)
+    setenv("PWD", currentDirectory, 1)
+    // Guest-only HOME override, applied by the runtime so the host HOME
+    // (used by node/npm and ios_system commands) is left untouched.
+    setenv("WASM_GUEST_HOME", "/home", 1)
+
+    // AOT artifact cache, used when the runtime selects a compiling engine.
+    let aotCache = URL(fileURLWithPath: home)
+        .appendingPathComponent("Library/Caches/wasmer-aot")
+    try? fileManager.createDirectory(at: aotCache, withIntermediateDirectories: true)
+    setenv("WASM_AOT_CACHE", aotCache.path, 1)
 }
 
 /*
