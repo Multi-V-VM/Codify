@@ -313,6 +313,9 @@ extension MarketplaceService {
         let filterType: FilterType
         let value: String
 
+        // VSCode gallery protocol filter types. Note: 8 is the installation
+        // TARGET (must be "Microsoft.VisualStudio.Code"), 10 is the search
+        // text — sending the query as filterType 8 matches zero extensions.
         enum FilterType: Int, Codable {
             case tag = 1
             case displayName = 2
