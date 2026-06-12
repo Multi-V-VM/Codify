@@ -34,6 +34,9 @@ private func setup() {
     if versionNumberIncreased() || needToUpdateCFiles() {
         createCSDK()
     }
+    if versionNumberIncreased() || needToUpdateWasixSysroot() {
+        createWasixSysroot()
+    }
     // wasmWebView.loadWorker() - Removed: Now using native Wasmer instead of JavaScript
     initializeEnvironment()
     // Must call setupEnvironment AFTER initializeEnvironment to register custom commands
@@ -226,6 +229,98 @@ private func createCSDK() {
             executeCommandAndWait(command: "ranlib " + libraryFileURL.path)
         }
         NSLog("Finished creating C SDK")  // Approx 2 seconds
+    }
+}
+
+private func needToUpdateWasixSysroot() -> Bool {
+    guard
+        let libraryURL = try? FileManager().url(
+            for: .libraryDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+    else { return false }
+    return !FileManager().fileExists(
+        atPath: libraryURL.appendingPathComponent("wasix-usr/lib/wasm32-wasi/libc.a").path)
+}
+
+// Materialize the bundled WASIX sysroot (wasi-sdk 29) into $HOME/Library/wasix-usr.
+// Read-only content (headers, crt objects) is symlinked into place; the static
+// libraries are rebuilt from the shipped *.o files with ar, same as createCSDK.
+// The wasm runtime maps this directory to the guest /usr.
+private func createWasixSysroot() {
+    let installQueue = DispatchQueue(label: "installWasixSysroot", qos: .utility)
+
+    installQueue.async {
+        let fileManager = FileManager()
+        guard fileManager.fileExists(atPath: Resources.wasiSysroot.path) else {
+            NSLog("createWasixSysroot: bundled WasiSysroot not found, skipping")
+            return
+        }
+        guard
+            let libraryURL = try? fileManager.url(
+                for: .libraryDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        else { return }
+
+        NSLog("Starting creating WASIX sysroot")
+        let destURL = libraryURL.appendingPathComponent("wasix-usr")
+        let libDir = destURL.appendingPathComponent("lib/wasm32-wasi")
+        do {
+            try fileManager.createDirectory(
+                atPath: libDir.path, withIntermediateDirectories: true)
+        } catch {
+            NSLog("createWasixSysroot: cannot create \(libDir.path): \(error)")
+            return
+        }
+
+        // Symbolic links for read-only content. Always recreated: the bundle
+        // path changes on every app update, leaving old links dangling.
+        let linkedItems = [
+            "include", "share",
+            "lib/wasm32-wasi/crt1.o",
+            "lib/wasm32-wasi/crt1-command.o",
+            "lib/wasm32-wasi/crt1-reactor.o",
+            "lib/wasm32-wasi/scrt1.o",
+            "lib/wasm32-wasi/libc.imports",
+            "lib/wasm32-wasi/libc++.modules.json",
+        ]
+        for item in linkedItems {
+            let source = Resources.wasiSysroot.appendingPathComponent(item)
+            guard fileManager.fileExists(atPath: source.path) else { continue }
+            let destination = destURL.appendingPathComponent(item)
+            try? fileManager.removeItem(at: destination)
+            do {
+                try fileManager.createSymbolicLink(
+                    at: destination, withDestinationURL: source)
+            } catch {
+                NSLog("createWasixSysroot: can't link \(destination.path): \(error)")
+            }
+        }
+
+        // Rebuild the static libraries from the shipped object files.
+        ios_switchSession("wasixSysrootCreation")
+        let srcRoot = Resources.wasiSysroot.appendingPathComponent("src")
+        if let libs = try? fileManager.contentsOfDirectory(atPath: srcRoot.path) {
+            for lib in libs.sorted() {
+                let libFile = libDir.appendingPathComponent("\(lib).a")
+                if fileManager.fileExists(atPath: libFile.path) {
+                    try? fileManager.removeItem(at: libFile)
+                }
+                executeCommandAndWait(
+                    command: "ar cq \(libFile.path) \(srcRoot.path)/\(lib)/*")
+                executeCommandAndWait(command: "ranlib \(libFile.path)")
+            }
+        }
+
+        // Empty stub archives shipped by wasi-sdk for link compatibility.
+        let emptyLibraries = [
+            "libcommon-tag-stubs", "libcrypt", "libdl", "libm", "libpthread",
+            "libresolv", "librt", "libutil", "libwasi-emulated-getpid", "libxnet",
+        ]
+        for stub in emptyLibraries {
+            let libFile = libDir.appendingPathComponent("\(stub).a")
+            if !fileManager.fileExists(atPath: libFile.path) {
+                executeCommandAndWait(command: "ar crs \(libFile.path)")
+            }
+        }
+        NSLog("Finished creating WASIX sysroot")
     }
 }
 

@@ -94,41 +94,139 @@ platform :ios do
       code_sign_identity: "iPhone Distribution",
       targets: ["extension"]
     )
-    # Use the standard exportArchive pipeline. A previous hand-rolled
-    # archive -> cp_r -> codesign -> ditto packaging produced an IPA whose
-    # Frameworks/ directory never reached the App Store, so the app died at
-    # launch with dyld "Library not loaded: @rpath/ios_system.framework"
-    # (App Review rejection, Guideline 2.1).
-    # gym only accepts the legacy method names and maps "app-store" to the
-    # modern "app-store-connect" itself when Xcode >= 15.3 is selected, so
-    # "app-store" is the correct value here despite Xcode 26's new naming.
+    # Archive only — skip gym's export since it injects 'method' which Xcode 26 rejects
     gym(
       configuration: "Release",
       project: "Code.xcodeproj",
       scheme: "CodifyOne",
-      export_method: "app-store",
-      output_directory: File.expand_path("../build_output", __dir__),
-      output_name: "Code.ipa",
-      export_options: {
-        signingStyle: "manual",
-        provisioningProfiles: {
-          DEVELOPER_APP_IDENTIFIER => "match AppStore #{DEVELOPER_APP_IDENTIFIER}",
-          DEVELOPER_APP_EXTENSION_IDENTIFIER => "match AppStore #{DEVELOPER_APP_EXTENSION_IDENTIFIER}"
-        }
-      }
+      skip_package_ipa: true
     )
 
-    ipa_output = lane_context[SharedValues::IPA_OUTPUT_PATH]
+    # Xcode 26 xcodebuild -exportArchive injects a default 'method: development' internally
+    # even when the plist omits it, then rejects it. Bypass by creating IPA from archive directly.
+    archive_path = lane_context[SharedValues::XCODEBUILD_ARCHIVE]
+    export_path = File.expand_path("../build_output", __dir__)
 
-    # Hard gate: never upload an IPA whose embedded frameworks were stripped.
-    # dyld aborts at launch if any of these are missing from the app bundle.
-    ipa_listing = `unzip -l '#{ipa_output}'`
-    %w[ios_system NodeMobile openssl libLLVM].each do |fw|
-      unless ipa_listing.include?("Frameworks/#{fw}.framework/#{fw}")
-        UI.user_error!("#{fw}.framework is missing from the IPA — embedded frameworks were stripped, refusing to upload")
+    app_path = Dir["#{archive_path}/Products/Applications/*.app"].first
+    UI.user_error!("No .app found in archive at #{archive_path}") unless app_path
+
+    FileUtils.mkdir_p(export_path)
+    payload_dir = File.join(export_path, "Payload")
+    FileUtils.rm_rf(payload_dir)
+    FileUtils.mkdir_p(payload_dir)
+    FileUtils.cp_r(app_path, payload_dir)
+
+    # Re-sign with the Apple Distribution certificate before creating IPA.
+    # exportArchive normally does this, but we bypass it for Xcode 26 compat.
+    exported_app = File.join(payload_dir, File.basename(app_path))
+
+    # Ensure the temp keychain is in the search list so codesign can find the cert
+    keychain_path = File.expand_path("~/Library/Keychains/#{keychain_name}-db")
+    existing = `security list-keychains -d user`.scan(/"(.+?)"/).flatten
+    unless existing.any? { |k| k.include?(keychain_name) }
+      sh("security list-keychains -d user -s #{existing.map { |k| %Q["#{k}"] }.join(' ')} '#{keychain_path}'")
+    end
+    sh("security set-keychain-settings '#{keychain_path}'")
+    sh("security unlock-keychain -p '#{keychain_password}' '#{keychain_path}'")
+
+    # Import Apple WWDR intermediate certificates so the full certificate chain
+    # is available. Without these, codesign embeds only the leaf cert and Apple
+    # rejects the signature as "not signed using an Apple submission certificate."
+    wwdr_urls = [
+      "https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer",
+      "https://www.apple.com/certificateauthority/AppleWWDRCAG6.cer"
+    ]
+    wwdr_urls.each do |url|
+      cer_file = File.join(export_path, File.basename(url))
+      sh("curl -sL '#{url}' -o '#{cer_file}'")
+      sh("security import '#{cer_file}' -k '#{keychain_path}' -T /usr/bin/codesign 2>/dev/null || true")
+    end
+
+    # Find the distribution signing identity (SHA-1) from the temp keychain.
+    # Match installs "Apple Distribution" (modern) or "iPhone Distribution" (legacy).
+    identity_output = `security find-identity -v -p codesigning '#{keychain_path}'`
+    UI.message("Available signing identities:\n#{identity_output}")
+    identity_match = identity_output.match(/([0-9A-F]{40})\s+"(Apple Distribution|iPhone Distribution)[^"]*"/)
+    UI.user_error!("No distribution signing identity found in keychain '#{keychain_name}'") unless identity_match
+    sign_identity = identity_match[1]  # Use SHA-1 hash — unambiguous
+    UI.message("Using signing identity: #{identity_match[2]} (#{sign_identity})")
+
+    main_profile = ENV["PROVISIONING_PROFILE_SPECIFIER"] ||
+                   "match AppStore #{DEVELOPER_APP_IDENTIFIER}"
+    ext_profile  = "match AppStore #{DEVELOPER_APP_EXTENSION_IDENTIFIER}"
+
+    # Locate provisioning profiles installed by match
+    profiles_dir = File.expand_path("~/Library/MobileDevice/Provisioning Profiles")
+    main_profile_path = Dir["#{profiles_dir}/*.mobileprovision"].find do |p|
+      `/usr/libexec/PlistBuddy -c 'Print :Name' /dev/stdin <<< "$(/usr/bin/security cms -D -i '#{p}' 2>/dev/null)"`.strip == main_profile
+    end
+    ext_profile_path = Dir["#{profiles_dir}/*.mobileprovision"].find do |p|
+      `/usr/libexec/PlistBuddy -c 'Print :Name' /dev/stdin <<< "$(/usr/bin/security cms -D -i '#{p}' 2>/dev/null)"`.strip == ext_profile
+    end
+
+    # Embed provisioning profile in main app
+    if main_profile_path
+      FileUtils.cp(main_profile_path, File.join(exported_app, "embedded.mobileprovision"))
+      UI.message("Embedded main provisioning profile: #{main_profile}")
+    else
+      UI.important("Warning: Could not find main provisioning profile '#{main_profile}'")
+    end
+
+    # Extract entitlements from the already-signed app in the archive.
+    # The ':' prefix strips the binary blob header so the output is a clean XML plist.
+    main_entitlements_file = File.join(export_path, "main.entitlements.plist")
+    sh("codesign -d --entitlements ':#{main_entitlements_file}' '#{exported_app}' 2>/dev/null || true")
+    has_main_entitlements = File.exist?(main_entitlements_file) && File.size(main_entitlements_file) > 0
+
+    # Re-sign embedded frameworks (no entitlements needed for frameworks)
+    frameworks_path = File.join(exported_app, "Frameworks")
+    if File.directory?(frameworks_path)
+      Dir["#{frameworks_path}/*.framework", "#{frameworks_path}/*.dylib"].each do |fw|
+        sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --timestamp '#{fw}'")
       end
     end
-    UI.message("IPA framework verification passed")
+
+    # Re-sign app extensions with their provisioning profile
+    Dir["#{exported_app}/PlugIns/*.appex"].each do |appex|
+      if ext_profile_path
+        FileUtils.cp(ext_profile_path, File.join(appex, "embedded.mobileprovision"))
+      end
+      # Re-sign frameworks inside the extension first
+      appex_fw = File.join(appex, "Frameworks")
+      if File.directory?(appex_fw)
+        Dir["#{appex_fw}/*.framework", "#{appex_fw}/*.dylib"].each do |fw|
+          sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --timestamp '#{fw}'")
+        end
+      end
+      # Extract extension entitlements from existing signature
+      ext_entitlements_file = File.join(export_path, "ext_#{File.basename(appex)}.entitlements.plist")
+      sh("codesign -d --entitlements ':#{ext_entitlements_file}' '#{appex}' 2>/dev/null || true")
+      if File.exist?(ext_entitlements_file) && File.size(ext_entitlements_file) > 0
+        sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --entitlements '#{ext_entitlements_file}' --timestamp '#{appex}'")
+      else
+        sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --timestamp '#{appex}'")
+      end
+    end
+
+    # Re-sign the main app bundle
+    if has_main_entitlements
+      sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --entitlements '#{main_entitlements_file}' --timestamp '#{exported_app}'")
+    else
+      sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --timestamp '#{exported_app}'")
+    end
+
+    # Verify the signature is valid before creating IPA
+    sh("codesign --verify --deep --strict '#{exported_app}'")
+    UI.message("Signature verification details:")
+    sh("codesign -dvvv '#{exported_app}' 2>&1 || true")
+
+    ipa_output = File.join(export_path, "Code.ipa")
+    Dir.chdir(export_path) do
+      # Use ditto instead of zip — ditto preserves symlinks inside frameworks,
+      # extended attributes, and resource forks that code signatures depend on.
+      # Standard zip follows symlinks, corrupting framework structure and signatures.
+      sh("ditto -c -k --sequesterRsrc --keepParent Payload '#{ipa_output}'")
+    end
 
     FileUtils.cp(ipa_output, File.expand_path("../Code.ipa", __dir__))
 
@@ -137,7 +235,7 @@ platform :ios do
       app_identifier: "#{DEVELOPER_APP_IDENTIFIER}",
       distribute_external: DISTRIBUTE_EXTERNAL,
       notify_external_testers: DISTRIBUTE_EXTERNAL,
-      ipa: ipa_output,
+      ipa: "./Code.ipa",
       changelog: "GitHub Action automated build. For detailed changes, " + 
       "visit https://github.com/thebaselab/codeapp.\n" + 
       "\nGenerated Changelog:\n" + changelog,

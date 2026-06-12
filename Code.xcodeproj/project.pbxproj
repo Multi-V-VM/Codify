@@ -232,6 +232,7 @@
 		9419699F280316C7008AAEB2 /* cacert.pem in Resources */ = {isa = PBXBuildFile; fileRef = 94B3D5D525F776A900C4F2B1 /* cacert.pem */; };
 		941969A0280316C7008AAEB2 /* commandDictionary.plist in Resources */ = {isa = PBXBuildFile; fileRef = 948D11FF2583F20C008F877A /* commandDictionary.plist */; };
 		941969A1280316C7008AAEB2 /* ClangLib in Resources */ = {isa = PBXBuildFile; fileRef = 94CF58DE265E51B100CB6A4B /* ClangLib */; };
+		AAC4000130000001000000A1 /* WasiSysroot in Resources */ = {isa = PBXBuildFile; fileRef = AAC4000030000001000000A0 /* WasiSysroot */; };
 		941969A2280316C7008AAEB2 /* Settings.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 941CF5FA2641CBDA001199C0 /* Settings.bundle */; };
 		941969A3280316C7008AAEB2 /* extraCommandsDictionary.plist in Resources */ = {isa = PBXBuildFile; fileRef = 948D11FE2583F20C008F877A /* extraCommandsDictionary.plist */; };
 		941969A4280316C7008AAEB2 /* npm.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 94369B4925EAB175008419A0 /* npm.bundle */; };
@@ -844,6 +845,7 @@
 		94CF58DA265E4B3000CB6A4B /* opt.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 94CF58C6265E4A9E00CB6A4B /* opt.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		94CF58DD265E4E0F00CB6A4B /* URL+isDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CF58DC265E4E0F00CB6A4B /* URL+isDirectory.swift */; };
 		94CF58DF265E51B100CB6A4B /* ClangLib in Resources */ = {isa = PBXBuildFile; fileRef = 94CF58DE265E51B100CB6A4B /* ClangLib */; };
+		AAC4000230000001000000A2 /* WasiSysroot in Resources */ = {isa = PBXBuildFile; fileRef = AAC4000030000001000000A0 /* WasiSysroot */; };
 		94CF58E1265E8A4B00CB6A4B /* wasm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CF58E0265E8A4B00CB6A4B /* wasm.swift */; };
 		94E3B96B25866C79006AC043 /* String.Encoding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E3B96A25866C79006AC043 /* String.Encoding.swift */; };
 		94E6CC7B2806FBAF00939E4F /* SFTPFileSystemProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E6CC7A2806FBAF00939E4F /* SFTPFileSystemProvider.swift */; };
@@ -2060,6 +2062,7 @@
 		94CF58C6265E4A9E00CB6A4B /* opt.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = opt.xcframework; sourceTree = "<group>"; };
 		94CF58DC265E4E0F00CB6A4B /* URL+isDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URL+isDirectory.swift"; sourceTree = "<group>"; };
 		94CF58DE265E51B100CB6A4B /* ClangLib */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ClangLib; sourceTree = "<group>"; };
+		AAC4000030000001000000A0 /* WasiSysroot */ = {isa = PBXFileReference; lastKnownFileType = folder; path = WasiSysroot; sourceTree = "<group>"; };
 		94CF58E0265E8A4B00CB6A4B /* wasm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = wasm.swift; sourceTree = "<group>"; };
 		94D721E3268DBB94007A63BD /* openssl.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = openssl.xcframework; sourceTree = "<group>"; };
 		94D7DEC02631D0CA00FA0760 /* libpng.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libpng.xcframework; sourceTree = "<group>"; };
@@ -3392,6 +3395,7 @@ AAB10005302B000100AABB01 /* VibeCodingView.swift */,
 			isa = PBXGroup;
 			children = (
 				94CF58DE265E51B100CB6A4B /* ClangLib */,
+				AAC4000030000001000000A0 /* WasiSysroot */,
 				94B3D6DD25F77AFE00C4F2B1 /* Library */,
 			);
 			path = LanguageResources;
@@ -3710,6 +3714,7 @@ AAB10005302B000100AABB01 /* VibeCodingView.swift */,
 				9434C3F32BA4BC4800EB1CF6 /* PrivacyInfo.xcprivacy in Resources */,
 				941969A0280316C7008AAEB2 /* commandDictionary.plist in Resources */,
 				941969A1280316C7008AAEB2 /* ClangLib in Resources */,
+				AAC4000130000001000000A1 /* WasiSysroot in Resources */,
 				941969A2280316C7008AAEB2 /* Settings.bundle in Resources */,
 				947515E42E7E886A00822B33 /* Iconv2.icon in Resources */,
 				941969A3280316C7008AAEB2 /* extraCommandsDictionary.plist in Resources */,
@@ -3746,6 +3751,7 @@ AAB10005302B000100AABB01 /* VibeCodingView.swift */,
 				94EF4FDC2C6DF80700994D9C /* monaco-textmate.bundle in Resources */,
 				948D12012583F20D008F877A /* commandDictionary.plist in Resources */,
 				94CF58DF265E51B100CB6A4B /* ClangLib in Resources */,
+				AAC4000230000001000000A2 /* WasiSysroot in Resources */,
 				9434C3F22BA4BC4800EB1CF6 /* PrivacyInfo.xcprivacy in Resources */,
 				941CF5FB2641CBDA001199C0 /* Settings.bundle in Resources */,
 				948D12002583F20D008F877A /* extraCommandsDictionary.plist in Resources */,

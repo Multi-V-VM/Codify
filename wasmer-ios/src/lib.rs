@@ -284,8 +284,10 @@ async fn execute_wasm_async(
         }
     }
 
-    // Map standard Unix locations (/tmp, /home, /etc, ...) onto host sysroot
-    // directories. WASM_MAP_DIRS is ;-separated "guest::host" pairs.
+    // Map standard Unix locations onto host sysroot directories.
+    // WASM_MAP_DIRS is ;-separated "guest::host" pairs. The host must not
+    // request guest paths the wasix root fs pre-creates (/etc, /home): the
+    // mount fails with "file exists" and aborts the run.
     if let Ok(map_dirs) = std::env::var("WASM_MAP_DIRS") {
         for pair in map_dirs.split(';') {
             if let Some((guest, host)) = pair.split_once("::") {

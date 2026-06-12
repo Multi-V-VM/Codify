@@ -161,19 +161,27 @@ func setupWASMSysroot(currentDirectory: String) {
     }
     setenv("WASM_PREOPENS", preopens.joined(separator: ":"), 1)
 
-    // Map standard Unix locations onto the persistent skeleton. The guest
-    // /usr is the on-device wasi-sysroot (headers + wasm32-wasi libs) that
-    // createCSDK() materializes in Library/usr, so compilers and tools running
-    // as wasm guests see a complete sysroot; fall back to the skeleton until
-    // the SDK has been created.
-    let deviceSDK = URL(fileURLWithPath: home).appendingPathComponent("Library/usr")
+    // Map standard Unix locations onto the persistent skeleton. Only /tmp and
+    // /usr: the wasix root fs pre-creates /etc and /home, and mounting over
+    // those fails with "file exists" (verified against the wasmer CLI). The
+    // guest /etc is writable memfs, and the skeleton etc/ stays reachable via
+    // its host path through the sandbox preopen.
+    //
+    // The guest /usr is a real wasi-sysroot so compilers and tools running as
+    // wasm guests see complete headers and wasm32-wasi libraries. Prefer the
+    // WASIX sysroot (wasi-sdk 29, matches the wasmer-wasix runtime) that
+    // createWasixSysroot() materializes, then the clang-14 C SDK from
+    // createCSDK(), then the empty skeleton until either exists.
+    let libraryURL = URL(fileURLWithPath: home).appendingPathComponent("Library")
     let usrHost =
-        fileManager.fileExists(atPath: deviceSDK.appendingPathComponent("include").path)
-        ? deviceSDK.path : sysroot.appendingPathComponent("usr").path
+        [
+            libraryURL.appendingPathComponent("wasix-usr"),
+            libraryURL.appendingPathComponent("usr"),
+        ]
+        .first { fileManager.fileExists(atPath: $0.appendingPathComponent("include").path) }?
+        .path ?? sysroot.appendingPathComponent("usr").path
     let mapDirs = [
         "/tmp::\(sysroot.appendingPathComponent("tmp").path)",
-        "/home::\(sysroot.appendingPathComponent("home").path)",
-        "/etc::\(sysroot.appendingPathComponent("etc").path)",
         "/usr::\(usrHost)",
     ]
     setenv("WASM_MAP_DIRS", mapDirs.joined(separator: ";"), 1)
@@ -181,8 +189,10 @@ func setupWASMSysroot(currentDirectory: String) {
     setenv("WASM_CWD", currentDirectory, 1)
     setenv("PWD", currentDirectory, 1)
     // Guest-only HOME override, applied by the runtime so the host HOME
-    // (used by node/npm and ios_system commands) is left untouched.
-    setenv("WASM_GUEST_HOME", "/home", 1)
+    // (used by node/npm and ios_system commands) is left untouched. Points at
+    // the persistent skeleton home (visible via the sandbox preopen) rather
+    // than the ephemeral wasix memfs /home.
+    setenv("WASM_GUEST_HOME", sysroot.appendingPathComponent("home").path, 1)
 
     // AOT artifact cache, used when the runtime selects a compiling engine.
     let aotCache = URL(fileURLWithPath: home)

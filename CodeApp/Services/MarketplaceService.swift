@@ -68,39 +68,44 @@ class MarketplaceService {
             sortBy: sortBy
         )
 
-        // Try asplos.dev first, fallback to Microsoft if needed
+        let body = try JSONEncoder().encode(requestBody)
+
+        // Try asplos.dev first, fallback to Microsoft when the proxy is
+        // unreachable OR returns an HTTP error (data(for:) does not throw on
+        // 4xx/5xx, so status codes must be checked explicitly).
         var data: Data
-        var response: URLResponse
-
         do {
-            let url = URL(string: "\(baseURL)/extensionquery")!
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue(apiVersion, forHTTPHeaderField: "Accept")
-            request.httpBody = try JSONEncoder().encode(requestBody)
-
-            (data, response) = try await urlSession.data(for: request)
+            data = try await postExtensionQuery(base: baseURL, body: body)
         } catch {
-            // Fallback to Microsoft's official API
             NSLog("asplos.dev failed, using fallback: \(error)")
-            let url = URL(string: "\(fallbackURL)/extensionquery")!
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue(apiVersion, forHTTPHeaderField: "Accept")
-            request.httpBody = try JSONEncoder().encode(requestBody)
-
-            (data, response) = try await urlSession.data(for: request)
-        }
-
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200...299).contains(httpResponse.statusCode) else {
-            throw MarketplaceError.networkError("Invalid response")
+            data = try await postExtensionQuery(base: fallbackURL, body: body)
         }
 
         let searchResponse = try JSONDecoder().decode(SearchResponse.self, from: data)
         return parseExtensions(from: searchResponse)
+    }
+
+    private func postExtensionQuery(base: String, body: Data) async throws -> Data {
+        guard let url = URL(string: "\(base)/extensionquery") else {
+            throw MarketplaceError.invalidURL
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        // The gallery API requires the api-version inside the Accept header;
+        // a bare version string is rejected with HTTP 400.
+        request.setValue(
+            "application/json;api-version=\(apiVersion)", forHTTPHeaderField: "Accept")
+        request.httpBody = body
+
+        let (data, response) = try await urlSession.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+            (200...299).contains(httpResponse.statusCode)
+        else {
+            throw MarketplaceError.networkError(
+                "HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1) from \(base)")
+        }
+        return data
     }
 
     /// Get detailed information about a specific extension
@@ -134,33 +139,17 @@ class MarketplaceService {
         version: String? = nil
     ) async throws -> URL {
         let versionString = version ?? "latest"
+        let path = "publishers/\(publisher)/vsextensions/\(extensionName)/\(versionString)/vspackage"
 
-        // Try asplos.dev proxy first
-        var downloadURL = "\(baseURL)/publishers/\(publisher)/vsextensions/\(extensionName)/\(versionString)/vspackage"
-
-        guard var url = URL(string: downloadURL) else {
-            throw MarketplaceError.invalidURL
-        }
-
+        // Try asplos.dev proxy first; fall back to Microsoft when the proxy is
+        // unreachable or answers with an HTTP error (download(from:) does not
+        // throw on 4xx/5xx).
         var tempURL: URL
-        var response: URLResponse
-
         do {
-            (tempURL, response) = try await urlSession.download(from: url)
+            tempURL = try await downloadPackage(from: "\(baseURL)/\(path)")
         } catch {
-            // Fallback to Microsoft
-            NSLog("Download from asplos.dev failed, using fallback")
-            downloadURL = "\(fallbackURL)/publishers/\(publisher)/vsextensions/\(extensionName)/\(versionString)/vspackage"
-            guard let fallbackUrl = URL(string: downloadURL) else {
-                throw MarketplaceError.invalidURL
-            }
-            url = fallbackUrl
-            (tempURL, response) = try await urlSession.download(from: url)
-        }
-
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200...299).contains(httpResponse.statusCode) else {
-            throw MarketplaceError.downloadFailed
+            NSLog("Download from asplos.dev failed, using fallback: \(error)")
+            tempURL = try await downloadPackage(from: "\(fallbackURL)/\(path)")
         }
 
         // Move to permanent location
@@ -171,6 +160,19 @@ class MarketplaceService {
         try FileManager.default.moveItem(at: tempURL, to: destinationURL)
 
         return destinationURL
+    }
+
+    private func downloadPackage(from urlString: String) async throws -> URL {
+        guard let url = URL(string: urlString) else {
+            throw MarketplaceError.invalidURL
+        }
+        let (tempURL, response) = try await urlSession.download(from: url)
+        guard let httpResponse = response as? HTTPURLResponse,
+            (200...299).contains(httpResponse.statusCode)
+        else {
+            throw MarketplaceError.downloadFailed
+        }
+        return tempURL
     }
 
     /// Get popular/featured extensions

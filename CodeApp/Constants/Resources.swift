@@ -14,6 +14,11 @@ class Resources {
     static let clangLib = URL(fileURLWithPath: Bundle.main.resourcePath!).appendingPathComponent(
         "ClangLib")
 
+    // WASIX-enabled wasi-sysroot (wasi-sdk 29), shipped with .a archives
+    // extracted to src/<lib>/*.o; materialized to Library/wasix-usr at launch.
+    static let wasiSysroot = URL(fileURLWithPath: Bundle.main.resourcePath!)
+        .appendingPathComponent("WasiSysroot/usr")
+
     static let wasmHTML = Bundle.main.url(
         forResource: "wasm-worker", withExtension: "html", subdirectory: "ClangLib")
 
