@@ -77,9 +77,7 @@ private func loadNodeWasm() -> Data? {
 private func runNodeWasm(args: [String]) -> Int32 {
     guard let nodeData = loadNodeWasm() else { return -1 }
 
-    // Preopen host filesystem via env hack so node.wasm can read JS files
-    setenv("WASM_PREOPENS", "/", 1)
-    defer { unsetenv("WASM_PREOPENS") }
+    setupWASMSysroot(currentDirectory: FileManager.default.currentDirectoryPath)
 
     var cStrings: [UnsafePointer<Int8>?] = args.map { strdup($0) }.map { UnsafePointer($0) }
     cStrings.append(nil)

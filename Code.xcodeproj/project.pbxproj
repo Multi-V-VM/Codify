@@ -232,7 +232,6 @@
 		9419699F280316C7008AAEB2 /* cacert.pem in Resources */ = {isa = PBXBuildFile; fileRef = 94B3D5D525F776A900C4F2B1 /* cacert.pem */; };
 		941969A0280316C7008AAEB2 /* commandDictionary.plist in Resources */ = {isa = PBXBuildFile; fileRef = 948D11FF2583F20C008F877A /* commandDictionary.plist */; };
 		941969A1280316C7008AAEB2 /* ClangLib in Resources */ = {isa = PBXBuildFile; fileRef = 94CF58DE265E51B100CB6A4B /* ClangLib */; };
-		AAC4000130000001000000A1 /* WasiSysroot in Resources */ = {isa = PBXBuildFile; fileRef = AAC4000030000001000000A0 /* WasiSysroot */; };
 		941969A2280316C7008AAEB2 /* Settings.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 941CF5FA2641CBDA001199C0 /* Settings.bundle */; };
 		941969A3280316C7008AAEB2 /* extraCommandsDictionary.plist in Resources */ = {isa = PBXBuildFile; fileRef = 948D11FE2583F20C008F877A /* extraCommandsDictionary.plist */; };
 		941969A4280316C7008AAEB2 /* npm.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 94369B4925EAB175008419A0 /* npm.bundle */; };
@@ -845,7 +844,6 @@
 		94CF58DA265E4B3000CB6A4B /* opt.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 94CF58C6265E4A9E00CB6A4B /* opt.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		94CF58DD265E4E0F00CB6A4B /* URL+isDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CF58DC265E4E0F00CB6A4B /* URL+isDirectory.swift */; };
 		94CF58DF265E51B100CB6A4B /* ClangLib in Resources */ = {isa = PBXBuildFile; fileRef = 94CF58DE265E51B100CB6A4B /* ClangLib */; };
-		AAC4000230000001000000A2 /* WasiSysroot in Resources */ = {isa = PBXBuildFile; fileRef = AAC4000030000001000000A0 /* WasiSysroot */; };
 		94CF58E1265E8A4B00CB6A4B /* wasm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CF58E0265E8A4B00CB6A4B /* wasm.swift */; };
 		94E3B96B25866C79006AC043 /* String.Encoding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E3B96A25866C79006AC043 /* String.Encoding.swift */; };
 		94E6CC7B2806FBAF00939E4F /* SFTPFileSystemProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E6CC7A2806FBAF00939E4F /* SFTPFileSystemProvider.swift */; };
@@ -970,6 +968,10 @@
 		9FE3E2AD298A16A300F63DD0 /* NMSSH.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 942E321128093CA600233441 /* NMSSH.xcframework */; };
 		AAB10001302B000100AABB01 /* VibeCodingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB10005302B000100AABB01 /* VibeCodingView.swift */; };
 		AAB10002302B000100AABB01 /* VibeCodingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB10005302B000100AABB01 /* VibeCodingView.swift */; };
+		AAC4000130000001000000A1 /* WasiSysroot in Resources */ = {isa = PBXBuildFile; fileRef = AAC4000030000001000000A0 /* WasiSysroot */; };
+		AAC4000230000001000000A2 /* WasiSysroot in Resources */ = {isa = PBXBuildFile; fileRef = AAC4000030000001000000A0 /* WasiSysroot */; };
+		AAC4000330000001000000A3 /* ane_q8_kernel.c in Sources */ = {isa = PBXBuildFile; fileRef = AAC4000530000001000000A5 /* ane_q8_kernel.c */; };
+		AAC4000430000001000000A4 /* ane_q8_kernel.c in Sources */ = {isa = PBXBuildFile; fileRef = AAC4000530000001000000A5 /* ane_q8_kernel.c */; };
 		F97209422F46383C00DA803A /* DebuggerExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97209402F46383C00DA803A /* DebuggerExtension.swift */; };
 		F97209432F46383C00DA803A /* DebuggerExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97209402F46383C00DA803A /* DebuggerExtension.swift */; };
 		F97209452F4638C200DA803A /* DebuggerSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97209442F4638C200DA803A /* DebuggerSidebarView.swift */; };
@@ -993,9 +995,7 @@
 		F9FE0DAE2F59496F008DFB0E /* GGUFDequantizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9FE0DA72F59496F008DFB0E /* GGUFDequantizer.swift */; };
 		F9FE0DAF2F59496F008DFB0E /* GGUFTokenizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9FE0DA92F59496F008DFB0E /* GGUFTokenizer.swift */; };
 		F9FE0DB02F594A00008DFB0E /* ane_bridge.m in Sources */ = {isa = PBXBuildFile; fileRef = F9FE0DB42F594A00008DFB0E /* ane_bridge.m */; };
-		AAC4000330000001000000A3 /* ane_q8_kernel.c in Sources */ = {isa = PBXBuildFile; fileRef = AAC4000530000001000000A5 /* ane_q8_kernel.c */; };
 		F9FE0DB12F594A00008DFB0E /* ane_bridge.m in Sources */ = {isa = PBXBuildFile; fileRef = F9FE0DB42F594A00008DFB0E /* ane_bridge.m */; };
-		AAC4000430000001000000A4 /* ane_q8_kernel.c in Sources */ = {isa = PBXBuildFile; fileRef = AAC4000530000001000000A5 /* ane_q8_kernel.c */; };
 		F9FE0DB22F594A00008DFB0E /* ane_model_compiler.m in Sources */ = {isa = PBXBuildFile; fileRef = F9FE0DB72F594A00008DFB0E /* ane_model_compiler.m */; };
 		F9FE0DB32F594A00008DFB0E /* ane_model_compiler.m in Sources */ = {isa = PBXBuildFile; fileRef = F9FE0DB72F594A00008DFB0E /* ane_model_compiler.m */; };
 		F9FE0DBB2F594A00008DFB0E /* IOSurface.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE0DBA2F594A00008DFB0E /* IOSurface.framework */; };
@@ -1936,7 +1936,7 @@
 		9437153E26BF9FC3000376FB /* RemoteContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteContainer.swift; sourceTree = "<group>"; };
 		9441129C28217D6A00A8F1D7 /* TerminalProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalProvider.swift; sourceTree = "<group>"; };
 		944112A0282181E500A8F1D7 /* SFTPTerminalServiceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SFTPTerminalServiceProvider.swift; sourceTree = "<group>"; };
-		944EEBF02563C381009D77FE /* Code.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Code.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		944EEBF02563C381009D77FE /* Code.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = Code.app; path = CodifyOne.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		944EEBF32563C381009D77FE /* CodeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeApp.swift; sourceTree = "<group>"; };
 		944EEBF72563C386009D77FE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		944EEBFA2563C386009D77FE /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -2014,7 +2014,7 @@
 		94A56831257CC3A1008A6530 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		94A56833257CC3AF008A6530 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		94A56834257CC60E008A6530 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
-		94A56854257CEBC8008A6530 /* CodifyOne.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "CodifyOne.entitlements"; sourceTree = "<group>"; };
+		94A56854257CEBC8008A6530 /* CodifyOne.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CodifyOne.entitlements; sourceTree = "<group>"; };
 		94A77795257ABB69008FE7B2 /* EditorInstance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorInstance.swift; sourceTree = "<group>"; };
 		94A7779E257ABD7A008FE7B2 /* MainApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainApp.swift; sourceTree = "<group>"; };
 		94A777A1257ABDC3008FE7B2 /* WorkSpaceStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkSpaceStorage.swift; sourceTree = "<group>"; };
@@ -2064,7 +2064,6 @@
 		94CF58C6265E4A9E00CB6A4B /* opt.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = opt.xcframework; sourceTree = "<group>"; };
 		94CF58DC265E4E0F00CB6A4B /* URL+isDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URL+isDirectory.swift"; sourceTree = "<group>"; };
 		94CF58DE265E51B100CB6A4B /* ClangLib */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ClangLib; sourceTree = "<group>"; };
-		AAC4000030000001000000A0 /* WasiSysroot */ = {isa = PBXFileReference; lastKnownFileType = folder; path = WasiSysroot; sourceTree = "<group>"; };
 		94CF58E0265E8A4B00CB6A4B /* wasm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = wasm.swift; sourceTree = "<group>"; };
 		94D721E3268DBB94007A63BD /* openssl.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = openssl.xcframework; sourceTree = "<group>"; };
 		94D7DEC02631D0CA00FA0760 /* libpng.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libpng.xcframework; sourceTree = "<group>"; };
@@ -2137,6 +2136,9 @@
 		9FE3E292298A14BC00F63DD0 /* CodeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CodeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9FE3E294298A14BC00F63DD0 /* CodeUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeUITests.swift; sourceTree = "<group>"; };
 		AAB10005302B000100AABB01 /* VibeCodingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VibeCodingView.swift; sourceTree = "<group>"; };
+		AAC4000030000001000000A0 /* WasiSysroot */ = {isa = PBXFileReference; lastKnownFileType = folder; path = WasiSysroot; sourceTree = "<group>"; };
+		AAC4000530000001000000A5 /* ane_q8_kernel.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ane_q8_kernel.c; sourceTree = "<group>"; };
+		AAC4000630000001000000A6 /* ane_q8_kernel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ane_q8_kernel.h; sourceTree = "<group>"; };
 		F97209402F46383C00DA803A /* DebuggerExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebuggerExtension.swift; sourceTree = "<group>"; };
 		F97209442F4638C200DA803A /* DebuggerSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebuggerSidebarView.swift; sourceTree = "<group>"; };
 		F97209472F46390B00DA803A /* DebuggerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebuggerService.swift; sourceTree = "<group>"; };
@@ -2149,8 +2151,6 @@
 		F9FE0DA82F59496F008DFB0E /* GGUFLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GGUFLoader.swift; sourceTree = "<group>"; };
 		F9FE0DA92F59496F008DFB0E /* GGUFTokenizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GGUFTokenizer.swift; sourceTree = "<group>"; };
 		F9FE0DB42F594A00008DFB0E /* ane_bridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ane_bridge.m; sourceTree = "<group>"; };
-		AAC4000530000001000000A5 /* ane_q8_kernel.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ane_q8_kernel.c; sourceTree = "<group>"; };
-		AAC4000630000001000000A6 /* ane_q8_kernel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ane_q8_kernel.h; sourceTree = "<group>"; };
 		F9FE0DB52F594A00008DFB0E /* ane_bridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ane_bridge.h; sourceTree = "<group>"; };
 		F9FE0DB62F594A00008DFB0E /* ane_mil_gen.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ane_mil_gen.h; sourceTree = "<group>"; };
 		F9FE0DB72F594A00008DFB0E /* ane_model_compiler.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ane_model_compiler.m; sourceTree = "<group>"; };
@@ -3139,73 +3139,73 @@
 		9F3C2DEF291CAD2200BFF14C /* Views */ = {
 			isa = PBXGroup;
 			children = (
-1C4C8DCD2EA89040008E5E33 /* ActivityBar.swift */,
-1C4C8DCE2EA89040008E5E33 /* ActivityBarItemView.swift */,
-1C4C8DCF2EA89040008E5E33 /* ChatView.swift */,
-1C4C8DD02EA89040008E5E33 /* CompactSidebar.swift */,
-1C4C8DD12EA89040008E5E33 /* DebugMenu.swift */,
-1C4C8DD22EA89040008E5E33 /* DescriptionText.swift */,
-F97209442F4638C200DA803A /* DebuggerSidebarView.swift */,
-1C4C8DD32EA89040008E5E33 /* DirectoryPickerView.swift */,
-1C4C8DD42EA89040008E5E33 /* DocumentPickerView.swift */,
-1C4C8DD52EA89040008E5E33 /* EditorContextMenu.swift */,
-1C4C8DD62EA89040008E5E33 /* EditorKeyboardToolBar.swift */,
-1C4C8DD72EA89040008E5E33 /* EditorTab.swift */,
-1C4C8DD82EA89040008E5E33 /* EditorTabs.swift */,
-1C4C8DD92EA89040008E5E33 /* EditorView.swift */,
-1C4C8DDA2EA89040008E5E33 /* ExplorerCell.swift */,
-1C4C8DDB2EA89040008E5E33 /* ExplorerEditorListSection.swift */,
-1C4C8DDC2EA89040008E5E33 /* ExplorerFileTreeSection.swift */,
-1C4C8DDD2EA89040008E5E33 /* ExtensionSettingsView.swift */,
-1C4C8DDE2EA89040008E5E33 /* FileDisplayName.swift */,
-1C4C8DDF2EA89040008E5E33 /* FileIcon.swift */,
-1C4C8DE02EA89040008E5E33 /* FileTreeView.swift */,
-1C4C8DE12EA89040008E5E33 /* GitHubSearchView.swift */,
-1C4C8DE22EA89040008E5E33 /* HierarchyList.swift */,
-1C4C8DE32EA89040008E5E33 /* HighlightedText.swift */,
-1C4C8DE42EA89040008E5E33 /* InfiniteProgressView.swift */,
-1C4C8DE52EA89040008E5E33 /* MarkdownView.swift */,
-1C4C8DE62EA89040008E5E33 /* MenuButtonView.swift */,
-1C4C8DE72EA89040008E5E33 /* ModelSettingsView.swift */,
-1C4C8DE82EA89040008E5E33 /* NewFileView.swift */,
-1C4C8DE92EA89040008E5E33 /* NotificationCentreView.swift */,
-1C4C8DEA2EA89040008E5E33 /* PanelSelector.swift */,
-1C4C8DEB2EA89040008E5E33 /* PanelView.swift */,
-1C4C8DEC2EA89040008E5E33 /* RegularSidebar.swift */,
-1C4C8DED2EA89040008E5E33 /* RemoteConnectedSection.swift */,
-1C4C8DEE2EA89040008E5E33 /* RemoteCreateSection.swift */,
-1C4C8DEF2EA89040008E5E33 /* RemoteHostCell.swift */,
-1C4C8DF02EA89040008E5E33 /* RemoteImage.swift */,
-1C4C8DF12EA89040008E5E33 /* RemoteListSection.swift */,
-1C4C8DF22EA89040008E5E33 /* RemoteTypeLabel.swift */,
-1C4C8DF32EA89040008E5E33 /* RightPanelView.swift */,
-1C4C8DF42EA89040008E5E33 /* SafariView.swift */,
-1C4C8DF52EA89040008E5E33 /* SearchBar.swift */,
-1C4C8DF62EA89040008E5E33 /* SearchResultsSection.swift */,
-1C4C8DF72EA89040008E5E33 /* SearchSection.swift */,
-1C4C8DF82EA89040008E5E33 /* SearchUnsupportedSection.swift */,
-1C4C8DF92EA89040008E5E33 /* SettingsFontPicker.swift */,
-1C4C8DFA2EA89040008E5E33 /* SettingsKeyboardShortcuts.swift */,
-1C4C8DFB2EA89040008E5E33 /* SettingsThemeConfiguration.swift */,
-1C4C8DFC2EA89040008E5E33 /* SettingsView.swift */,
-1C4C8DFD2EA89040008E5E33 /* SideBarButton.swift */,
-1C4C8DFE2EA89040008E5E33 /* SourceControlAuthenticationConfiguration.swift */,
-1C4C8DFF2EA89040008E5E33 /* SourceControlCloneSection.swift */,
-1C4C8E002EA89040008E5E33 /* SourceControlEmptySection.swift */,
-1C4C8E012EA89040008E5E33 /* SourceControlEntry.swift */,
-1C4C8E022EA89040008E5E33 /* SourceControlIdentityConfiguration.swift */,
-1C4C8E032EA89040008E5E33 /* SourceControlSection.swift */,
-1C4C8E042EA89040008E5E33 /* SourceControlTemplateSection.swift */,
-1C4C8E052EA89040008E5E33 /* SourceControlTextFieldAlert.swift */,
-1C4C8E062EA89040008E5E33 /* SourceControlUnsupportedSection.swift */,
-1C4C8E072EA89040008E5E33 /* TableView.swift */,
-1C4C8E082EA89040008E5E33 /* TerminalKeyboardToolbar.swift */,
-94A77830257BD681008FE7B2 /* TerminalTabBar.swift */,
-1C4C8E092EA89040008E5E33 /* TextEditorWithPlaceholder.swift */,
-1C4C8E0A2EA89040008E5E33 /* TopBar.swift */,
-1C4C8E0B2EA89040008E5E33 /* ViewRepresentable.swift */,
-AAB10005302B000100AABB01 /* VibeCodingView.swift */,
-1C4C8E0C2EA89040008E5E33 /* VISXPackageManager.swift */,
+				1C4C8DCD2EA89040008E5E33 /* ActivityBar.swift */,
+				1C4C8DCE2EA89040008E5E33 /* ActivityBarItemView.swift */,
+				1C4C8DCF2EA89040008E5E33 /* ChatView.swift */,
+				1C4C8DD02EA89040008E5E33 /* CompactSidebar.swift */,
+				1C4C8DD12EA89040008E5E33 /* DebugMenu.swift */,
+				1C4C8DD22EA89040008E5E33 /* DescriptionText.swift */,
+				F97209442F4638C200DA803A /* DebuggerSidebarView.swift */,
+				1C4C8DD32EA89040008E5E33 /* DirectoryPickerView.swift */,
+				1C4C8DD42EA89040008E5E33 /* DocumentPickerView.swift */,
+				1C4C8DD52EA89040008E5E33 /* EditorContextMenu.swift */,
+				1C4C8DD62EA89040008E5E33 /* EditorKeyboardToolBar.swift */,
+				1C4C8DD72EA89040008E5E33 /* EditorTab.swift */,
+				1C4C8DD82EA89040008E5E33 /* EditorTabs.swift */,
+				1C4C8DD92EA89040008E5E33 /* EditorView.swift */,
+				1C4C8DDA2EA89040008E5E33 /* ExplorerCell.swift */,
+				1C4C8DDB2EA89040008E5E33 /* ExplorerEditorListSection.swift */,
+				1C4C8DDC2EA89040008E5E33 /* ExplorerFileTreeSection.swift */,
+				1C4C8DDD2EA89040008E5E33 /* ExtensionSettingsView.swift */,
+				1C4C8DDE2EA89040008E5E33 /* FileDisplayName.swift */,
+				1C4C8DDF2EA89040008E5E33 /* FileIcon.swift */,
+				1C4C8DE02EA89040008E5E33 /* FileTreeView.swift */,
+				1C4C8DE12EA89040008E5E33 /* GitHubSearchView.swift */,
+				1C4C8DE22EA89040008E5E33 /* HierarchyList.swift */,
+				1C4C8DE32EA89040008E5E33 /* HighlightedText.swift */,
+				1C4C8DE42EA89040008E5E33 /* InfiniteProgressView.swift */,
+				1C4C8DE52EA89040008E5E33 /* MarkdownView.swift */,
+				1C4C8DE62EA89040008E5E33 /* MenuButtonView.swift */,
+				1C4C8DE72EA89040008E5E33 /* ModelSettingsView.swift */,
+				1C4C8DE82EA89040008E5E33 /* NewFileView.swift */,
+				1C4C8DE92EA89040008E5E33 /* NotificationCentreView.swift */,
+				1C4C8DEA2EA89040008E5E33 /* PanelSelector.swift */,
+				1C4C8DEB2EA89040008E5E33 /* PanelView.swift */,
+				1C4C8DEC2EA89040008E5E33 /* RegularSidebar.swift */,
+				1C4C8DED2EA89040008E5E33 /* RemoteConnectedSection.swift */,
+				1C4C8DEE2EA89040008E5E33 /* RemoteCreateSection.swift */,
+				1C4C8DEF2EA89040008E5E33 /* RemoteHostCell.swift */,
+				1C4C8DF02EA89040008E5E33 /* RemoteImage.swift */,
+				1C4C8DF12EA89040008E5E33 /* RemoteListSection.swift */,
+				1C4C8DF22EA89040008E5E33 /* RemoteTypeLabel.swift */,
+				1C4C8DF32EA89040008E5E33 /* RightPanelView.swift */,
+				1C4C8DF42EA89040008E5E33 /* SafariView.swift */,
+				1C4C8DF52EA89040008E5E33 /* SearchBar.swift */,
+				1C4C8DF62EA89040008E5E33 /* SearchResultsSection.swift */,
+				1C4C8DF72EA89040008E5E33 /* SearchSection.swift */,
+				1C4C8DF82EA89040008E5E33 /* SearchUnsupportedSection.swift */,
+				1C4C8DF92EA89040008E5E33 /* SettingsFontPicker.swift */,
+				1C4C8DFA2EA89040008E5E33 /* SettingsKeyboardShortcuts.swift */,
+				1C4C8DFB2EA89040008E5E33 /* SettingsThemeConfiguration.swift */,
+				1C4C8DFC2EA89040008E5E33 /* SettingsView.swift */,
+				1C4C8DFD2EA89040008E5E33 /* SideBarButton.swift */,
+				1C4C8DFE2EA89040008E5E33 /* SourceControlAuthenticationConfiguration.swift */,
+				1C4C8DFF2EA89040008E5E33 /* SourceControlCloneSection.swift */,
+				1C4C8E002EA89040008E5E33 /* SourceControlEmptySection.swift */,
+				1C4C8E012EA89040008E5E33 /* SourceControlEntry.swift */,
+				1C4C8E022EA89040008E5E33 /* SourceControlIdentityConfiguration.swift */,
+				1C4C8E032EA89040008E5E33 /* SourceControlSection.swift */,
+				1C4C8E042EA89040008E5E33 /* SourceControlTemplateSection.swift */,
+				1C4C8E052EA89040008E5E33 /* SourceControlTextFieldAlert.swift */,
+				1C4C8E062EA89040008E5E33 /* SourceControlUnsupportedSection.swift */,
+				1C4C8E072EA89040008E5E33 /* TableView.swift */,
+				1C4C8E082EA89040008E5E33 /* TerminalKeyboardToolbar.swift */,
+				94A77830257BD681008FE7B2 /* TerminalTabBar.swift */,
+				1C4C8E092EA89040008E5E33 /* TextEditorWithPlaceholder.swift */,
+				1C4C8E0A2EA89040008E5E33 /* TopBar.swift */,
+				1C4C8E0B2EA89040008E5E33 /* ViewRepresentable.swift */,
+				AAB10005302B000100AABB01 /* VibeCodingView.swift */,
+				1C4C8E0C2EA89040008E5E33 /* VISXPackageManager.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -3783,14 +3783,34 @@ AAB10005302B000100AABB01 /* VibeCodingView.swift */,
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			shellPath = /bin/sh;
-			shellScript = "export PATH=$PATH:/opt/homebrew/bin\nif command -v swift-format > /dev/null\nthen\n    swift-format format -i -r ${PROJECT_DIR}/CodeApp ${PROJECT_DIR}/CodeUITests ${PROJECT_DIR}/Extensions\n    swift-format lint -r -s ${PROJECT_DIR}/CodeApp ${PROJECT_DIR}/CodeUITests ${PROJECT_DIR}/Extensions\nelse\n    echo \"warning: swift-format not installed, install it by running brew install swift-format\"\nfi\n";
+			shellScript = (
+				"export PATH=$PATH:/opt/homebrew/bin",
+				"if command -v swift-format > /dev/null",
+				"then",
+				"    swift-format format -i -r ${PROJECT_DIR}/CodeApp ${PROJECT_DIR}/CodeUITests ${PROJECT_DIR}/Extensions",
+				"    swift-format lint -r -s ${PROJECT_DIR}/CodeApp ${PROJECT_DIR}/CodeUITests ${PROJECT_DIR}/Extensions",
+				"else",
+				"    echo \"warning: swift-format not installed, install it by running brew install swift-format\"",
+				"fi",
+				"",
+			);
 		};
 		9455423B27FC410F00DAF941 /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			name = "Run Script";
 			shellPath = /bin/sh;
-			shellScript = "export PATH=$PATH:/opt/homebrew/bin\nif command -v swift-format > /dev/null\nthen\n    swift-format format -i -r ${PROJECT_DIR}/CodeApp ${PROJECT_DIR}/CodeUITests ${PROJECT_DIR}/Extensions\n    swift-format lint -r -s ${PROJECT_DIR}/CodeApp ${PROJECT_DIR}/CodeUITests ${PROJECT_DIR}/Extensions\nelse\n    echo \"warning: swift-format not installed, install it by running brew install swift-format\"\nfi\n";
+			shellScript = (
+				"export PATH=$PATH:/opt/homebrew/bin",
+				"if command -v swift-format > /dev/null",
+				"then",
+				"    swift-format format -i -r ${PROJECT_DIR}/CodeApp ${PROJECT_DIR}/CodeUITests ${PROJECT_DIR}/Extensions",
+				"    swift-format lint -r -s ${PROJECT_DIR}/CodeApp ${PROJECT_DIR}/CodeUITests ${PROJECT_DIR}/Extensions",
+				"else",
+				"    echo \"warning: swift-format not installed, install it by running brew install swift-format\"",
+				"fi",
+				"",
+			);
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -4292,7 +4312,7 @@ AAB10005302B000100AABB01 /* VibeCodingView.swift */,
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = "CodifyOne.entitlements";
+				CODE_SIGN_ENTITLEMENTS = CodifyOne.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 87;
@@ -4340,7 +4360,7 @@ AAB10005302B000100AABB01 /* VibeCodingView.swift */,
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = "CodifyOne.entitlements";
+				CODE_SIGN_ENTITLEMENTS = CodifyOne.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 87;
@@ -4591,7 +4611,7 @@ AAB10005302B000100AABB01 /* VibeCodingView.swift */,
 				ASSETCATALOG_COMPILER_APPICON_NAME = Iconv2;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = "CodifyOne.entitlements";
+				CODE_SIGN_ENTITLEMENTS = CodifyOne.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 87;
@@ -4638,7 +4658,7 @@ AAB10005302B000100AABB01 /* VibeCodingView.swift */,
 				ASSETCATALOG_COMPILER_APPICON_NAME = Iconv2;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = "CodifyOne.entitlements";
+				CODE_SIGN_ENTITLEMENTS = CodifyOne.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 87;

@@ -53,7 +53,7 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
     }
 
     let wasmFile = arguments[1]
-    let currentDirectory = FileManager.default.currentDirectoryPath
+    let currentDirectory = resolvedWASMCurrentDirectory(FileManager.default.currentDirectoryPath)
     let fileName = wasmFile.hasPrefix("/") ? wasmFile : currentDirectory + "/" + wasmFile
 
     setupWASMSysroot(currentDirectory: currentDirectory)
@@ -118,6 +118,34 @@ func wasmSysrootURL() -> URL {
         .appendingPathComponent("Library/wasm-sysroot")
 }
 
+func resolvedWASMCurrentDirectory(_ currentDirectory: String) -> String {
+    let fileManager = FileManager.default
+    let home = NSHomeDirectory()
+    let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first
+        ?? URL(fileURLWithPath: home).appendingPathComponent("Documents")
+
+    try? fileManager.createDirectory(at: documentsURL, withIntermediateDirectories: true)
+
+    var isDirectory: ObjCBool = false
+    if fileManager.fileExists(atPath: currentDirectory, isDirectory: &isDirectory), isDirectory.boolValue {
+        return currentDirectory
+    }
+
+    if currentDirectory == home || currentDirectory.hasPrefix(home + "/") {
+        try? fileManager.createDirectory(
+            at: URL(fileURLWithPath: currentDirectory), withIntermediateDirectories: true)
+        if fileManager.fileExists(atPath: currentDirectory, isDirectory: &isDirectory), isDirectory.boolValue {
+            return currentDirectory
+        }
+    }
+
+    if fileManager.fileExists(atPath: documentsURL.path, isDirectory: &isDirectory), isDirectory.boolValue {
+        return documentsURL.path
+    }
+
+    return home
+}
+
 /// Prepare the WASI sysroot for a WASM program and expose it through the
 /// environment variables the Wasmer runtime reads:
 ///   WASM_PREOPENS  - colon-separated host directories preopened for the guest
@@ -132,6 +160,7 @@ func setupWASMSysroot(currentDirectory: String) {
     let fileManager = FileManager.default
     let home = NSHomeDirectory()
     let sysroot = wasmSysrootURL()
+    let resolvedCurrentDirectory = resolvedWASMCurrentDirectory(currentDirectory)
 
     // Build the skeleton once; subsequent runs reuse it so guest state persists.
     let skeletonDirs = ["tmp", "home", "etc", "usr", "Tools"]
@@ -156,8 +185,8 @@ func setupWASMSysroot(currentDirectory: String) {
     // Preopen the entire app sandbox plus the working directory (which can sit
     // outside the sandbox when a folder is opened via a security-scoped URL).
     var preopens = [home, NSTemporaryDirectory()]
-    if !currentDirectory.hasPrefix(home) {
-        preopens.append(currentDirectory)
+    if !resolvedCurrentDirectory.hasPrefix(home) {
+        preopens.append(resolvedCurrentDirectory)
     }
     setenv("WASM_PREOPENS", preopens.joined(separator: ":"), 1)
 
@@ -186,8 +215,8 @@ func setupWASMSysroot(currentDirectory: String) {
     ]
     setenv("WASM_MAP_DIRS", mapDirs.joined(separator: ";"), 1)
 
-    setenv("WASM_CWD", currentDirectory, 1)
-    setenv("PWD", currentDirectory, 1)
+    setenv("WASM_CWD", resolvedCurrentDirectory, 1)
+    setenv("PWD", resolvedCurrentDirectory, 1)
     // Guest-only HOME override, applied by the runtime so the host HOME
     // (used by node/npm and ios_system commands) is left untouched. Points at
     // the persistent skeleton home (visible via the sandbox preopen) rather

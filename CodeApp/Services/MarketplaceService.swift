@@ -18,7 +18,7 @@ class MarketplaceService {
         UserDefaults.standard.string(forKey: "extensionMarketplaceURL") ?? "https://asplos.dev/api/marketplace"
     }
     private let fallbackURL = "https://marketplace.visualstudio.com/_apis/public/gallery"
-    private let apiVersion = "7.2-preview.1"
+    private let apiVersion = "3.0-preview.1"
 
     // Shared URL session with caching
     private lazy var urlSession: URLSession = {
@@ -86,9 +86,7 @@ class MarketplaceService {
     }
 
     private func postExtensionQuery(base: String, body: Data) async throws -> Data {
-        guard let url = URL(string: "\(base)/extensionquery") else {
-            throw MarketplaceError.invalidURL
-        }
+        let url = try extensionQueryURL(from: base)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -162,6 +160,17 @@ class MarketplaceService {
         return destinationURL
     }
 
+    private func extensionQueryURL(from base: String) throws -> URL {
+        let trimmedBase = base.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let urlString = trimmedBase.hasSuffix("/extensionquery")
+            ? trimmedBase
+            : "\(trimmedBase)/extensionquery"
+        guard let url = URL(string: urlString) else {
+            throw MarketplaceError.invalidURL
+        }
+        return url
+    }
+
     private func downloadPackage(from urlString: String) async throws -> URL {
         guard let url = URL(string: urlString) else {
             throw MarketplaceError.invalidURL
@@ -190,16 +199,24 @@ class MarketplaceService {
         pageSize: Int,
         sortBy: SortBy
     ) -> SearchRequest {
-        SearchRequest(
+        var criteria = [
+            Criterion(filterType: .target, value: "Microsoft.VisualStudio.Code")
+        ]
+        if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            criteria.append(Criterion(filterType: .searchText, value: query))
+        }
+
+        return SearchRequest(
             filters: [
                 Filter(
-                    criteria: [
-                        Criterion(filterType: .searchText, value: query)
-                    ],
+                    criteria: criteria,
+                    pageNumber: 1,
                     pageSize: pageSize,
-                    sortBy: sortBy.rawValue
+                    sortBy: sortBy.rawValue,
+                    sortOrder: 0
                 )
             ],
+            assetTypes: [],
             flags: QueryFlags.all
         )
     }
@@ -280,13 +297,16 @@ extension MarketplaceService {
 
     struct SearchRequest: Codable {
         let filters: [Filter]
+        let assetTypes: [String]
         let flags: Int
     }
 
     struct Filter: Codable {
         let criteria: [Criterion]
+        let pageNumber: Int
         let pageSize: Int
         let sortBy: Int
+        let sortOrder: Int
     }
 
     struct Criterion: Codable {
@@ -296,8 +316,9 @@ extension MarketplaceService {
         enum FilterType: Int, Codable {
             case tag = 1
             case displayName = 2
-            case searchText = 8
             case category = 5
+            case target = 8
+            case searchText = 10
         }
     }
 

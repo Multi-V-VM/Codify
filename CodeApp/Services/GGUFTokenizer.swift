@@ -13,8 +13,11 @@ class GGUFTokenizer {
     // Vocabulary
     private var tokens: [String] = []           // id → token string
     private var scores: [Float] = []            // id → merge score
+    private var tokenTypes: [Int] = []           // id → GGML token type
     private var tokenToId: [String: Int] = [:]  // token → id
     private var merges: [(String, String)] = []  // BPE merge pairs
+    private var tokenizerModel: String = ""
+    private var usesByteLevelDecoding = true
 
     // Special tokens
     private(set) var bosTokenId: Int = -1
@@ -69,6 +72,11 @@ class GGUFTokenizer {
 
     func loadFromGGUF(metadata: [String: Any]) {
         buildByteUnicodeMapping()
+        tokenizerModel = (metadata["tokenizer.ggml.model"] as? String)?.lowercased() ?? ""
+        usesByteLevelDecoding = tokenizerModel.contains("gpt2") || tokenizerModel.contains("bpe")
+        if tokenizerModel.contains("llama") || tokenizerModel.contains("spm") || tokenizerModel.contains("unigram") {
+            usesByteLevelDecoding = false
+        }
         // Extract token list
         if let tokenList = metadata["tokenizer.ggml.tokens"] as? [Any] {
             tokens = tokenList.compactMap { $0 as? String }
@@ -87,6 +95,10 @@ class GGUFTokenizer {
             }
         }
 
+        if let typeList = metadata["tokenizer.ggml.token_type"] as? [Any] {
+            tokenTypes = typeList.map { intValue($0) ?? 1 }
+        }
+
         // Extract merge pairs
         if let mergeList = metadata["tokenizer.ggml.merges"] as? [Any] {
             merges = mergeList.compactMap { item -> (String, String)? in
@@ -95,6 +107,9 @@ class GGUFTokenizer {
                 guard parts.count == 2 else { return nil }
                 return (String(parts[0]), String(parts[1]))
             }
+        }
+        if !merges.isEmpty && tokenizerModel.isEmpty {
+            usesByteLevelDecoding = true
         }
 
         // Special token IDs
@@ -165,21 +180,33 @@ class GGUFTokenizer {
     // MARK: - Decoding
 
     func decode(_ ids: [Int], skipSpecial: Bool = true) -> String {
-        var allBytes: [UInt8] = []
-        for id in ids {
-            guard id >= 0, id < tokens.count else { continue }
-            if skipSpecial && isSpecialToken(id) { continue }
-            allBytes.append(contentsOf: tokenToBytes(tokens[id]))
+        if usesByteLevelDecoding {
+            var allBytes: [UInt8] = []
+            for id in ids {
+                guard id >= 0, id < tokens.count else { continue }
+                if skipSpecial && !isTextToken(id) { continue }
+                allBytes.append(contentsOf: tokenToBytes(tokens[id]))
+            }
+            return String(bytes: allBytes, encoding: .utf8)
+                ?? String(allBytes.map { Character(Unicode.Scalar($0)) })
         }
-        return String(bytes: allBytes, encoding: .utf8)
-            ?? String(allBytes.map { Character(Unicode.Scalar($0)) })
+
+        return ids.compactMap { id in
+            guard id >= 0, id < tokens.count else { return nil }
+            if skipSpecial && !isTextToken(id) { return nil }
+            return normalizedTextPiece(tokens[id])
+        }.joined()
     }
 
     /// Decode a single token for streaming. Accumulates bytes internally
     /// and returns valid UTF-8 text when complete sequences are available.
     func decodeOne(_ id: Int) -> String {
         guard id >= 0, id < tokens.count else { return "" }
-        if isSpecialToken(id) { return "" }
+        guard isTextToken(id) else { return "" }
+
+        if !usesByteLevelDecoding {
+            return normalizedTextPiece(tokens[id])
+        }
 
         pendingBytes.append(contentsOf: tokenToBytes(tokens[id]))
 
@@ -223,6 +250,31 @@ class GGUFTokenizer {
     func isSpecialToken(_ id: Int) -> Bool {
         return id == bosTokenId || id == eosTokenId || id == padTokenId
             || id == imStartId || id == imEndId
+    }
+
+    func isTextToken(_ id: Int) -> Bool {
+        if isSpecialToken(id) { return false }
+        guard id >= 0, id < tokens.count else { return false }
+
+        if id < tokenTypes.count {
+            switch tokenTypes[id] {
+            case 2, 3, 5: // unknown, control, unused
+                return false
+            default:
+                break
+            }
+        }
+
+        let token = tokens[id]
+        if token.hasPrefix("<|") && token.hasSuffix("|>") { return false }
+        return true
+    }
+
+    private func normalizedTextPiece(_ token: String) -> String {
+        token
+            .replacingOccurrences(of: "▁", with: " ")
+            .replacingOccurrences(of: "Ġ", with: " ")
+            .replacingOccurrences(of: "Ċ", with: "\n")
     }
 
     // MARK: - Private BPE Implementation

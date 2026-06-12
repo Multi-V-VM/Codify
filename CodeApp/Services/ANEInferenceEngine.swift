@@ -513,7 +513,7 @@ class ANEInferenceEngine {
 
         // Autoregressive generation
         for _ in 0..<maxTokens {
-            let nextToken = sampleToken(logits: lastLogits)
+            let nextToken = sampleToken(logits: lastLogits, tokenizer: tokenizer)
             if tokenizer.isEOS(nextToken) { break }
             if position >= maxSeqLen - 1 { break }
 
@@ -529,14 +529,17 @@ class ANEInferenceEngine {
 
     // MARK: - Sampling
 
-    private func sampleToken(logits: [Float]) -> Int {
+    private func sampleToken(logits: [Float], tokenizer: GGUFTokenizer) -> Int {
         if temperature <= 0 {
-            var maxValue: Float = 0
-            var maxIndex: vDSP_Length = 0
-            logits.withUnsafeBufferPointer { buf in
-                vDSP_maxvi(buf.baseAddress!, 1, &maxValue, &maxIndex, vDSP_Length(logits.count))
+            var bestIndex = 0
+            var bestLogit = -Float.infinity
+            for (index, logit) in logits.enumerated() where tokenizer.isTextToken(index) || tokenizer.isEOS(index) {
+                if logit > bestLogit {
+                    bestLogit = logit
+                    bestIndex = index
+                }
             }
-            return Int(maxIndex)
+            return bestIndex
         }
 
         // Select the top-K candidates in one pass over the vocabulary
@@ -545,7 +548,11 @@ class ANEInferenceEngine {
         // look at those K candidates: everything below the K-th logit is
         // already excluded by top-K.
         let k = (topK > 0 && topK < logits.count) ? topK : 256
-        var candidates = topKCandidates(logits: logits, k: k)
+        var candidates = topKCandidates(logits: logits, k: k, tokenizer: tokenizer)
+
+        if candidates.isEmpty {
+            return 0
+        }
 
         // Softmax over the candidates (sorted descending by logit)
         candidates.sort { $0.logit > $1.logit }
@@ -579,7 +586,7 @@ class ANEInferenceEngine {
     }
 
     /// Single-pass top-k selection with a size-k min-heap: O(N log k).
-    private func topKCandidates(logits: [Float], k: Int) -> [(index: Int, logit: Float)] {
+    private func topKCandidates(logits: [Float], k: Int, tokenizer: GGUFTokenizer) -> [(index: Int, logit: Float)] {
         var heap = [(index: Int, logit: Float)]()
         heap.reserveCapacity(k)
 
@@ -602,6 +609,7 @@ class ANEInferenceEngine {
         }
 
         for (i, logit) in logits.enumerated() {
+            guard tokenizer.isTextToken(i) || tokenizer.isEOS(i) else { continue }
             if heap.count < k {
                 heap.append((i, logit))
                 if heap.count == k {
