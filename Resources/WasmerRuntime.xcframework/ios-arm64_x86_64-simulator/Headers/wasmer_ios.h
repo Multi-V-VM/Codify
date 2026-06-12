@@ -11,6 +11,18 @@ extern "C" {
 /**
  * Execute a WebAssembly module with WASIX p1 support.
  *
+ * Sysroot and engine behavior is configured through environment variables set
+ * by the host before the call:
+ *   WASM_PREOPENS          colon-separated host directories preopened for the
+ *                          guest under their host paths
+ *   WASM_MAP_DIRS          ;-separated "guest::host" directory mappings
+ *                          (e.g. "/tmp::/path/to/sysroot/tmp")
+ *   WASM_CWD               guest working directory
+ *   WASM_GUEST_HOME        HOME value seen by the guest (host HOME untouched)
+ *   WASM_AOT_CACHE         directory for AOT-compiled module artifacts, used
+ *                          when a JIT-capable compiling engine is selected
+ *   WASM_FORCE_INTERPRETER force the interpreter even if JIT is available
+ *
  * @param wasm_bytes_ptr Pointer to the WASM binary data
  * @param wasm_bytes_len Length of the WASM binary data
  * @param args_ptr Pointer to array of C string arguments
