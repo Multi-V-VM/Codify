@@ -181,6 +181,18 @@ struct ChatView: View {
         guard !message.isEmpty else { return }
         inputText = ""
         Task {
+            // Local inference: load the bundled Qwen model on first use so the
+            // chat never silently falls back to the simulated CoreML service.
+            if !aneLLMService.modelLoaded {
+                if aneLLMService.isLoading {
+                    // Another message already kicked off loading — wait for it.
+                    while aneLLMService.isLoading {
+                        try? await Task.sleep(nanoseconds: 200_000_000)
+                    }
+                } else {
+                    try? await aneLLMService.loadBundledModel()
+                }
+            }
             if aneLLMService.modelLoaded {
                 _ = await aneLLMService.sendMessage(message)
             } else {

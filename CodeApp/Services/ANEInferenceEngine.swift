@@ -270,25 +270,50 @@ class ANEInferenceEngine {
                          dt: [Float], A: [Float], mambaIdx: Int) -> [Float] {
         var y = [Float](repeating: 0, count: ssmInner)
 
-        for g in 0..<nGroups {
-            // A in log-space: log_A = -softplus(ssm_a[g]), always negative
-            // dA = exp(dt * log_A) = exp(-dt * softplus(ssm_a[g])), in (0, 1) for decay
-            let logA = -log(1.0 + exp(A[g]))  // -softplus(ssm_a)
-            let dtVal = dt[g]
-            let dA = exp(dtVal * logA)
+        // Unsafe buffers: this triple loop runs ssmInner*dState MACs per
+        // layer and Swift bounds checking on the state array dominates it.
+        let dInner = dInnerPerGroup
+        let states = dState
+        y.withUnsafeMutableBufferPointer { yBuf in
+            xSsm.withUnsafeBufferPointer { xBuf in
+                B.withUnsafeBufferPointer { bBuf in
+                    C.withUnsafeBufferPointer { cBuf in
+                        ssmStates[mambaIdx].withUnsafeMutableBufferPointer { stateBuf in
+                            let yPtr = yBuf.baseAddress!
+                            let xPtr = xBuf.baseAddress!
+                            let bPtr = bBuf.baseAddress!
+                            let cPtr = cBuf.baseAddress!
+                            let statePtr = stateBuf.baseAddress!
 
-            for j in 0..<dInnerPerGroup {
-                let ch = g * dInnerPerGroup + j
-                let xVal = xSsm[ch]
-                var yVal: Float = 0
+                            for g in 0..<nGroups {
+                                // A in log-space: log_A = -softplus(ssm_a[g]), always negative
+                                // dA = exp(dt * log_A) = exp(-dt * softplus(ssm_a[g])), in (0, 1)
+                                let logA = -log(1.0 + exp(A[g]))  // -softplus(ssm_a)
+                                let dtVal = dt[g]
+                                let dA = exp(dtVal * logA)
+                                let groupState = statePtr + g * states * dInner
+                                let groupB = bPtr + g * states
+                                let groupC = cPtr + g * states
 
-                for s in 0..<dState {
-                    let si = g * dState * dInnerPerGroup + s * dInnerPerGroup + j
-                    let bVal = B[g * dState + s]
-                    ssmStates[mambaIdx][si] = dA * ssmStates[mambaIdx][si] + dtVal * bVal * xVal
-                    yVal += C[g * dState + s] * ssmStates[mambaIdx][si]
+                                for s in 0..<states {
+                                    // state[s][:] = dA*state[s][:] + (dt*B[s])*x[:]
+                                    // y[:] += C[s] * state[s][:]
+                                    // Row-contiguous over j, so the compiler can vectorize.
+                                    let row = groupState + s * dInner
+                                    let dtB = dtVal * groupB[s]
+                                    let cVal = groupC[s]
+                                    let xGroup = xPtr + g * dInner
+                                    let yGroup = yPtr + g * dInner
+                                    for j in 0..<dInner {
+                                        let updated = dA * row[j] + dtB * xGroup[j]
+                                        row[j] = updated
+                                        yGroup[j] += cVal * updated
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
-                y[ch] = yVal
             }
         }
 
@@ -339,42 +364,48 @@ class ANEInferenceEngine {
         let scale = 1.0 / sqrt(Float(attnHeadDim))
         var attnOut = [Float](repeating: 0, count: attnOutDim)  // [2048]
 
-        for oh in 0..<nOutHeads {
-            let kvHead = oh / gqaGroupSize
+        // vDSP dot products / scaled accumulation over the raw cache buffer:
+        // these loops run O(position) times per token and dominate at long
+        // contexts if left as bounds-checked scalar Swift.
+        let headDim = attnHeadDim
+        let strideKV = 2 * kvTotalDim
+        let vBase = kvTotalDim
+        kvCaches[attnIdx].withUnsafeBufferPointer { cacheBuf in
+            let cache = cacheBuf.baseAddress!
+            q.withUnsafeBufferPointer { qBuf in
+                let qPtr = qBuf.baseAddress!
+                attnOut.withUnsafeMutableBufferPointer { outBuf in
+                    let out = outBuf.baseAddress!
 
-            // Sub-head 0 (positive)
-            let qOff0 = (oh * qSubPerHead) * attnHeadDim
-            var scores0 = [Float](repeating: 0, count: pos + 1)
-            for p in 0...pos {
-                let kOff = p * 2 * kvTotalDim + kvHead * attnHeadDim
-                var dot: Float = 0
-                for d in 0..<attnHeadDim {
-                    dot += q[qOff0 + d] * kvCaches[attnIdx][kOff + d]
-                }
-                scores0[p] = dot * scale
-            }
-            softmax(&scores0)
+                    for oh in 0..<nOutHeads {
+                        let kvHead = oh / gqaGroupSize
+                        let kHeadOff = kvHead * headDim
 
-            // Sub-head 1 (negative, for differential)
-            let qOff1 = (oh * qSubPerHead + 1) * attnHeadDim
-            var scores1 = [Float](repeating: 0, count: pos + 1)
-            for p in 0...pos {
-                let kOff = p * 2 * kvTotalDim + kvHead * attnHeadDim
-                var dot: Float = 0
-                for d in 0..<attnHeadDim {
-                    dot += q[qOff1 + d] * kvCaches[attnIdx][kOff + d]
-                }
-                scores1[p] = dot * scale
-            }
-            softmax(&scores1)
+                        // Differential score pair for each cached position
+                        var scores0 = [Float](repeating: 0, count: pos + 1)
+                        var scores1 = [Float](repeating: 0, count: pos + 1)
+                        let qOff0 = (oh * qSubPerHead) * headDim
+                        let qOff1 = qOff0 + headDim
+                        for p in 0...pos {
+                            let kPtr = cache + p * strideKV + kHeadOff
+                            var dot0: Float = 0
+                            var dot1: Float = 0
+                            vDSP_dotpr(qPtr + qOff0, 1, kPtr, 1, &dot0, vDSP_Length(headDim))
+                            vDSP_dotpr(qPtr + qOff1, 1, kPtr, 1, &dot1, vDSP_Length(headDim))
+                            scores0[p] = dot0 * scale
+                            scores1[p] = dot1 * scale
+                        }
+                        softmax(&scores0)
+                        softmax(&scores1)
 
-            // Weighted V: output = attn0·V - attn1·V (differential attention)
-            let outOff = oh * attnHeadDim
-            for p in 0...pos {
-                let vOff = p * 2 * kvTotalDim + kvTotalDim + kvHead * attnHeadDim
-                let diffScore = scores0[p] - scores1[p]
-                for d in 0..<attnHeadDim {
-                    attnOut[outOff + d] += diffScore * kvCaches[attnIdx][vOff + d]
+                        // Weighted V: output = attn0·V - attn1·V (differential attention)
+                        let outPtr = out + oh * headDim
+                        for p in 0...pos {
+                            let vPtr = cache + p * strideKV + vBase + kHeadOff
+                            var diffScore = scores0[p] - scores1[p]
+                            vDSP_vsma(vPtr, 1, &diffScore, outPtr, 1, outPtr, 1, vDSP_Length(headDim))
+                        }
+                    }
                 }
             }
         }
@@ -500,50 +531,89 @@ class ANEInferenceEngine {
 
     private func sampleToken(logits: [Float]) -> Int {
         if temperature <= 0 {
-            return logits.enumerated().max(by: { $0.element < $1.element })?.offset ?? 0
-        }
-
-        var scaled = logits.map { $0 / temperature }
-
-        // Top-K
-        if topK > 0 && topK < scaled.count {
-            let sorted = scaled.enumerated().sorted { $0.element > $1.element }
-            let threshold = sorted[topK - 1].element
-            for i in 0..<scaled.count {
-                if scaled[i] < threshold { scaled[i] = -Float.infinity }
+            var maxValue: Float = 0
+            var maxIndex: vDSP_Length = 0
+            logits.withUnsafeBufferPointer { buf in
+                vDSP_maxvi(buf.baseAddress!, 1, &maxValue, &maxIndex, vDSP_Length(logits.count))
             }
+            return Int(maxIndex)
         }
 
-        // Softmax
-        let maxVal = scaled.max() ?? 0
-        var probs = scaled.map { exp($0 - maxVal) }
-        let sumProbs = probs.reduce(0, +)
-        for i in 0..<probs.count { probs[i] /= sumProbs }
+        // Select the top-K candidates in one pass over the vocabulary
+        // (the previous implementation sorted all ~250K logits twice per
+        // token, which dominated sampling time). Top-P then only needs to
+        // look at those K candidates: everything below the K-th logit is
+        // already excluded by top-K.
+        let k = (topK > 0 && topK < logits.count) ? topK : 256
+        var candidates = topKCandidates(logits: logits, k: k)
 
-        // Top-P
+        // Softmax over the candidates (sorted descending by logit)
+        candidates.sort { $0.logit > $1.logit }
+        let maxLogit = candidates[0].logit
+        var probs = candidates.map { exp(($0.logit - maxLogit) / temperature) }
+        var sumProbs = probs.reduce(0, +)
+
+        // Top-P cutoff on the sorted candidates
         if topP < 1.0 {
-            let sorted = probs.enumerated().sorted { $0.element > $1.element }
             var cumProb: Float = 0
             var cutoff = probs.count
-            for (idx, (_, p)) in sorted.enumerated() {
-                cumProb += p
-                if cumProb >= topP { cutoff = idx + 1; break }
-            }
-            let allowed = Set(sorted.prefix(cutoff).map { $0.offset })
             for i in 0..<probs.count {
-                if !allowed.contains(i) { probs[i] = 0 }
+                cumProb += probs[i] / sumProbs
+                if cumProb >= topP {
+                    cutoff = i + 1
+                    break
+                }
             }
-            let newSum = probs.reduce(0, +)
-            if newSum > 0 { for i in 0..<probs.count { probs[i] /= newSum } }
+            probs = Array(probs[0..<cutoff])
+            sumProbs = probs.reduce(0, +)
         }
 
-        // Multinomial
-        let r = Float.random(in: 0..<1)
+        // Multinomial over the surviving candidates
+        let r = Float.random(in: 0..<1) * sumProbs
         var cum: Float = 0
         for i in 0..<probs.count {
             cum += probs[i]
-            if cum >= r { return i }
+            if cum >= r { return candidates[i].index }
         }
-        return probs.count - 1
+        return candidates[probs.count - 1].index
+    }
+
+    /// Single-pass top-k selection with a size-k min-heap: O(N log k).
+    private func topKCandidates(logits: [Float], k: Int) -> [(index: Int, logit: Float)] {
+        var heap = [(index: Int, logit: Float)]()
+        heap.reserveCapacity(k)
+
+        func siftDown(_ start: Int) {
+            var parent = start
+            while true {
+                let left = 2 * parent + 1
+                let right = left + 1
+                var smallest = parent
+                if left < heap.count && heap[left].logit < heap[smallest].logit {
+                    smallest = left
+                }
+                if right < heap.count && heap[right].logit < heap[smallest].logit {
+                    smallest = right
+                }
+                if smallest == parent { return }
+                heap.swapAt(parent, smallest)
+                parent = smallest
+            }
+        }
+
+        for (i, logit) in logits.enumerated() {
+            if heap.count < k {
+                heap.append((i, logit))
+                if heap.count == k {
+                    for node in stride(from: k / 2 - 1, through: 0, by: -1) {
+                        siftDown(node)
+                    }
+                }
+            } else if logit > heap[0].logit {
+                heap[0] = (i, logit)
+                siftDown(0)
+            }
+        }
+        return heap
     }
 }

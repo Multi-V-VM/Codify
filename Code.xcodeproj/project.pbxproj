@@ -993,7 +993,9 @@
 		F9FE0DAE2F59496F008DFB0E /* GGUFDequantizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9FE0DA72F59496F008DFB0E /* GGUFDequantizer.swift */; };
 		F9FE0DAF2F59496F008DFB0E /* GGUFTokenizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9FE0DA92F59496F008DFB0E /* GGUFTokenizer.swift */; };
 		F9FE0DB02F594A00008DFB0E /* ane_bridge.m in Sources */ = {isa = PBXBuildFile; fileRef = F9FE0DB42F594A00008DFB0E /* ane_bridge.m */; };
+		AAC4000330000001000000A3 /* ane_q8_kernel.c in Sources */ = {isa = PBXBuildFile; fileRef = AAC4000530000001000000A5 /* ane_q8_kernel.c */; };
 		F9FE0DB12F594A00008DFB0E /* ane_bridge.m in Sources */ = {isa = PBXBuildFile; fileRef = F9FE0DB42F594A00008DFB0E /* ane_bridge.m */; };
+		AAC4000430000001000000A4 /* ane_q8_kernel.c in Sources */ = {isa = PBXBuildFile; fileRef = AAC4000530000001000000A5 /* ane_q8_kernel.c */; };
 		F9FE0DB22F594A00008DFB0E /* ane_model_compiler.m in Sources */ = {isa = PBXBuildFile; fileRef = F9FE0DB72F594A00008DFB0E /* ane_model_compiler.m */; };
 		F9FE0DB32F594A00008DFB0E /* ane_model_compiler.m in Sources */ = {isa = PBXBuildFile; fileRef = F9FE0DB72F594A00008DFB0E /* ane_model_compiler.m */; };
 		F9FE0DBB2F594A00008DFB0E /* IOSurface.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE0DBA2F594A00008DFB0E /* IOSurface.framework */; };
@@ -2147,6 +2149,8 @@
 		F9FE0DA82F59496F008DFB0E /* GGUFLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GGUFLoader.swift; sourceTree = "<group>"; };
 		F9FE0DA92F59496F008DFB0E /* GGUFTokenizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GGUFTokenizer.swift; sourceTree = "<group>"; };
 		F9FE0DB42F594A00008DFB0E /* ane_bridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ane_bridge.m; sourceTree = "<group>"; };
+		AAC4000530000001000000A5 /* ane_q8_kernel.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ane_q8_kernel.c; sourceTree = "<group>"; };
+		AAC4000630000001000000A6 /* ane_q8_kernel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ane_q8_kernel.h; sourceTree = "<group>"; };
 		F9FE0DB52F594A00008DFB0E /* ane_bridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ane_bridge.h; sourceTree = "<group>"; };
 		F9FE0DB62F594A00008DFB0E /* ane_mil_gen.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ane_mil_gen.h; sourceTree = "<group>"; };
 		F9FE0DB72F594A00008DFB0E /* ane_model_compiler.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ane_model_compiler.m; sourceTree = "<group>"; };
@@ -3439,6 +3443,8 @@ AAB10005302B000100AABB01 /* VibeCodingView.swift */,
 			children = (
 				F9FE0DB52F594A00008DFB0E /* ane_bridge.h */,
 				F9FE0DB42F594A00008DFB0E /* ane_bridge.m */,
+				AAC4000530000001000000A5 /* ane_q8_kernel.c */,
+				AAC4000630000001000000A6 /* ane_q8_kernel.h */,
 				F9FE0DB62F594A00008DFB0E /* ane_mil_gen.h */,
 				F9FE0DB82F594A00008DFB0E /* ane_model_compiler.h */,
 				F9FE0DB72F594A00008DFB0E /* ane_model_compiler.m */,
@@ -3913,6 +3919,7 @@ AAB10005302B000100AABB01 /* VibeCodingView.swift */,
 				94196964280316C7008AAEB2 /* CloudCodeExecutionManager.swift in Sources */,
 				94FF3372284348F1003DE5DD /* KBWebViewBase.m in Sources */,
 				F9FE0DB12F594A00008DFB0E /* ane_bridge.m in Sources */,
+				AAC4000430000001000000A4 /* ane_q8_kernel.c in Sources */,
 				F9FE0DB32F594A00008DFB0E /* ane_model_compiler.m in Sources */,
 				9F046C3E29223E1500BDE4E9 /* CodeAppExtension.swift in Sources */,
 				94196965280316C7008AAEB2 /* String+toCString.swift in Sources */,
@@ -4137,6 +4144,7 @@ AAB10005302B000100AABB01 /* VibeCodingView.swift */,
 				94A77819257BC332008FE7B2 /* CloudCodeExecutionManager.swift in Sources */,
 				94FF3371284348F1003DE5DD /* KBWebViewBase.m in Sources */,
 				F9FE0DB02F594A00008DFB0E /* ane_bridge.m in Sources */,
+				AAC4000330000001000000A3 /* ane_q8_kernel.c in Sources */,
 				F9FE0DB22F594A00008DFB0E /* ane_model_compiler.m in Sources */,
 				9F046C3D29223E1500BDE4E9 /* CodeAppExtension.swift in Sources */,
 				949B3CC525DEA89B00BC83B5 /* String+toCString.swift in Sources */,

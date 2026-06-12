@@ -8,3 +8,4 @@
 // ANE Bridge for Neural Engine inference
 #import "../ANE/ane_bridge.h"
 #import "../ANE/ane_model_compiler.h"
+#import "../ANE/ane_q8_kernel.h"

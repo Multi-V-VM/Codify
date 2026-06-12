@@ -127,7 +127,13 @@ class GGUFDequantizer {
 
     /// Compute y = W * x where W is [outDim, inDim] in Q8_0 format
     /// W is stored row-major: outDim rows, each row has inDim/32 Q8_0 blocks
-    /// Uses batched dequantization + cblas_sgemv for performance
+    ///
+    /// Delegates to the C kernel (ane_q8_kernel.c): the activation is
+    /// quantized to int8 once and each row is a NEON int8 dot product over
+    /// the mmap'd weights — no F32 weight materialization — parallelized
+    /// across cores. ~int8-noise-floor accuracy vs the previous
+    /// dequantize+sgemv path (validated bit-exact against a scalar
+    /// reference of the same quantized computation).
     static func q8_0Matvec(
         w: UnsafeRawPointer,
         x: UnsafePointer<Float>,
@@ -135,51 +141,7 @@ class GGUFDequantizer {
         outDim: Int,
         inDim: Int
     ) {
-        let blocksPerRow = inDim / 32
-        let bytesPerRow = blocksPerRow * 34
-
-        // Batch dequantize rows and use BLAS for dot products
-        // Chunk size trades memory for speed (256 rows × inDim floats ≈ 1MB for dim=1024)
-        let chunkSize = 256
-        let chunkBuf = UnsafeMutablePointer<Float>.allocate(capacity: chunkSize * inDim)
-        defer { chunkBuf.deallocate() }
-
-        var rowIdx = 0
-        while rowIdx < outDim {
-            let batchEnd = min(rowIdx + chunkSize, outDim)
-            let batchCount = batchEnd - rowIdx
-
-            // Dequantize this batch of rows into chunkBuf
-            for r in 0..<batchCount {
-                let rowPtr = w.advanced(by: (rowIdx + r) * bytesPerRow)
-                let dst = chunkBuf.advanced(by: r * inDim)
-                for b in 0..<blocksPerRow {
-                    let blockPtr = rowPtr.advanced(by: b * 34)
-                    var scaleU16: UInt16 = 0
-                    memcpy(&scaleU16, blockPtr, 2)
-                    let scale = Float(Float16(bitPattern: scaleU16))
-                    let qsPtr = blockPtr.advanced(by: 2).assumingMemoryBound(to: Int8.self)
-                    let off = b * 32
-                    for j in 0..<32 {
-                        dst[off + j] = scale * Float(qsPtr[j])
-                    }
-                }
-            }
-
-            // y[rowIdx..<batchEnd] = chunkBuf[batchCount, inDim] × x[inDim]
-            // Using cblas_sgemv: y = alpha * A * x + beta * y
-            cblas_sgemv(
-                CblasRowMajor, CblasNoTrans,
-                Int32(batchCount), Int32(inDim),
-                1.0,                              // alpha
-                chunkBuf, Int32(inDim),           // A matrix [batchCount × inDim]
-                x, 1,                              // x vector
-                0.0,                               // beta
-                y.advanced(by: rowIdx), 1          // y output
-            )
-
-            rowIdx = batchEnd
-        }
+        ane_q8_matvec(w, x, y, Int32(outDim), Int32(inDim))
     }
 
     /// Wrapper that takes Swift arrays
