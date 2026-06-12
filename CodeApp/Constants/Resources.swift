@@ -14,9 +14,8 @@ class Resources {
     static let clangLib = URL(fileURLWithPath: Bundle.main.resourcePath!).appendingPathComponent(
         "ClangLib")
 
-    static let wasmHTML = URL(
-        fileURLWithPath: Bundle.main.path(
-            forResource: "wasm-worker", ofType: "html", inDirectory: "ClangLib")!)
+    static let wasmHTML = Bundle.main.url(
+        forResource: "wasm-worker", withExtension: "html", subdirectory: "ClangLib")
 
     static let themes = URL(fileURLWithPath: Bundle.main.resourcePath!).appendingPathComponent(
         "Themes")

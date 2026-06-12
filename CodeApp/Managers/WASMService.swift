@@ -12,8 +12,12 @@ class WASMService {
     private let webServer = GCDWebServer()
 
     init() {
+        guard let wasmHTML = Resources.wasmHTML else {
+            NSLog("WASMService: wasm-worker.html not found in bundle, wasm server disabled")
+            return
+        }
         let basePath = "/"
-        let directoryPath = Resources.wasmHTML.deletingLastPathComponent().path + "/"
+        let directoryPath = wasmHTML.deletingLastPathComponent().path + "/"
         webServer.addHandler(
             match: { requestMethod, requestURL, requestHeaders, urlPath, urlQuery in
                 if requestMethod != "GET" {

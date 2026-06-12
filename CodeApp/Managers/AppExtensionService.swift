@@ -15,11 +15,21 @@ class AppExtensionService: NSObject {
     private var task: URLSessionWebSocketTask? = nil
 
     func startServer() {
-        let BLE: AnyClass = (NSClassFromString("TlNFeHRlbnNpb24=".base64Decoded()!)!)
+        guard let className = "TlNFeHRlbnNpb24=".base64Decoded(),
+            let BLE: AnyClass = NSClassFromString(className)
+        else {
+            NSLog("AppExtensionService: NSExtension class unavailable, extension server disabled")
+            return
+        }
+        guard let mainBundleIdentifier = Bundle.main.bundleIdentifier else { return }
         let ext = Dynamic(BLE).extensionWithIdentifier(
-            "thebaselab.VS-Code.extension", error: nil)
-        let frameworkDir = Bundle.main.privateFrameworksPath!
-        let frameworkDirBookmark = try! URL(fileURLWithPath: frameworkDir).bookmarkData()
+            "\(mainBundleIdentifier).extension", error: nil)
+        guard let frameworkDir = Bundle.main.privateFrameworksPath,
+            let frameworkDirBookmark = try? URL(fileURLWithPath: frameworkDir).bookmarkData()
+        else {
+            NSLog("AppExtensionService: unable to bookmark frameworks directory")
+            return
+        }
         let pythonLibraryDirBookmark = try? FileManager().url(
             for: .libraryDirectory, in: .userDomainMask, appropriateFor: nil, create: true
         ).appendingPathComponent("lib/python3.9/site-packages").bookmarkData()

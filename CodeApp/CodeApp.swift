@@ -285,8 +285,12 @@ private func setupExtensionListener() {
                 userInfo: CFDictionary?
             ) in
 
-            let sharedURL = FileManager.default.containerURL(
-                forSecurityApplicationGroupIdentifier: "group.com.thebaselab.code")!
+            guard
+                let sharedURL = FileManager.default.containerURL(
+                    forSecurityApplicationGroupIdentifier: "group.com.thebaselab.code")
+            else {
+                return
+            }
             let stdoutURL = sharedURL.appendingPathComponent("stdout")
 
             guard let data = try? Data(contentsOf: stdoutURL),

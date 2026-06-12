@@ -16,8 +16,7 @@ class ExtensionCommunicationHelper {
         let string = data
 
         var error: NSError?
-        let sharedURL = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: "group.com.thebaselab.code")!
+        guard let sharedURL = ExtensionCommunicationHelper.containerURL else { return }
         coordinator.coordinate(
             writingItemAt: sharedURL.appendingPathComponent("stdin"), options: .forReplacing,
             error: &error,
@@ -37,8 +36,7 @@ class ExtensionCommunicationHelper {
         let string = data
 
         var error: NSError?
-        let sharedURL = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: "group.com.thebaselab.code")!
+        guard let sharedURL = ExtensionCommunicationHelper.containerURL else { return }
         coordinator.coordinate(
             writingItemAt: sharedURL.appendingPathComponent("stdout"), options: .forReplacing,
             error: &error,

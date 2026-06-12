@@ -7,7 +7,9 @@
 
 import Foundation
 
-let sharedURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.thebaselab.code")!
+let sharedURL =
+    FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.thebaselab.code")
+    ?? URL(fileURLWithPath: NSHomeDirectory())
 
 class NodeLauncher {
     static let shared = NodeLauncher()
@@ -21,8 +23,11 @@ class NodeLauncher {
         setenv("YARN_CACHE_FOLDER", FileManager.default.temporaryDirectory.path, 1)
         setenv("HOME", sharedURL.path, 1)
         setenv("FORCE_COLOR", "3", 1)
-        let injectionJSPath = Bundle.main.path(forResource: "injection", ofType: "js")!
-        setenv("NODE_OPTIONS", "--jitless --require \"\(injectionJSPath)\"", 1)
+        if let injectionJSPath = Bundle.main.path(forResource: "injection", ofType: "js") {
+            setenv("NODE_OPTIONS", "--jitless --require \"\(injectionJSPath)\"", 1)
+        } else {
+            setenv("NODE_OPTIONS", "--jitless", 1)
+        }
         
         NodeRunner.startEngine(withArguments: args)
     }

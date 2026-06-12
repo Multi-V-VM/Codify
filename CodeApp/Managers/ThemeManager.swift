@@ -46,8 +46,13 @@ class ThemeManager: ObservableObject {
     private func loadBuiltInThemes() {
         themes.removeAll()
 
-        let themesPaths = try! FileManager.default.contentsOfDirectory(
-            at: Resources.themes, includingPropertiesForKeys: nil)
+        guard
+            let themesPaths = try? FileManager.default.contentsOfDirectory(
+                at: Resources.themes, includingPropertiesForKeys: nil)
+        else {
+            print("READ ERROR: unable to list themes at \(Resources.themes)")
+            return
+        }
 
         for path in themesPaths {
             if let data = try? Data(contentsOf: path),
