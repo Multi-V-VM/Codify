@@ -69,25 +69,35 @@ private func executeCommandAndWait(command: String) {
 }
 
 private func needToUpdateCFiles() -> Bool {
-    // Check that the C SDK files are present:
+    // Check that the C SDK files are present. Every library the default
+    // clang link line needs must exist — checking a single sentinel lets a
+    // partially-failed creation pass forever, leaving clang with
+    // "unable to find library -lc" until the app version changes.
     let libraryURL = try! FileManager().url(
         for: .libraryDirectory,
         in: .userDomainMask,
         appropriateFor: nil,
         create: true)
-    // NSLog("Library file exists: \(FileManager().fileExists(atPath: libraryURL.appendingPathComponent("usr/lib/wasm32-wasi/libwasi-emulated-mman.a").path))")
-    // NSLog("Header file exists: \(FileManager().fileExists(atPath: libraryURL.appendingPathComponent("usr/include/stdio.h").path))")
-    return
-        !(FileManager().fileExists(
-            atPath: libraryURL.appendingPathComponent(
-                "usr/lib/wasm32-wasi/libwasi-emulated-mman.a"
-            ).path)
-        && FileManager().fileExists(
-            atPath: libraryURL.appendingPathComponent("usr/include/stdio.h").path))
+    let requiredFiles = [
+        "usr/include/stdio.h",
+        "usr/lib/wasm32-wasi/crt1.o",
+        "usr/lib/wasm32-wasi/libc.a",
+        "usr/lib/wasm32-wasi/libc-printscan-long-double.a",
+        "usr/lib/wasm32-wasi/libwasi-emulated-mman.a",
+        "usr/lib/clang/14.0.0/lib/wasi/libclang_rt.builtins-wasm32.a",
+    ]
+    return !requiredFiles.allSatisfy {
+        FileManager().fileExists(atPath: libraryURL.appendingPathComponent($0).path)
+    }
 }
 
+// Single serial queue for all on-device SDK materialization: createCSDK and
+// createWasixSysroot both drive `ar` through ios_system sessions, which must
+// not run concurrently.
+private let sdkInstallQueue = DispatchQueue(label: "installFiles", qos: .utility)
+
 private func createCSDK() {
-    let installQueue = DispatchQueue(label: "installFiles", qos: .utility)
+    let installQueue = sdkInstallQueue
 
     // This operation copies the C SDK from $APPDIR to $HOME/Library and creates the *.a libraries
     // (we can't ship with .a libraries because of the AppStore rules, but we can ship with *.o
@@ -246,7 +256,7 @@ private func needToUpdateWasixSysroot() -> Bool {
 // libraries are rebuilt from the shipped *.o files with ar, same as createCSDK.
 // The wasm runtime maps this directory to the guest /usr.
 private func createWasixSysroot() {
-    let installQueue = DispatchQueue(label: "installWasixSysroot", qos: .utility)
+    let installQueue = sdkInstallQueue
 
     installQueue.async {
         let fileManager = FileManager()

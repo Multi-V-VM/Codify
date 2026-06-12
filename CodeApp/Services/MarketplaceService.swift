@@ -190,12 +190,18 @@ class MarketplaceService {
         pageSize: Int,
         sortBy: SortBy
     ) -> SearchRequest {
-        SearchRequest(
+        // The target criterion is mandatory; without it (or with the query
+        // text sent as the target) the gallery returns zero extensions.
+        var criteria = [
+            Criterion(filterType: .target, value: "Microsoft.VisualStudio.Code")
+        ]
+        if !query.isEmpty {
+            criteria.append(Criterion(filterType: .searchText, value: query))
+        }
+        return SearchRequest(
             filters: [
                 Filter(
-                    criteria: [
-                        Criterion(filterType: .searchText, value: query)
-                    ],
+                    criteria: criteria,
                     pageSize: pageSize,
                     sortBy: sortBy.rawValue
                 )
@@ -293,11 +299,17 @@ extension MarketplaceService {
         let filterType: FilterType
         let value: String
 
+        // VSCode gallery protocol filter types. Note: 8 is the installation
+        // TARGET (must be "Microsoft.VisualStudio.Code"), 10 is the search
+        // text — sending the query as filterType 8 matches zero extensions.
         enum FilterType: Int, Codable {
             case tag = 1
             case displayName = 2
-            case searchText = 8
             case category = 5
+            case extensionName = 7
+            case target = 8
+            case searchText = 10
+            case excludeWithFlags = 12
         }
     }
 
