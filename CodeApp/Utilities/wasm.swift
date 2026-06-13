@@ -30,6 +30,26 @@ public func wasm(argc: Int32, argv: UnsafeMutablePointer<UnsafeMutablePointer<In
     return executeWebAssembly(arguments: args)
 }
 
+@_cdecl("wasm_cuda_oxide")
+public func wasm_cuda_oxide(
+    argc: Int32,
+    argv: UnsafeMutablePointer<UnsafeMutablePointer<Int8>?>?
+) -> Int32 {
+    let rawArgs = convertCArguments(argc: argc, argv: argv) ?? ["wasm_cuda_oxide"]
+    let stderr = thread_stderr ?? fdopen(STDERR_FILENO, "w")
+
+    guard let wasmURL = Bundle.main.url(
+        forResource: "cuda_oxide_probe",
+        withExtension: "wasm")
+    else {
+        fputs("wasm_cuda_oxide: bundled cuda_oxide_probe.wasm not found\n", stderr)
+        return -1
+    }
+
+    let launchArgs = ["wasm", "--gpu", wasmURL.path] + Array(rawArgs.dropFirst())
+    return executeWebAssembly(arguments: launchArgs)
+}
+
 private func executeWebAssembly(arguments: [String]?) -> Int32 {
     
     guard let arguments = arguments, arguments.count >= 2 else {

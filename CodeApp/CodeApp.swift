@@ -59,15 +59,6 @@ private func versionNumberIncreased() -> Bool {
     return false
 }
 
-// From a-shell: https://github.com/holzschu/a-shell/blob/9eb0f4c94a9bdc3b24460c3ed82a156f5b33bb2f/a-Shell/AppDelegate.swift
-private func executeCommandAndWait(command: String) {
-    let pid = ios_fork()
-    _ = ios_system(command)
-    fflush(thread_stdout)
-    ios_waitpid(pid)
-    ios_releaseThreadId(pid)
-}
-
 private func needToUpdateCFiles() -> Bool {
     // Check that the C SDK files are present. Every library the default
     // clang link line needs must exist — checking a single sentinel lets a
@@ -91,10 +82,78 @@ private func needToUpdateCFiles() -> Bool {
     }
 }
 
-// Single serial queue for all on-device SDK materialization: createCSDK and
-// createWasixSysroot both drive `ar` through ios_system sessions, which must
-// not run concurrently.
+// Single serial queue for all on-device SDK materialization.
 private let sdkInstallQueue = DispatchQueue(label: "installFiles", qos: .utility)
+
+private func arField(_ value: String, width: Int) -> Data {
+    var bytes = Array(value.utf8)
+    if bytes.count > width {
+        bytes = Array(bytes.prefix(width))
+    }
+    if bytes.count < width {
+        bytes.append(contentsOf: Array(repeating: 0x20, count: width - bytes.count))
+    }
+    return Data(bytes)
+}
+
+private func appendArMember(to archive: inout Data, name: String, contents: Data) {
+    let nameBytes = Data(name.utf8)
+    let useExtendedName = nameBytes.count > 15 || nameBytes.contains(0x20)
+    let headerName = useExtendedName ? "#1/\(nameBytes.count)" : "\(name)/"
+    let payloadSize = contents.count + (useExtendedName ? nameBytes.count : 0)
+
+    archive.append(arField(headerName, width: 16))
+    archive.append(arField("0", width: 12))
+    archive.append(arField("0", width: 6))
+    archive.append(arField("0", width: 6))
+    archive.append(arField("100644", width: 8))
+    archive.append(arField("\(payloadSize)", width: 10))
+    archive.append(Data("`\n".utf8))
+    if useExtendedName {
+        archive.append(nameBytes)
+    }
+    archive.append(contents)
+    if payloadSize % 2 != 0 {
+        archive.append(contentsOf: [0x0A])
+    }
+}
+
+private func writeEmptyArArchive(at archiveURL: URL, fileManager: FileManager = FileManager())
+    throws
+{
+    try fileManager.createDirectory(
+        at: archiveURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try Data("!<arch>\n".utf8).write(to: archiveURL, options: .atomic)
+}
+
+private func writeArArchive(
+    at archiveURL: URL,
+    objectDirectory: URL,
+    fileManager: FileManager = FileManager()
+) throws {
+    let members =
+        (try fileManager.contentsOfDirectory(
+            at: objectDirectory,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]))
+        .filter { url in
+            let values = try? url.resourceValues(forKeys: [.isRegularFileKey])
+            return values?.isRegularFile == true
+        }
+        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+
+    var archive = Data("!<arch>\n".utf8)
+    for member in members {
+        appendArMember(
+            to: &archive,
+            name: member.lastPathComponent,
+            contents: try Data(contentsOf: member))
+    }
+
+    try fileManager.createDirectory(
+        at: archiveURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try archive.write(to: archiveURL, options: .atomic)
+}
 
 private func createCSDK() {
     let installQueue = sdkInstallQueue
@@ -202,11 +261,14 @@ private func createCSDK() {
             "lib/wasm32-wasi/libutil.a",
             "lib/wasm32-wasi/libxnet.a",
         ]
-        ios_switchSession("wasiSDKLibrariesCreation")
         for library in emptyLibraries {
             let libraryFileURL = libraryURL.appendingPathComponent("/usr/" + library)
             if !FileManager().fileExists(atPath: libraryFileURL.path) {
-                executeCommandAndWait(command: "ar crs " + libraryURL.path + "/usr/" + library)
+                do {
+                    try writeEmptyArArchive(at: libraryFileURL)
+                } catch {
+                    NSLog("Can't create empty archive \(libraryFileURL.path): \(error)")
+                }
             }
         }
         // One of the libraries is in a different folder:
@@ -216,10 +278,14 @@ private func createCSDK() {
             try! FileManager().removeItem(at: libraryFileURL)
         }
         let rootDir = Bundle.main.resourcePath! + "/ClangLib"
-        executeCommandAndWait(
-            command: "ar cq " + libraryFileURL.path + " " + rootDir
-                + "/usr/src/libclang_rt.builtins-wasm32/*")
-        executeCommandAndWait(command: "ranlib " + libraryFileURL.path)
+        do {
+            try writeArArchive(
+                at: libraryFileURL,
+                objectDirectory: URL(
+                    fileURLWithPath: rootDir + "/usr/src/libclang_rt.builtins-wasm32"))
+        } catch {
+            NSLog("Can't create archive \(libraryFileURL.path): \(error)")
+        }
         let libraries = [
             "libc", "libc++", "libc++abi", "libc-printscan-long-double",
             "libc-printscan-no-floating-point", "libwasi-emulated-mman",
@@ -233,10 +299,13 @@ private func createCSDK() {
                     NSLog("Can't remove \(libraryFileURL.path)")
                 }
             }
-            executeCommandAndWait(
-                command: "ar cq " + libraryFileURL.path + " " + rootDir + "/usr/src/" + library
-                    + "/*")
-            executeCommandAndWait(command: "ranlib " + libraryFileURL.path)
+            do {
+                try writeArArchive(
+                    at: libraryFileURL,
+                    objectDirectory: URL(fileURLWithPath: rootDir + "/usr/src/" + library))
+            } catch {
+                NSLog("Can't create archive \(libraryFileURL.path): \(error)")
+            }
         }
         NSLog("Finished creating C SDK")  // Approx 2 seconds
     }
@@ -252,8 +321,9 @@ private func needToUpdateWasixSysroot() -> Bool {
 }
 
 // Materialize the bundled WASIX sysroot (wasi-sdk 29) into $HOME/Library/wasix-usr.
-// Read-only content (headers, crt objects) is symlinked into place; the static
-// libraries are rebuilt from the shipped *.o files with ar, same as createCSDK.
+// Read-only content (headers, crt objects) is symlinked into place; static
+// libraries are rebuilt directly from the shipped *.o files without invoking
+// ios_system commands during app startup.
 // The wasm runtime maps this directory to the guest /usr.
 private func createWasixSysroot() {
     let installQueue = sdkInstallQueue
@@ -305,7 +375,6 @@ private func createWasixSysroot() {
         }
 
         // Rebuild the static libraries from the shipped object files.
-        ios_switchSession("wasixSysrootCreation")
         let srcRoot = Resources.wasiSysroot.appendingPathComponent("src")
         if let libs = try? fileManager.contentsOfDirectory(atPath: srcRoot.path) {
             for lib in libs.sorted() {
@@ -313,9 +382,14 @@ private func createWasixSysroot() {
                 if fileManager.fileExists(atPath: libFile.path) {
                     try? fileManager.removeItem(at: libFile)
                 }
-                executeCommandAndWait(
-                    command: "ar cq \(libFile.path) \(srcRoot.path)/\(lib)/*")
-                executeCommandAndWait(command: "ranlib \(libFile.path)")
+                do {
+                    try writeArArchive(
+                        at: libFile,
+                        objectDirectory: srcRoot.appendingPathComponent(lib),
+                        fileManager: fileManager)
+                } catch {
+                    NSLog("createWasixSysroot: can't create \(libFile.path): \(error)")
+                }
             }
         }
 
@@ -327,7 +401,11 @@ private func createWasixSysroot() {
         for stub in emptyLibraries {
             let libFile = libDir.appendingPathComponent("\(stub).a")
             if !fileManager.fileExists(atPath: libFile.path) {
-                executeCommandAndWait(command: "ar crs \(libFile.path)")
+                do {
+                    try writeEmptyArArchive(at: libFile, fileManager: fileManager)
+                } catch {
+                    NSLog("createWasixSysroot: can't create \(libFile.path): \(error)")
+                }
             }
         }
         NSLog("Finished creating WASIX sysroot")

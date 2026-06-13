@@ -810,6 +810,8 @@
 		94A7FFB3268D085300369147 /* BottomBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A7FFB2268D085300369147 /* BottomBar.swift */; };
 		94AA00022E7F886A00BBCC02 /* node.wasm in Resources */ = {isa = PBXBuildFile; fileRef = 94AA00012E7F886A00BBCC01 /* node.wasm */; };
 		94AA00032E7F886A00BBCC03 /* node.wasm in Resources */ = {isa = PBXBuildFile; fileRef = 94AA00012E7F886A00BBCC01 /* node.wasm */; };
+		C0DA0A012F66000100000001 /* cuda_oxide_probe.wasm in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0A002F66000100000000 /* cuda_oxide_probe.wasm */; };
+		C0DA0A022F66000100000002 /* cuda_oxide_probe.wasm in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0A002F66000100000000 /* cuda_oxide_probe.wasm */; };
 		94B3D65925F776AA00C4F2B1 /* cacert.pem in Resources */ = {isa = PBXBuildFile; fileRef = 94B3D5D525F776A900C4F2B1 /* cacert.pem */; };
 		94B3D6DE25F77AFE00C4F2B1 /* Library in Resources */ = {isa = PBXBuildFile; fileRef = 94B3D6DD25F77AFE00C4F2B1 /* Library */; };
 		94B3DDF1260344E800C4F2B1 /* Color+init.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B3DDF0260344E700C4F2B1 /* Color+init.swift */; };
@@ -2034,6 +2036,7 @@
 		94A77830257BD681008FE7B2 /* TerminalTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalTabBar.swift; sourceTree = "<group>"; };
 		94A7FFB2268D085300369147 /* BottomBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomBar.swift; sourceTree = "<group>"; };
 		94AA00012E7F886A00BBCC01 /* node.wasm */ = {isa = PBXFileReference; lastKnownFileType = file; path = node.wasm; sourceTree = "<group>"; };
+		C0DA0A002F66000100000000 /* cuda_oxide_probe.wasm */ = {isa = PBXFileReference; lastKnownFileType = file; path = cuda_oxide_probe.wasm; sourceTree = "<group>"; };
 		94B3D5D525F776A900C4F2B1 /* cacert.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = cacert.pem; sourceTree = "<group>"; };
 		94B3D6DD25F77AFE00C4F2B1 /* Library */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Library; sourceTree = "<group>"; };
 		94B3DDF0260344E700C4F2B1 /* Color+init.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+init.swift"; sourceTree = "<group>"; };
@@ -2529,6 +2532,7 @@
 			children = (
 				945AEA3427ECCB3D00BA193E /* NodeMobile.xcframework */,
 				94AA00012E7F886A00BBCC01 /* node.wasm */,
+				C0DA0A002F66000100000000 /* cuda_oxide_probe.wasm */,
 			);
 			path = NodeJS;
 			sourceTree = "<group>";
@@ -3728,6 +3732,7 @@
 				941969A3280316C7008AAEB2 /* extraCommandsDictionary.plist in Resources */,
 				941969A4280316C7008AAEB2 /* npm.bundle in Resources */,
 				94AA00022E7F886A00BBCC02 /* node.wasm in Resources */,
+				C0DA0A012F66000100000001 /* cuda_oxide_probe.wasm in Resources */,
 				F9FE0DBE2F594A00008DFB0E /* Qwen3.5-0.8B-Q8_0.gguf in Resources */,
 				941969A6280316C7008AAEB2 /* terminal.bundle in Resources */,
 				941969A7280316C7008AAEB2 /* LaunchScreen.storyboard in Resources */,
@@ -3765,6 +3770,7 @@
 				948D12002583F20D008F877A /* extraCommandsDictionary.plist in Resources */,
 				94369B4A25EAB262008419A0 /* npm.bundle in Resources */,
 				94AA00032E7F886A00BBCC03 /* node.wasm in Resources */,
+				C0DA0A022F66000100000002 /* cuda_oxide_probe.wasm in Resources */,
 				F9FE0DBF2F594A00008DFB0E /* Qwen3.5-0.8B-Q8_0.gguf in Resources */,
 				94B3D6DE25F77AFE00C4F2B1 /* Library in Resources */,
 				948D127C2583F734008F877A /* terminal.bundle in Resources */,

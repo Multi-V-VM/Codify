@@ -177,6 +177,11 @@ class Executor {
             return
         }
 
+        if ["wasm_cuda_oxide", "cuda_oxide", "cuda-oxide"].contains(cmdName) {
+            handleWasmCudaOxideCommand(command: command, completionHandler: completionHandler)
+            return
+        }
+
         // Check if executing a file directly (e.g., ./a.out, a.out, build/main.wasm)
         // If it's a WASM file, forward to wasm runtime
         if let wasmCommand = detectAndForwardWasmFile(command: command) {
@@ -394,6 +399,29 @@ class Executor {
 
         let rest = tokens.dropFirst().joined(separator: " ")
         let wasmCommand = "wasm \(inspectorPath) \(targetPath)" + (rest.isEmpty ? "" : " \(rest)")
+        handleWasmCommand(command: wasmCommand, completionHandler: completionHandler)
+    }
+
+    private func handleWasmCudaOxideCommand(
+        command: String,
+        completionHandler: @escaping (Int32) -> Void
+    ) {
+        guard let wasmURL = Bundle.main.url(
+            forResource: "cuda_oxide_probe",
+            withExtension: "wasm")
+        else {
+            DispatchQueue.main.async {
+                self.receivedStderr(
+                    "wasm_cuda_oxide: bundled cuda_oxide_probe.wasm not found\r\n"
+                        .data(using: .utf8)!)
+                completionHandler(127)
+            }
+            return
+        }
+
+        let tokens = command.split(separator: " ").map(String.init)
+        let rest = tokens.dropFirst().joined(separator: " ")
+        let wasmCommand = "wasm --gpu \(wasmURL.path)" + (rest.isEmpty ? "" : " \(rest)")
         handleWasmCommand(command: wasmCommand, completionHandler: completionHandler)
     }
 
