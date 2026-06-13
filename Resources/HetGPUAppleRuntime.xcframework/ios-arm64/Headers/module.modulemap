@@ -1,0 +1,4 @@
+module HetGPUAppleRuntime {
+    umbrella header "hetgpu_apple_runtime.h"
+    export *
+}

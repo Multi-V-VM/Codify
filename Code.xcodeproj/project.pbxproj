@@ -3471,6 +3471,7 @@
 				9419693C280316C7008AAEB2 /* Sources */,
 				9419698E280316C7008AAEB2 /* Frameworks */,
 				9419699A280316C7008AAEB2 /* Resources */,
+				FABC00012F6500000000AAA1 /* Embed hetGPU Apple ANE Runtime */,
 				941969AA280316C7008AAEB2 /* Embed Frameworks */,
 				94EDC7B72C2DCBF600C86F56 /* Embed Foundation Extensions */,
 			);
@@ -3557,6 +3558,7 @@
 				944EEBEC2563C381009D77FE /* Sources */,
 				944EEBED2563C381009D77FE /* Frameworks */,
 				944EEBEE2563C381009D77FE /* Resources */,
+				FABC00022F6500000000AAA2 /* Embed hetGPU Apple ANE Runtime */,
 				94A77817257BC13F008FE7B2 /* Embed Frameworks */,
 				94369B0B25E3B933008419A0 /* Embed Foundation Extensions */,
 			);
@@ -3794,6 +3796,46 @@
 				"fi",
 				"",
 			);
+		};
+		FABC00012F6500000000AAA1 /* Embed hetGPU Apple ANE Runtime */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embed hetGPU Apple ANE Runtime";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/hetgpu-apple-ane/libcuda.so.1",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PROJECT_DIR}/scripts/embed_hetgpu_ane.sh\"";
+		};
+		FABC00022F6500000000AAA2 /* Embed hetGPU Apple ANE Runtime */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embed hetGPU Apple ANE Runtime";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/hetgpu-apple-ane/libcuda.so.1",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PROJECT_DIR}/scripts/embed_hetgpu_ane.sh\"";
 		};
 		9455423B27FC410F00DAF941 /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;

@@ -88,6 +88,7 @@ class ANEModelCompiler {
 
     // Global weights
     private(set) var embeddingPtr: UnsafeRawPointer!  // Q8_0 [vocabSize, dim]
+    private(set) var outputWeight: QWeight!           // Q8_0 [vocabSize, dim]
     private(set) var rmsFinalWeight: [Float] = []     // F32 [dim]
 
     init(loader: GGUFLoader) {
@@ -105,6 +106,12 @@ class ANEModelCompiler {
             throw GGUFError.tensorNotFound("token_embd.weight")
         }
         embeddingPtr = embPtr
+        let embeddingWeight = try loadQWeight("token_embd.weight")
+        if loader.tensors["output.weight"] != nil {
+            outputWeight = try loadQWeight("output.weight")
+        } else {
+            outputWeight = embeddingWeight
+        }
 
         // Step 2: Final RMSNorm (F32)
         progress(1 / totalSteps, "Loading final norm...")
@@ -220,6 +227,7 @@ class ANEModelCompiler {
         layerWeights.removeAll()
         rmsFinalWeight.removeAll()
         embeddingPtr = nil
+        outputWeight = nil
         isCompiled = false
     }
 

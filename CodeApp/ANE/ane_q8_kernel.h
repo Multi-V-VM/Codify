@@ -1,9 +1,9 @@
 // ane_q8_kernel.h — Fast Q8_0 quantized matrix-vector multiply
 //
 // Computes y = W*x for GGUF Q8_0 weights without materializing the weight
-// matrix in F32: the activation vector is quantized to int8 once, each row
-// is then an int8·int8 dot product (NEON-accelerated on arm64) scaled by the
-// per-block fp16 weight scales. Rows are processed in parallel with GCD.
+// matrix in F32. The activation vector stays FP32; each row accumulates
+// scale * dot(int8_weight_block, fp32_activation_block). Rows are processed
+// in parallel with GCD.
 
 #ifndef ANE_Q8_KERNEL_H
 #define ANE_Q8_KERNEL_H

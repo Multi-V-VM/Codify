@@ -34,7 +34,7 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
     
     guard let arguments = arguments, arguments.count >= 2 else {
         let stderr = thread_stderr ?? fdopen(STDERR_FILENO, "w")
-        fputs("Usage: wasm <wasm-file> [args...]\n", stderr)
+        fputs("Usage: wasm [--gpu|--gpu-backend ane|metal] <wasm-file> [args...]\n", stderr)
         fputs("       wasm --version\n", stderr)
         return -1
     }
@@ -52,11 +52,15 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
         return 0
     }
 
-    let wasmFile = arguments[1]
+    guard let commandOptions = parseWASMCommandOptions(arguments) else {
+        return -1
+    }
+
+    let wasmFile = arguments[commandOptions.wasmIndex]
     let currentDirectory = resolvedWASMCurrentDirectory(FileManager.default.currentDirectoryPath)
     let fileName = wasmFile.hasPrefix("/") ? wasmFile : currentDirectory + "/" + wasmFile
 
-    setupWASMSysroot(currentDirectory: currentDirectory)
+    setupWASMSysroot(currentDirectory: currentDirectory, gpuBackend: commandOptions.gpuBackend)
 
     // Load WASM file
     guard let wasmData = try? Data(contentsOf: URL(fileURLWithPath: fileName)) else {
@@ -67,7 +71,7 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
 
     // Prepare arguments for the WASM module
     // First argument should be the program name (wasm file)
-    let wasmArgs = Array(arguments.dropFirst())
+    let wasmArgs = [arguments[0]] + Array(arguments.dropFirst(commandOptions.wasmIndex))
 
     // Convert Swift strings to C strings
     var cStrings: [UnsafePointer<Int8>?] = wasmArgs.map { arg in
@@ -109,6 +113,61 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
     }
 
     return exitCode
+}
+
+func parseWASMCommandOptions(_ arguments: [String]) -> (gpuBackend: String?, wasmIndex: Int)? {
+    let stderr = thread_stderr ?? fdopen(STDERR_FILENO, "w")
+    var gpuBackend: String?
+    var index = 1
+
+    while index < arguments.count {
+        let arg = arguments[index]
+        if arg == "--gpu" {
+            gpuBackend = "ane"
+            index += 1
+            continue
+        }
+        if arg == "--no-gpu" {
+            gpuBackend = nil
+            index += 1
+            continue
+        }
+        if arg == "--gpu-backend" {
+            guard index + 1 < arguments.count else {
+                fputs("wasm: --gpu-backend requires ane or metal\n", stderr)
+                return nil
+            }
+            let backend = arguments[index + 1]
+            guard backend == "ane" || backend == "metal" else {
+                fputs("wasm: --gpu-backend must be ane or metal\n", stderr)
+                return nil
+            }
+            gpuBackend = backend
+            index += 2
+            continue
+        }
+        if arg.hasPrefix("--gpu-backend=") {
+            let backend = String(arg.dropFirst("--gpu-backend=".count))
+            guard backend == "ane" || backend == "metal" else {
+                fputs("wasm: --gpu-backend must be ane or metal\n", stderr)
+                return nil
+            }
+            gpuBackend = backend
+            index += 1
+            continue
+        }
+        if arg == "--" {
+            index += 1
+            break
+        }
+        break
+    }
+
+    guard index < arguments.count else {
+        fputs("Usage: wasm [--gpu|--gpu-backend ane|metal] <wasm-file> [args...]\n", stderr)
+        return nil
+    }
+    return (gpuBackend, index)
 }
 
 /// Root of the persistent guest filesystem skeleton (/tmp, /home, /etc, Tools)
@@ -156,11 +215,12 @@ func resolvedWASMCurrentDirectory(_ currentDirectory: String) -> String {
 /// The sandbox home directory is preopened so absolute paths into Documents
 /// and Library resolve, and a persistent skeleton (/tmp, /home, /etc) gives
 /// libc-based binaries the files they expect.
-func setupWASMSysroot(currentDirectory: String) {
+func setupWASMSysroot(currentDirectory: String, gpuBackend: String? = nil) {
     let fileManager = FileManager.default
     let home = NSHomeDirectory()
     let sysroot = wasmSysrootURL()
     let resolvedCurrentDirectory = resolvedWASMCurrentDirectory(currentDirectory)
+    let gpuRuntime = configureWASMGPURuntime(backend: gpuBackend)
 
     // Build the skeleton once; subsequent runs reuse it so guest state persists.
     let skeletonDirs = ["tmp", "home", "etc", "usr", "Tools"]
@@ -188,6 +248,9 @@ func setupWASMSysroot(currentDirectory: String) {
     if !resolvedCurrentDirectory.hasPrefix(home) {
         preopens.append(resolvedCurrentDirectory)
     }
+    if let gpuRuntime {
+        preopens.append(gpuRuntime.path)
+    }
     setenv("WASM_PREOPENS", preopens.joined(separator: ":"), 1)
 
     // Map standard Unix locations onto the persistent skeleton. Only /tmp and
@@ -209,10 +272,13 @@ func setupWASMSysroot(currentDirectory: String) {
         ]
         .first { fileManager.fileExists(atPath: $0.appendingPathComponent("include").path) }?
         .path ?? sysroot.appendingPathComponent("usr").path
-    let mapDirs = [
+    var mapDirs = [
         "/tmp::\(sysroot.appendingPathComponent("tmp").path)",
         "/usr::\(usrHost)",
     ]
+    if let gpuRuntime {
+        mapDirs.append("/opt/hetgpu::\(gpuRuntime.path)")
+    }
     setenv("WASM_MAP_DIRS", mapDirs.joined(separator: ";"), 1)
 
     setenv("WASM_CWD", resolvedCurrentDirectory, 1)
@@ -228,6 +294,51 @@ func setupWASMSysroot(currentDirectory: String) {
         .appendingPathComponent("Library/Caches/wasmer-aot")
     try? fileManager.createDirectory(at: aotCache, withIntermediateDirectories: true)
     setenv("WASM_AOT_CACHE", aotCache.path, 1)
+}
+
+func configureWASMGPURuntime(backend explicitBackend: String?) -> URL? {
+    guard let selectedBackend = explicitBackend else {
+        unsetenv("WASM_CUDA_ACCEL")
+        unsetenv("WASM_CUDA_BACKEND")
+        unsetenv("CODIFYONE_HETGPU_ROOT")
+        return nil
+    }
+    guard selectedBackend == "ane" || selectedBackend == "metal" else {
+        fputs("wasm: GPU backend must be ane or metal\n", thread_stderr)
+        return nil
+    }
+
+    let candidates = [
+        Bundle.main.resourceURL?.appendingPathComponent("hetgpu-apple-ane"),
+        Bundle.main.bundleURL.appendingPathComponent("hetgpu-apple-ane"),
+    ].compactMap { $0 }
+
+    guard let runtime = candidates.first(where: {
+        FileManager.default.fileExists(atPath: $0.appendingPathComponent("libcuda.so.1").path)
+    }) else {
+        fputs("wasm: bundled hetGPU Apple runtime not found\n", thread_stderr)
+        return nil
+    }
+
+    setenv("CODIFYONE_HETGPU_ROOT", runtime.path, 1)
+    setenv("HETGPU_APPLE_BACKEND", selectedBackend, 1)
+    setenv("WASM_CUDA_ACCEL", "1", 1)
+    setenv("WASM_CUDA_BACKEND", selectedBackend, 1)
+    prependEnvPath("LD_LIBRARY_PATH", runtime.path)
+    prependEnvPath("DYLD_LIBRARY_PATH", runtime.path)
+    prependEnvPath("DYLD_FALLBACK_LIBRARY_PATH", runtime.path)
+    prependEnvPath("DYLD_INSERT_LIBRARIES", runtime.appendingPathComponent("libcuda.so.1").path)
+    return runtime
+}
+
+func prependEnvPath(_ name: String, _ value: String) {
+    let current = getenv(name).map { String(cString: $0) } ?? ""
+    let parts = current.split(separator: ":").map(String.init)
+    if parts.contains(value) {
+        return
+    }
+    let next = current.isEmpty ? value : "\(value):\(current)"
+    setenv(name, next, 1)
 }
 
 /*

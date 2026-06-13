@@ -149,13 +149,14 @@ class ANEInferenceEngine {
     private func computeLogits() -> [Float] {
         let x = rmsNorm(lastHidden, weight: compiler.rmsFinalWeight)
 
-        var logits = [Float](repeating: 0, count: vocabSize)
+        var logits = [Float](repeating: 0, count: compiler.outputWeight.outDim)
         x.withUnsafeBufferPointer { xBuf in
             logits.withUnsafeMutableBufferPointer { yBuf in
                 GGUFDequantizer.q8_0Matvec(
-                    w: compiler.embeddingPtr,
+                    w: compiler.outputWeight.ptr,
                     x: xBuf.baseAddress!, y: yBuf.baseAddress!,
-                    outDim: vocabSize, inDim: dim)
+                    outDim: compiler.outputWeight.outDim,
+                    inDim: compiler.outputWeight.inDim)
             }
         }
         return logits
