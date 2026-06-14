@@ -129,7 +129,8 @@ struct AgentSessionView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
 
-                        ForEach(Array(session.thinkingSteps.enumerated()), id: \.offset) { index, step in
+                        ForEach(Array(session.thinkingSteps.enumerated()), id: \.offset) {
+                            index, step in
                             Text(step)
                                 .font(.caption)
                                 .padding(8)

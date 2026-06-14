@@ -15,7 +15,8 @@ class MarketplaceService {
     // Using asplos.dev as proxy for VSCode Marketplace
     // This provides caching and reduces load on Microsoft's servers
     private var baseURL: String {
-        UserDefaults.standard.string(forKey: "extensionMarketplaceURL") ?? "https://asplos.dev/api/marketplace"
+        UserDefaults.standard.string(forKey: "extensionMarketplaceURL")
+            ?? "https://asplos.dev/api/marketplace"
     }
     private let fallbackURL = "https://marketplace.visualstudio.com/_apis/public/gallery"
     private let apiVersion = "3.0-preview.1"
@@ -30,8 +31,8 @@ class MarketplaceService {
         let cacheSizeMB = maxCacheSize > 0 ? maxCacheSize : 200
 
         config.urlCache = URLCache(
-            memoryCapacity: 50 * 1024 * 1024,    // 50 MB memory cache
-            diskCapacity: cacheSizeMB * 1024 * 1024,     // Configurable disk cache
+            memoryCapacity: 50 * 1024 * 1024,  // 50 MB memory cache
+            diskCapacity: cacheSizeMB * 1024 * 1024,  // Configurable disk cache
             diskPath: "marketplace-cache"
         )
         return URLSession(configuration: config)
@@ -137,7 +138,8 @@ class MarketplaceService {
         version: String? = nil
     ) async throws -> URL {
         let versionString = version ?? "latest"
-        let path = "publishers/\(publisher)/vsextensions/\(extensionName)/\(versionString)/vspackage"
+        let path =
+            "publishers/\(publisher)/vsextensions/\(extensionName)/\(versionString)/vspackage"
 
         // Try asplos.dev proxy first; fall back to Microsoft when the proxy is
         // unreachable or answers with an HTTP error (download(from:) does not
@@ -162,7 +164,8 @@ class MarketplaceService {
 
     private func extensionQueryURL(from base: String) throws -> URL {
         let trimmedBase = base.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        let urlString = trimmedBase.hasSuffix("/extensionquery")
+        let urlString =
+            trimmedBase.hasSuffix("/extensionquery")
             ? trimmedBase
             : "\(trimmedBase)/extensionquery"
         guard let url = URL(string: urlString) else {
@@ -228,8 +231,9 @@ class MarketplaceService {
 
         return results.compactMap { ext in
             guard let publisher = ext.publisher?.publisherName,
-                  let extensionName = ext.extensionName,
-                  let displayName = ext.displayName else {
+                let extensionName = ext.extensionName,
+                let displayName = ext.displayName
+            else {
                 return nil
             }
 
@@ -239,8 +243,10 @@ class MarketplaceService {
 
             // Extract statistics
             let statistics = ext.statistics ?? []
-            let installCount = statistics.first(where: { $0.statisticName == "install" })?.value ?? 0
-            let rating = statistics.first(where: { $0.statisticName == "averagerating" })?.value ?? 0
+            let installCount =
+                statistics.first(where: { $0.statisticName == "install" })?.value ?? 0
+            let rating =
+                statistics.first(where: { $0.statisticName == "averagerating" })?.value ?? 0
 
             return MarketplaceExtension(
                 id: "\(publisher).\(extensionName)",
@@ -251,7 +257,9 @@ class MarketplaceService {
                 version: versionString,
                 installCount: Int(installCount),
                 rating: rating,
-                iconURL: version?.files?.first(where: { $0.assetType == "Microsoft.VisualStudio.Services.Icons.Default" })?.source
+                iconURL: version?.files?.first(where: {
+                    $0.assetType == "Microsoft.VisualStudio.Services.Icons.Default"
+                })?.source
             )
         }
     }

@@ -6,8 +6,8 @@
 //  Provides LLDB-style debugging for WebAssembly programs with DWARF support.
 //
 
-import Foundation
 import Combine
+import Foundation
 
 // Note: wasmer_execute is declared in CodeApp/Utilities/wasm.swift
 // Both DebuggerService and WasminspectService use that global declaration
@@ -69,7 +69,7 @@ class WasminspectService: ObservableObject {
     }
 
     private var nextBreakpointId = 1
-    private var breakpointMap: [String: Breakpoint] = [:] // "file:line" -> Breakpoint
+    private var breakpointMap: [String: Breakpoint] = [:]  // "file:line" -> Breakpoint
 
     private init() {}
 
@@ -158,7 +158,9 @@ class WasminspectService: ObservableObject {
         workerTask = Task.detached { [weak self] in
             guard let self = self else { return }
             let exitCode: Int32 = data.withUnsafeBytes { buf in
-                guard let base = buf.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return -1 }
+                guard let base = buf.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
+                    return -1
+                }
                 return cStrings.withUnsafeBufferPointer { ptr in
                     wasmer_execute(
                         base,
@@ -166,7 +168,7 @@ class WasminspectService: ObservableObject {
                         ptr.baseAddress!,
                         argv.count,
                         inPipe[0],  // stdin read end
-                        outPipe[1], // stdout write end
+                        outPipe[1],  // stdout write end
                         errPipe[1]  // stderr write end
                     )
                 }
@@ -197,12 +199,24 @@ class WasminspectService: ObservableObject {
     }
 
     private func teardown() {
-        if stdinWriteFD >= 0 { close(stdinWriteFD); stdinWriteFD = -1 }
-        if stdoutReadFD >= 0 { close(stdoutReadFD); stdoutReadFD = -1 }
-        if stderrReadFD >= 0 { close(stderrReadFD); stderrReadFD = -1 }
-        readSourceOut?.cancel(); readSourceOut = nil
-        readSourceErr?.cancel(); readSourceErr = nil
-        workerTask?.cancel(); workerTask = nil
+        if stdinWriteFD >= 0 {
+            close(stdinWriteFD)
+            stdinWriteFD = -1
+        }
+        if stdoutReadFD >= 0 {
+            close(stdoutReadFD)
+            stdoutReadFD = -1
+        }
+        if stderrReadFD >= 0 {
+            close(stderrReadFD)
+            stderrReadFD = -1
+        }
+        readSourceOut?.cancel()
+        readSourceOut = nil
+        readSourceErr?.cancel()
+        readSourceErr = nil
+        workerTask?.cancel()
+        workerTask = nil
     }
 
     // MARK: - Commands
@@ -304,7 +318,8 @@ class WasminspectService: ObservableObject {
     // MARK: - Output Parsing
 
     private func startReadLoop(fd: Int32, isErr: Bool) {
-        let src = DispatchSource.makeReadSource(fileDescriptor: fd, queue: .global(qos: .userInitiated))
+        let src = DispatchSource.makeReadSource(
+            fileDescriptor: fd, queue: .global(qos: .userInitiated))
         src.setEventHandler { [weak self] in
             guard let self = self else { return }
             let estimated = Int(src.data)
@@ -317,7 +332,7 @@ class WasminspectService: ObservableObject {
                 }
             }
         }
-        src.setCancelHandler { }
+        src.setCancelHandler {}
         src.resume()
         if isErr { readSourceErr = src } else { readSourceOut = src }
     }
@@ -329,7 +344,7 @@ class WasminspectService: ObservableObject {
 
             // Process complete lines
             let lines = self.outputBuffer.components(separatedBy: "\n")
-            for i in 0..<lines.count-1 {
+            for i in 0..<lines.count - 1 {
                 self.processLine(lines[i])
             }
             self.outputBuffer = lines.last ?? ""
@@ -375,7 +390,9 @@ class WasminspectService: ObservableObject {
         // Example: "frame #0: 0x1234 main at test.c:10:5"
         let pattern = #"frame #(\d+):\s+0x[0-9a-f]+\s+(.+?)(?:\s+at\s+(.+?):(\d+):(\d+))?"#
         if let regex = try? NSRegularExpression(pattern: pattern, options: []),
-           let match = regex.firstMatch(in: line, options: [], range: NSRange(location: 0, length: line.utf16.count)) {
+            let match = regex.firstMatch(
+                in: line, options: [], range: NSRange(location: 0, length: line.utf16.count))
+        {
 
             let idRange = Range(match.range(at: 1), in: line)
             let nameRange = Range(match.range(at: 2), in: line)
@@ -423,10 +440,13 @@ class WasminspectService: ObservableObject {
         // Example: "at test.c:15"
         let pattern = #"at\s+(.+?):(\d+)"#
         if let regex = try? NSRegularExpression(pattern: pattern, options: []),
-           let match = regex.firstMatch(in: line, options: [], range: NSRange(location: 0, length: line.utf16.count)) {
+            let match = regex.firstMatch(
+                in: line, options: [], range: NSRange(location: 0, length: line.utf16.count))
+        {
 
             if let fileRange = Range(match.range(at: 1), in: line),
-               let lineRange = Range(match.range(at: 2), in: line) {
+                let lineRange = Range(match.range(at: 2), in: line)
+            {
                 let file = String(line[fileRange])
                 if let lineNum = Int(line[lineRange]) {
                     currentLocation = (file, lineNum)

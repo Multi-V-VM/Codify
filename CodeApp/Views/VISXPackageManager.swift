@@ -272,10 +272,13 @@ struct DownloadPackageSheet: View {
                 }
 
                 Section {
-                    Button("Download", action: {
-                        onDownload()
-                        dismiss()
-                    })
+                    Button(
+                        "Download",
+                        action: {
+                            onDownload()
+                            dismiss()
+                        }
+                    )
                     .disabled(downloadURL.isEmpty)
                 }
             }
@@ -340,10 +343,13 @@ struct PackageDetailsView: View {
                 }
 
                 Section {
-                    Button(role: .destructive, action: {
-                        onUninstall()
-                        dismiss()
-                    }) {
+                    Button(
+                        role: .destructive,
+                        action: {
+                            onUninstall()
+                            dismiss()
+                        }
+                    ) {
                         Label("Uninstall Package", systemImage: "trash")
                     }
                 }

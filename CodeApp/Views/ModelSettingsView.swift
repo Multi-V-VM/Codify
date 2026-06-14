@@ -21,8 +21,11 @@ struct ModelSettingsView: View {
                 // Model Status Section
                 Section(header: Text("Model Status")) {
                     HStack {
-                        Image(systemName: llmService.modelLoaded ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .foregroundColor(llmService.modelLoaded ? .green : .red)
+                        Image(
+                            systemName: llmService.modelLoaded
+                                ? "checkmark.circle.fill" : "xmark.circle.fill"
+                        )
+                        .foregroundColor(llmService.modelLoaded ? .green : .red)
                         Text(llmService.modelLoaded ? "Model Loaded" : "No Model Loaded")
                         Spacer()
                         if isLoading {
@@ -178,7 +181,8 @@ struct ModelSettingsView: View {
         // Check if model needs compilation
         let modelType = CoreMLModelHandler.getModelType(url: url)
         if modelType == .mlpackage || modelType == .source {
-            statusMessage = "Compiling model \(url.lastPathComponent)... This may take a few minutes."
+            statusMessage =
+                "Compiling model \(url.lastPathComponent)... This may take a few minutes."
         } else {
             statusMessage = "Loading model from \(url.lastPathComponent)..."
         }
@@ -205,7 +209,8 @@ struct ModelSettingsView: View {
         let modelsURL = documentsURL.appendingPathComponent("Models")
 
         do {
-            try FileManager.default.createDirectory(at: modelsURL, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(
+                at: modelsURL, withIntermediateDirectories: true)
             statusMessage = "Models folder created at: \(modelsURL.path)"
         } catch {
             statusMessage = "Error creating folder: \(error.localizedDescription)"
@@ -312,7 +317,9 @@ struct ModelFilePicker: UIViewControllerRepresentable {
         return picker
     }
 
-    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+    func updateUIViewController(
+        _ uiViewController: UIDocumentPickerViewController, context: Context
+    ) {}
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onModelSelected: onModelSelected)
@@ -325,7 +332,9 @@ struct ModelFilePicker: UIViewControllerRepresentable {
             self.onModelSelected = onModelSelected
         }
 
-        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        func documentPicker(
+            _ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]
+        ) {
             guard let url = urls.first else { return }
 
             // Start accessing security scoped resource
@@ -338,11 +347,14 @@ struct ModelFilePicker: UIViewControllerRepresentable {
             }
 
             // Copy the file to app's documents directory for persistent access
-            if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+            if let documentsURL = FileManager.default.urls(
+                for: .documentDirectory, in: .userDomainMask
+            ).first {
                 let modelsDir = documentsURL.appendingPathComponent("Models")
 
                 // Create Models directory if it doesn't exist
-                try? FileManager.default.createDirectory(at: modelsDir, withIntermediateDirectories: true)
+                try? FileManager.default.createDirectory(
+                    at: modelsDir, withIntermediateDirectories: true)
 
                 // Destination URL with the same filename
                 let destinationURL = modelsDir.appendingPathComponent(url.lastPathComponent)
@@ -383,80 +395,80 @@ struct ModelConversionGuideView: View {
                     GuideSection(
                         title: "📱 Option 1: Use Pre-Converted Models",
                         content: """
-                        The easiest way is to download pre-converted Core ML models:
+                            The easiest way is to download pre-converted Core ML models:
 
-                        1. Visit Hugging Face: https://huggingface.co
-                        2. Search for "coreml" + your model name
-                        3. Look for .mlmodelc or .mlpackage files
-                        4. Download and import into CodeApp
+                            1. Visit Hugging Face: https://huggingface.co
+                            2. Search for "coreml" + your model name
+                            3. Look for .mlmodelc or .mlpackage files
+                            4. Download and import into CodeApp
 
-                        Recommended searches:
-                        • "llama coreml"
-                        • "phi coreml"
-                        • "mistral coreml"
-                        """
+                            Recommended searches:
+                            • "llama coreml"
+                            • "phi coreml"
+                            • "mistral coreml"
+                            """
                     )
 
                     GuideSection(
                         title: "🔧 Option 2: Convert DeepSeek R1 Yourself",
                         content: """
-                        Requirements:
-                        • Mac with Python 3.8+
-                        • 16GB+ RAM
-                        • ~20GB free space
+                            Requirements:
+                            • Mac with Python 3.8+
+                            • 16GB+ RAM
+                            • ~20GB free space
 
-                        Steps:
-                        1. Install coremltools:
-                           pip install coremltools torch transformers
+                            Steps:
+                            1. Install coremltools:
+                               pip install coremltools torch transformers
 
-                        2. Download the conversion script from:
-                           https://github.com/apple/ml-stable-diffusion
-                           (Look for similar Llama conversion examples)
+                            2. Download the conversion script from:
+                               https://github.com/apple/ml-stable-diffusion
+                               (Look for similar Llama conversion examples)
 
-                        3. Run conversion:
-                           python convert_deepseek_to_coreml.py
+                            3. Run conversion:
+                               python convert_deepseek_to_coreml.py
 
-                        4. The output will be a .mlpackage file
-                        """
+                            4. The output will be a .mlpackage file
+                            """
                     )
 
                     GuideSection(
                         title: "🚀 Option 3: Use MLX (Apple Silicon Only)",
                         content: """
-                        For Mac users with Apple Silicon:
+                            For Mac users with Apple Silicon:
 
-                        1. Install MLX:
-                           pip install mlx mlx-lm
+                            1. Install MLX:
+                               pip install mlx mlx-lm
 
-                        2. Convert model:
-                           python -m mlx_lm.convert \\
-                               --hf-path deepseek-ai/DeepSeek-R1-Distill-Llama-8B \\
-                               --quantize
+                            2. Convert model:
+                               python -m mlx_lm.convert \\
+                                   --hf-path deepseek-ai/DeepSeek-R1-Distill-Llama-8B \\
+                                   --quantize
 
-                        3. Export to Core ML:
-                           python export_to_coreml.py
+                            3. Export to Core ML:
+                               python export_to_coreml.py
 
-                        Note: MLX models are optimized for Apple Silicon
-                        """
+                            Note: MLX models are optimized for Apple Silicon
+                            """
                     )
 
                     GuideSection(
                         title: "📦 Option 4: Use GGUF Models",
                         content: """
-                        GGUF is a popular quantized format for mobile:
+                            GGUF is a popular quantized format for mobile:
 
-                        1. Download GGUF version:
-                           https://huggingface.co/unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF
+                            1. Download GGUF version:
+                               https://huggingface.co/unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF
 
-                        2. Choose quantization:
-                           • Q4_K_M (4-bit, ~4.5 GB) - Recommended
-                           • Q5_K_M (5-bit, ~5.5 GB) - Better quality
-                           • Q8_0 (8-bit, ~8 GB) - Best quality
+                            2. Choose quantization:
+                               • Q4_K_M (4-bit, ~4.5 GB) - Recommended
+                               • Q5_K_M (5-bit, ~5.5 GB) - Better quality
+                               • Q8_0 (8-bit, ~8 GB) - Best quality
 
-                        3. Use llama.cpp or similar runtime
+                            3. Use llama.cpp or similar runtime
 
-                        Note: Requires additional integration
-                        """
+                            Note: Requires additional integration
+                            """
                     )
 
                     Divider()
@@ -466,7 +478,10 @@ struct ModelConversionGuideView: View {
                         .foregroundColor(.gray)
 
                     Button(action: {
-                        if let url = URL(string: "https://machinelearning.apple.com/research/core-ml-on-device-llama") {
+                        if let url = URL(
+                            string:
+                                "https://machinelearning.apple.com/research/core-ml-on-device-llama"
+                        ) {
                             UIApplication.shared.open(url)
                         }
                     }) {

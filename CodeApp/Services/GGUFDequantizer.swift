@@ -5,8 +5,8 @@
 //  Dequantize GGUF tensor data (Q8_0, Q4_0, F16, F32) to Float arrays
 //
 
-import Foundation
 import Accelerate
+import Foundation
 
 class GGUFDequantizer {
 
@@ -154,8 +154,9 @@ class GGUFDequantizer {
         var result = [Float](repeating: 0, count: outDim)
         x.withUnsafeBufferPointer { xBuf in
             result.withUnsafeMutableBufferPointer { yBuf in
-                q8_0Matvec(w: w, x: xBuf.baseAddress!, y: yBuf.baseAddress!,
-                           outDim: outDim, inDim: inDim)
+                q8_0Matvec(
+                    w: w, x: xBuf.baseAddress!, y: yBuf.baseAddress!,
+                    outDim: outDim, inDim: inDim)
             }
         }
         return result

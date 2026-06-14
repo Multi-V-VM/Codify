@@ -6,15 +6,15 @@
 //  Weights stay as raw Q8_0 pointers to mmap'd data (no full dequantization)
 //
 
-import Foundation
 import Accelerate
+import Foundation
 
 // MARK: - Weight Reference (raw pointer to Q8_0 data in mmap)
 
 struct QWeight {
     let ptr: UnsafeRawPointer
     let outDim: Int  // ne1 (number of rows)
-    let inDim: Int   // ne0 (number of columns, fastest changing)
+    let inDim: Int  // ne0 (number of columns, fastest changing)
 
     /// Compute y = W * x using quantized matvec
     func matvec(_ x: [Float]) -> [Float] {
@@ -26,49 +26,49 @@ struct QWeight {
 
 struct MambaLayerWeights {
     // Norms (F32, small)
-    let attnNorm: [Float]         // [dim]
-    let postAttnNorm: [Float]     // [dim]
+    let attnNorm: [Float]  // [dim]
+    let postAttnNorm: [Float]  // [dim]
 
     // SSM input projection (fused x+B+C)
-    let attnQKV: QWeight          // [dim → 3*ssmInner]
+    let attnQKV: QWeight  // [dim → 3*ssmInner]
 
     // Gate
-    let attnGate: QWeight         // [dim → ssmInner]
+    let attnGate: QWeight  // [dim → ssmInner]
 
     // SSM parameters (F32, small)
-    let ssmConv1d: [Float]        // [channels * kernel] stored as [channels, kernel]
-    let ssmA: [Float]             // [nGroups]
-    let ssmAlpha: QWeight         // [dim → nGroups]
-    let ssmBeta: QWeight          // [dim → nGroups]
-    let ssmDtBias: [Float]        // [nGroups]
-    let ssmNorm: [Float]          // [headDim] (per-group norm)
-    let ssmOut: QWeight           // [ssmInner → dim]
+    let ssmConv1d: [Float]  // [channels * kernel] stored as [channels, kernel]
+    let ssmA: [Float]  // [nGroups]
+    let ssmAlpha: QWeight  // [dim → nGroups]
+    let ssmBeta: QWeight  // [dim → nGroups]
+    let ssmDtBias: [Float]  // [nGroups]
+    let ssmNorm: [Float]  // [headDim] (per-group norm)
+    let ssmOut: QWeight  // [ssmInner → dim]
 
     // FFN
-    let ffnGate: QWeight          // [dim → hiddenDim]
-    let ffnUp: QWeight            // [dim → hiddenDim]
-    let ffnDown: QWeight          // [hiddenDim → dim]
+    let ffnGate: QWeight  // [dim → hiddenDim]
+    let ffnUp: QWeight  // [dim → hiddenDim]
+    let ffnDown: QWeight  // [hiddenDim → dim]
 }
 
 struct AttentionLayerWeights {
     // Norms (F32, small)
-    let attnNorm: [Float]         // [dim]
-    let postAttnNorm: [Float]     // [dim]
+    let attnNorm: [Float]  // [dim]
+    let postAttnNorm: [Float]  // [dim]
 
     // Attention projections
-    let attnQ: QWeight            // [dim → dim]
-    let attnK: QWeight            // [dim → kvDim]
-    let attnV: QWeight            // [dim → kvDim]
-    let attnOutput: QWeight       // [dim → dim]
+    let attnQ: QWeight  // [dim → dim]
+    let attnK: QWeight  // [dim → kvDim]
+    let attnV: QWeight  // [dim → kvDim]
+    let attnOutput: QWeight  // [dim → dim]
 
     // Per-head norms (F32, small)
-    let attnQNorm: [Float]        // [headDim]
-    let attnKNorm: [Float]        // [headDim]
+    let attnQNorm: [Float]  // [headDim]
+    let attnKNorm: [Float]  // [headDim]
 
     // FFN
-    let ffnGate: QWeight          // [dim → hiddenDim]
-    let ffnUp: QWeight            // [dim → hiddenDim]
-    let ffnDown: QWeight          // [hiddenDim → dim]
+    let ffnGate: QWeight  // [dim → hiddenDim]
+    let ffnUp: QWeight  // [dim → hiddenDim]
+    let ffnDown: QWeight  // [hiddenDim → dim]
 }
 
 enum LayerWeights {
@@ -88,8 +88,8 @@ class ANEModelCompiler {
 
     // Global weights
     private(set) var embeddingPtr: UnsafeRawPointer!  // Q8_0 [vocabSize, dim]
-    private(set) var outputWeight: QWeight!           // Q8_0 [vocabSize, dim]
-    private(set) var rmsFinalWeight: [Float] = []     // F32 [dim]
+    private(set) var outputWeight: QWeight!  // Q8_0 [vocabSize, dim]
+    private(set) var rmsFinalWeight: [Float] = []  // F32 [dim]
 
     init(loader: GGUFLoader) {
         self.loader = loader
@@ -201,7 +201,7 @@ class ANEModelCompiler {
         guard let ptr = loader.tensorData(for: name) else {
             throw GGUFError.tensorNotFound(name)
         }
-        let inDim = Int(info.dimensions[0])   // ne0
+        let inDim = Int(info.dimensions[0])  // ne0
         let outDim = info.dimensions.count > 1 ? Int(info.dimensions[1]) : 1  // ne1
         return QWeight(ptr: ptr, outDim: outDim, inDim: inDim)
     }

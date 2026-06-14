@@ -8,8 +8,8 @@
 //  USAGE: Rename this file to DebuggerService.swift to replace the original
 //
 
-import Foundation
 import Combine
+import Foundation
 
 // Note: wasmer_execute is declared in CodeApp/Utilities/wasm.swift
 
@@ -53,8 +53,8 @@ class DebuggerService: ObservableObject {
     @Published var targetArgs: String = ""
 
     // GDB backend state
-    private var bpIdByKey: [String: String] = [:] // "file:line" -> id
-    private var bpKeyById: [String: String] = [:] // id -> "file:line"
+    private var bpIdByKey: [String: String] = [:]  // "file:line" -> id
+    private var bpKeyById: [String: String] = [:]  // id -> "file:line"
     private var stdinWriteFD: Int32 = -1
     private var stdoutReadFD: Int32 = -1
     private var stderrReadFD: Int32 = -1
@@ -128,7 +128,9 @@ class DebuggerService: ObservableObject {
             if gdbWasmPath.isEmpty {
                 if let url = Bundle.main.url(forResource: "gdb", withExtension: "wasm") {
                     gdbWasmPath = url.path
-                } else if let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+                } else if let docs = FileManager.default.urls(
+                    for: .documentDirectory, in: .userDomainMask
+                ).first {
                     let candidate = docs.appendingPathComponent("Tools/gdb.wasm").path
                     if FileManager.default.fileExists(atPath: candidate) { gdbWasmPath = candidate }
                 }
@@ -142,20 +144,27 @@ class DebuggerService: ObservableObject {
                     var paths: [String] = []
 
                     // 1. Bundle resources
-                    if let url = Bundle.main.url(forResource: "wasminspect", withExtension: "wasm") {
+                    if let url = Bundle.main.url(forResource: "wasminspect", withExtension: "wasm")
+                    {
                         paths.append(url.path)
                     }
 
                     // 2. Documents/Tools/
-                    if let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+                    if let docs = FileManager.default.urls(
+                        for: .documentDirectory, in: .userDomainMask
+                    ).first {
                         paths.append(docs.appendingPathComponent("Tools/wasminspect.wasm").path)
                         paths.append(docs.appendingPathComponent("wasminspect.wasm").path)
                     }
 
                     // 3. Check VISX extensions directory
-                    if let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+                    if let docs = FileManager.default.urls(
+                        for: .documentDirectory, in: .userDomainMask
+                    ).first {
                         let extDir = docs.appendingPathComponent("Extensions")
-                        if let enumerator = FileManager.default.enumerator(at: extDir, includingPropertiesForKeys: [.isDirectoryKey]) {
+                        if let enumerator = FileManager.default.enumerator(
+                            at: extDir, includingPropertiesForKeys: [.isDirectoryKey])
+                        {
                             for case let fileURL as URL in enumerator {
                                 if fileURL.lastPathComponent == "wasminspect.wasm" {
                                     paths.append(fileURL.path)
@@ -177,7 +186,9 @@ class DebuggerService: ObservableObject {
                 }
 
                 if gdbWasmPath.isEmpty {
-                    NSLog("⚠️ wasminspect.wasm not found. Please set path manually or download from Extensions.")
+                    NSLog(
+                        "⚠️ wasminspect.wasm not found. Please set path manually or download from Extensions."
+                    )
                 }
             }
 
@@ -238,9 +249,13 @@ class DebuggerService: ObservableObject {
         workerTask = Task.detached { [weak self] in
             guard let self = self else { return }
             let exitCode: Int32 = data.withUnsafeBytes { buf in
-                guard let base = buf.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return -1 }
+                guard let base = buf.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
+                    return -1
+                }
                 return cStrings.withUnsafeBufferPointer { ptr in
-                    wasmer_execute(base, buf.count, ptr.baseAddress!, argv.count, inPipe[0], outPipe[1], errPipe[1])
+                    wasmer_execute(
+                        base, buf.count, ptr.baseAddress!, argv.count, inPipe[0], outPipe[1],
+                        errPipe[1])
                 }
             }
             for s in cStrings where s != nil { free(UnsafeMutablePointer(mutating: s)) }
@@ -277,12 +292,24 @@ class DebuggerService: ObservableObject {
     }
 
     private func teardownGDB() {
-        if stdinWriteFD >= 0 { close(stdinWriteFD); stdinWriteFD = -1 }
-        if stdoutReadFD >= 0 { close(stdoutReadFD); stdoutReadFD = -1 }
-        if stderrReadFD >= 0 { close(stderrReadFD); stderrReadFD = -1 }
-        readSourceOut?.cancel(); readSourceOut = nil
-        readSourceErr?.cancel(); readSourceErr = nil
-        workerTask?.cancel(); workerTask = nil
+        if stdinWriteFD >= 0 {
+            close(stdinWriteFD)
+            stdinWriteFD = -1
+        }
+        if stdoutReadFD >= 0 {
+            close(stdoutReadFD)
+            stdoutReadFD = -1
+        }
+        if stderrReadFD >= 0 {
+            close(stderrReadFD)
+            stderrReadFD = -1
+        }
+        readSourceOut?.cancel()
+        readSourceOut = nil
+        readSourceErr?.cancel()
+        readSourceErr = nil
+        workerTask?.cancel()
+        workerTask = nil
     }
 
     // MARK: - MI Commands (Unified Interface)
@@ -350,7 +377,8 @@ class DebuggerService: ObservableObject {
     // MARK: - GDB Output Parsing
 
     private func startReadLoop(fd: Int32, isErr: Bool) {
-        let src = DispatchSource.makeReadSource(fileDescriptor: fd, queue: .global(qos: .userInitiated))
+        let src = DispatchSource.makeReadSource(
+            fileDescriptor: fd, queue: .global(qos: .userInitiated))
         src.setEventHandler { [weak self] in
             guard let self = self else { return }
             let estimated = Int(src.data)
@@ -363,7 +391,7 @@ class DebuggerService: ObservableObject {
                 }
             }
         }
-        src.setCancelHandler { }
+        src.setCancelHandler {}
         src.resume()
         if isErr { readSourceErr = src } else { readSourceOut = src }
     }
@@ -386,7 +414,9 @@ class DebuggerService: ObservableObject {
     private func parseMI(_ line: String) {
         if line.hasPrefix("*stopped") {
             state = .stopped
-            if let file = extractValue(line, key: "file"), let lineStr = extractValue(line, key: "line"), let ln = Int(lineStr) {
+            if let file = extractValue(line, key: "file"),
+                let lineStr = extractValue(line, key: "line"), let ln = Int(lineStr)
+            {
                 currentLocation = (file, ln)
             }
         } else if line.hasPrefix("^done") {
@@ -399,7 +429,11 @@ class DebuggerService: ObservableObject {
                 var display = "bkpt #\(id)"
                 if let f = fullname, let l = ln { display += " @ \(f):\(l)" }
                 breakpoints.append(display)
-                if let f = fullname, let l = ln { let key = "\(f):\(l)"; bpIdByKey[key] = id; bpKeyById[id] = key }
+                if let f = fullname, let l = ln {
+                    let key = "\(f):\(l)"
+                    bpIdByKey[key] = id
+                    bpKeyById[id] = key
+                }
             }
         } else if line.contains("=breakpoint-deleted") {
             if let id = extractValue(line, key: "id") ?? extractValue(line, key: "number") {
@@ -416,7 +450,9 @@ class DebuggerService: ObservableObject {
         let patterns = ["\(key)=\\\"([^\\\"]*)\\\"", "\(key)=([^,}]+)"]
         for pat in patterns {
             if let regex = try? NSRegularExpression(pattern: pat, options: []) {
-                if let m = regex.firstMatch(in: s, options: [], range: NSRange(location: 0, length: s.utf16.count)) {
+                if let m = regex.firstMatch(
+                    in: s, options: [], range: NSRange(location: 0, length: s.utf16.count))
+                {
                     if let r = Range(m.range(at: 1), in: s) { return String(s[r]) }
                 }
             }

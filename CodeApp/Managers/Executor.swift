@@ -198,7 +198,8 @@ class Executor {
         // Intercept node/npm/npx directly to avoid iOS dlsym limitations
         // (replaceCommand can't find @_cdecl functions via dlsym on iOS)
         if ["node", "npm", "npx", "nodeg"].contains(cmdName) {
-            handleNodeCommand(command: command, cmdName: cmdName, completionHandler: completionHandler)
+            handleNodeCommand(
+                command: command, cmdName: cmdName, completionHandler: completionHandler)
             return
         }
 
@@ -339,8 +340,9 @@ class Executor {
 
         // Read first 4 bytes to check for WASM magic number
         guard let fileHandle = FileHandle(forReadingAtPath: filePath),
-              let magicBytes = try? fileHandle.read(upToCount: 4),
-              magicBytes.count == 4 else {
+            let magicBytes = try? fileHandle.read(upToCount: 4),
+            magicBytes.count == 4
+        else {
             return nil
         }
 
@@ -406,9 +408,10 @@ class Executor {
         command: String,
         completionHandler: @escaping (Int32) -> Void
     ) {
-        guard let wasmURL = Bundle.main.url(
-            forResource: "cuda_oxide_probe",
-            withExtension: "wasm")
+        guard
+            let wasmURL = Bundle.main.url(
+                forResource: "cuda_oxide_probe",
+                withExtension: "wasm")
         else {
             DispatchQueue.main.async {
                 self.receivedStderr(
@@ -499,7 +502,9 @@ class Executor {
         }
     }
 
-    private func handleNodeCommand(command: String, cmdName: String, completionHandler: @escaping (Int32) -> Void) {
+    private func handleNodeCommand(
+        command: String, cmdName: String, completionHandler: @escaping (Int32) -> Void
+    ) {
         // Set up stdin pipe
         var stdin_pipe = Pipe()
         stdin_file = fdopen(stdin_pipe.fileHandleForReading.fileDescriptor, "r")

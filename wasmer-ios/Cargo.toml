@@ -14,18 +14,18 @@ default = ["cranelift"]
 cranelift = ["wasmer/cranelift"]
 
 [dependencies]
-wasmer = { path = "../../wasmer/lib/api", default-features = false, features = ["mvvm", "cranelift"] }
+wasmer = { path = "../wasmer/lib/api", default-features = false, features = ["wasmi-default", "cranelift"] }
 wasmer-wasix = "0.601.0"
 tokio = { version = "1", features = ["rt", "sync"] }
 libc = "0.2"
 nix = { version = "0.27", features = ["fs"] }
 
 [patch.crates-io]
-wasmer = { path = "../../wasmer/lib/api", features = ["mvvm", "cranelift"] }
-wasmer-types = { path = "../../wasmer/lib/types" }
-wasmer-vm = { path = "../../wasmer/lib/vm" }
-wasmer-compiler = { path = "../../wasmer/lib/compiler" }
-wasmer-derive = { path = "../../wasmer/lib/derive" }
+wasmer = { path = "../wasmer/lib/api" }
+wasmer-types = { path = "../wasmer/lib/types" }
+wasmer-vm = { path = "../wasmer/lib/vm" }
+wasmer-compiler = { path = "../wasmer/lib/compiler" }
+wasmer-derive = { path = "../wasmer/lib/derive" }
 
 [profile.release]
 opt-level = "z"     # Optimize for size

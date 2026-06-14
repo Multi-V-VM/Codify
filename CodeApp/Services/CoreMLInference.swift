@@ -5,8 +5,8 @@
 //  Core ML LLM Inference Engine
 //
 
-import Foundation
 import CoreML
+import Foundation
 
 /// Core ML LLM Inference Engine
 class CoreMLInferenceEngine {
@@ -62,7 +62,9 @@ class CoreMLInferenceEngine {
         if tokenKeys.contains(where: { inputs[$0] != nil }) { return true }
         // If inputs look image-like (4D or named image/pixel), treat as incompatible
         let has4D = inputs.values.contains { $0.multiArrayConstraint?.shape.count ?? 0 >= 4 }
-        let imageLike = inputs.keys.contains { $0.lowercased().contains("image") || $0.lowercased().contains("pixel") }
+        let imageLike = inputs.keys.contains {
+            $0.lowercased().contains("image") || $0.lowercased().contains("pixel")
+        }
         return !(has4D || imageLike)
     }
 
@@ -76,7 +78,9 @@ class CoreMLInferenceEngine {
         if let model = model {
             let inputs = model.modelDescription.inputDescriptionsByName
             let names = inputs.keys.map { $0.lowercased() }
-            let requiresKV = names.contains("keycache") || names.contains("valuecache") || names.contains("kvcache")
+            let requiresKV =
+                names.contains("keycache") || names.contains("valuecache")
+                || names.contains("kvcache")
             if requiresKV {
                 // Without a public way to construct MLState, such models can’t be run from a cold start.
                 throw InferenceError.requiresInitialState
@@ -119,7 +123,8 @@ class CoreMLInferenceEngine {
                     print("Model output features:")
                     for name in output.featureNames {
                         if let feature = output.featureValue(for: name),
-                           let array = feature.multiArrayValue {
+                            let array = feature.multiArrayValue
+                        {
                             print("  - \(name): shape \(array.shape)")
                         }
                     }
@@ -212,7 +217,7 @@ class CoreMLInferenceEngine {
                 try Task.checkCancellation()
 
                 // Small delay to allow UI updates
-                try await Task.sleep(nanoseconds: 10_000_000) // 10ms
+                try await Task.sleep(nanoseconds: 10_000_000)  // 10ms
             } catch {
                 print("Error at streaming step \(step): \(error)")
                 throw error
@@ -239,8 +244,12 @@ class CoreMLInferenceEngine {
         let inputDescriptions = model.modelDescription.inputDescriptionsByName
 
         // Detect obviously incompatible models (e.g., vision models expecting 4D image inputs)
-        let tokenInputCandidates: [String] = ["input_ids", "inputIds", "token_ids", "tokens", "prompt_ids"]
-        let hasTokenLikeInput = tokenInputCandidates.contains(where: { inputDescriptions[$0] != nil })
+        let tokenInputCandidates: [String] = [
+            "input_ids", "inputIds", "token_ids", "tokens", "prompt_ids",
+        ]
+        let hasTokenLikeInput = tokenInputCandidates.contains(where: {
+            inputDescriptions[$0] != nil
+        })
         if !hasTokenLikeInput {
             let has4DInput = inputDescriptions.values.contains { desc in
                 guard let c = desc.multiArrayConstraint else { return false }
@@ -259,7 +268,9 @@ class CoreMLInferenceEngine {
         // If the model requires KV caches at step 1 and we have none, surface a clear error
         for (name, desc) in inputDescriptions {
             let lname = name.lowercased()
-            let requiresKV = (lname.contains("keycache") || lname.contains("valuecache") || lname.contains("kvcache"))
+            let requiresKV =
+                (lname.contains("keycache") || lname.contains("valuecache")
+                    || lname.contains("kvcache"))
             if requiresKV {
                 // If this input is required and we don't have state yet, we cannot proceed
                 let isOptional = (desc as MLFeatureDescription).isOptional
@@ -272,7 +283,9 @@ class CoreMLInferenceEngine {
         func isCacheLike(_ name: String) -> Bool {
             let lname = name.lowercased()
             // Be explicit about common KV cache names
-            return lname.contains("keycache") || lname.contains("valuecache") || lname.contains("cache") || lname.contains("kv") || lname.contains("past") || lname.contains("state")
+            return lname.contains("keycache") || lname.contains("valuecache")
+                || lname.contains("cache") || lname.contains("kv") || lname.contains("past")
+                || lname.contains("state")
         }
 
         // Helper to create an MLMultiArray matching the model's expected shape/dtype
@@ -297,7 +310,8 @@ class CoreMLInferenceEngine {
 
             // Prefer the last dimension; if it can't fit, find the first that can
             var seqDim = max(0, dims.count - 1)
-            if dims[seqDim] < values.count, let idx = dims.firstIndex(where: { $0 >= values.count }) {
+            if dims[seqDim] < values.count, let idx = dims.firstIndex(where: { $0 >= values.count })
+            {
                 seqDim = idx
             }
 
@@ -328,21 +342,24 @@ class CoreMLInferenceEngine {
 
         // Provide attention/causal masks if requested by model
         if let desc = inputDescriptions["causalMask"], desc.type == .multiArray {
-            let maskArray = try makeArray(for: "causalMask", fallbackShape: [1, NSNumber(value: sequenceLength)])
+            let maskArray = try makeArray(
+                for: "causalMask", fallbackShape: [1, NSNumber(value: sequenceLength)])
             // For unknown higher-rank mask shapes, safest default is all-ones (attend to all)
             for i in 0..<maskArray.count { maskArray[i] = 1 }
             features["causalMask"] = maskArray
         }
 
         if let desc = inputDescriptions["attention_mask"], desc.type == .multiArray {
-            let maskArray = try makeArray(for: "attention_mask", fallbackShape: [1, NSNumber(value: sequenceLength)])
+            let maskArray = try makeArray(
+                for: "attention_mask", fallbackShape: [1, NSNumber(value: sequenceLength)])
             for i in 0..<maskArray.count { maskArray[i] = 1 }
             features["attention_mask"] = maskArray
         }
 
         // Provide position IDs if required
         if let desc = inputDescriptions["position_ids"], desc.type == .multiArray {
-            let posArray = try makeArray(for: "position_ids", fallbackShape: [1, NSNumber(value: sequenceLength)])
+            let posArray = try makeArray(
+                for: "position_ids", fallbackShape: [1, NSNumber(value: sequenceLength)])
             setSequenceValues(posArray, values: (0..<sequenceLength).map { NSNumber(value: $0) })
             features["position_ids"] = posArray
         }
@@ -363,7 +380,9 @@ class CoreMLInferenceEngine {
                 if isCacheLike(inputName) { continue }
 
                 // Only auto-create defaults for multiArray-typed inputs
-                if inputDescription.type == .multiArray, let multiArrayConstraint = inputDescription.multiArrayConstraint {
+                if inputDescription.type == .multiArray,
+                    let multiArrayConstraint = inputDescription.multiArrayConstraint
+                {
                     let shape = multiArrayConstraint.shape
                     let dtype = multiArrayConstraint.dataType
                     print("Creating default input for \(inputName) with shape: \(shape)")
@@ -396,9 +415,13 @@ class CoreMLInferenceEngine {
         guard let model = model else { return }
         let inputNames = Set(model.modelDescription.inputDescriptionsByName.keys)
         for name in output.featureNames {
-            guard inputNames.contains(name), let value = output.featureValue(for: name) else { continue }
+            guard inputNames.contains(name), let value = output.featureValue(for: name) else {
+                continue
+            }
             let lname = name.lowercased()
-            let looksLikeCache = lname.contains("cache") || lname.contains("kv") || lname.contains("past") || lname.contains("state")
+            let looksLikeCache =
+                lname.contains("cache") || lname.contains("kv") || lname.contains("past")
+                || lname.contains("state")
             if looksLikeCache {
                 stateStore[name] = value
             }
@@ -408,11 +431,14 @@ class CoreMLInferenceEngine {
     /// Extract logits from model output
     private func extractLogits(from output: MLFeatureProvider) -> [Float]? {
         // Try common output names
-        let possibleNames = ["logits", "output", "output_logits", "predictions", "var_1385", "last_hidden_state"]
+        let possibleNames = [
+            "logits", "output", "output_logits", "predictions", "var_1385", "last_hidden_state",
+        ]
 
         for name in possibleNames {
             if let feature = output.featureValue(for: name),
-               let multiArray = feature.multiArrayValue {
+                let multiArray = feature.multiArrayValue
+            {
                 // For LLMs, we often need the last token's logits
                 // Shape is typically [batch, sequence, vocab_size]
                 let logits = extractLastTokenLogits(from: multiArray)
@@ -424,8 +450,9 @@ class CoreMLInferenceEngine {
 
         // If standard names don't work, try the first feature
         if let firstFeatureName = output.featureNames.first,
-           let feature = output.featureValue(for: firstFeatureName),
-           let multiArray = feature.multiArrayValue {
+            let feature = output.featureValue(for: firstFeatureName),
+            let multiArray = feature.multiArrayValue
+        {
             print("Using output feature: \(firstFeatureName)")
             print("Output shape: \(multiArray.shape)")
             return extractLastTokenLogits(from: multiArray)
@@ -611,9 +638,11 @@ enum InferenceError: LocalizedError {
         case .inferenceTimeout:
             return "Inference timed out. The model may be too large or complex."
         case .incompatibleModel:
-            return "The selected Core ML model isn’t compatible with text generation (expects 4D inputs, e.g., images). Please load a text LLM model (.mlpackage/.mlmodelc) with token inputs."
+            return
+                "The selected Core ML model isn’t compatible with text generation (expects 4D inputs, e.g., images). Please load a text LLM model (.mlpackage/.mlmodelc) with token inputs."
         case .requiresInitialState:
-            return "This Core ML model requires MLState cache inputs (e.g., keyCache/valueCache) on the first step. Initial states are not publicly constructible; please use a model that doesn’t require initial caches or provides an initializer/prefill."
+            return
+                "This Core ML model requires MLState cache inputs (e.g., keyCache/valueCache) on the first step. Initial states are not publicly constructible; please use a model that doesn’t require initial caches or provides an initializer/prefill."
         }
     }
 }

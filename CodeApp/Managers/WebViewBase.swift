@@ -178,7 +178,8 @@ class WebViewBase: KBWebViewBase {
     private func showContextMenu(menu: UIMenu, at point: CGPoint) {
         // Create a view controller to present the menu
         guard let windowScene = self.window?.windowScene,
-              let window = windowScene.windows.first else { return }
+            let window = windowScene.windows.first
+        else { return }
 
         // For iOS 14+, we can use UIMenu with UIButton
         let menuButton = UIButton(frame: CGRect(x: point.x, y: point.y, width: 1, height: 1))
@@ -200,7 +201,10 @@ class WebViewBase: KBWebViewBase {
 }
 
 extension WebViewBase: UIGestureRecognizerDelegate {
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
         return true
     }
 }

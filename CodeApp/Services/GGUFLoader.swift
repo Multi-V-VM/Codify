@@ -10,20 +10,50 @@ import Foundation
 // MARK: - GGUF Constants
 
 enum GGUFType: UInt32 {
-    case uint8 = 0, int8 = 1, uint16 = 2, int16 = 3
-    case uint32 = 4, int32 = 5, float32 = 6, bool_ = 7
-    case string = 8, array = 9, uint64 = 10, int64 = 11
+    case uint8 = 0
+    case int8 = 1
+    case uint16 = 2
+    case int16 = 3
+    case uint32 = 4
+    case int32 = 5
+    case float32 = 6
+    case bool_ = 7
+    case string = 8
+    case array = 9
+    case uint64 = 10
+    case int64 = 11
     case float64 = 12
 }
 
 enum GGMLType: UInt32 {
-    case f32 = 0, f16 = 1, q4_0 = 2, q4_1 = 3
-    case q5_0 = 6, q5_1 = 7, q8_0 = 8, q8_1 = 9
-    case q2_K = 10, q3_K = 11, q4_K = 12, q5_K = 13, q6_K = 14
-    case iq2_xxs = 16, iq2_xs = 17, iq3_xxs = 18, iq1_s = 19
-    case iq4_nl = 20, iq3_s = 21, iq2_s = 22, iq4_xs = 23
-    case i8 = 24, i16 = 25, i32 = 26, i64 = 27
-    case f64 = 28, iq1_m = 29, bf16 = 30
+    case f32 = 0
+    case f16 = 1
+    case q4_0 = 2
+    case q4_1 = 3
+    case q5_0 = 6
+    case q5_1 = 7
+    case q8_0 = 8
+    case q8_1 = 9
+    case q2_K = 10
+    case q3_K = 11
+    case q4_K = 12
+    case q5_K = 13
+    case q6_K = 14
+    case iq2_xxs = 16
+    case iq2_xs = 17
+    case iq3_xxs = 18
+    case iq1_s = 19
+    case iq4_nl = 20
+    case iq3_s = 21
+    case iq2_s = 22
+    case iq4_xs = 23
+    case i8 = 24
+    case i16 = 25
+    case i32 = 26
+    case i64 = 27
+    case f64 = 28
+    case iq1_m = 29
+    case bf16 = 30
 
     var blockSize: Int {
         switch self {
@@ -43,12 +73,12 @@ enum GGMLType: UInt32 {
         switch self {
         case .f32: return 4
         case .f16: return 2
-        case .q4_0: return 18   // 2 bytes scale + 16 bytes (32 nibbles)
-        case .q4_1: return 20   // 2 bytes scale + 2 bytes min + 16 bytes
+        case .q4_0: return 18  // 2 bytes scale + 16 bytes (32 nibbles)
+        case .q4_1: return 20  // 2 bytes scale + 2 bytes min + 16 bytes
         case .q5_0: return 22
         case .q5_1: return 24
-        case .q8_0: return 34   // 2 bytes scale + 32 bytes (32 int8)
-        case .q8_1: return 36   // 4 bytes scale + 32 bytes
+        case .q8_0: return 34  // 2 bytes scale + 32 bytes (32 int8)
+        case .q8_1: return 36  // 4 bytes scale + 32 bytes
         default: return 0
         }
     }
@@ -75,17 +105,17 @@ struct GGUFTensorInfo {
 
 struct GGUFModelConfig {
     var architecture: String = ""
-    var dim: Int = 0              // embedding_length
-    var hiddenDim: Int = 0        // feed_forward_length
-    var nLayers: Int = 0          // block_count
-    var nHeads: Int = 0           // attention.head_count
-    var nKVHeads: Int = 0         // attention.head_count_kv
-    var headDim: Int = 0          // computed: dim / nHeads
+    var dim: Int = 0  // embedding_length
+    var hiddenDim: Int = 0  // feed_forward_length
+    var nLayers: Int = 0  // block_count
+    var nHeads: Int = 0  // attention.head_count
+    var nKVHeads: Int = 0  // attention.head_count_kv
+    var headDim: Int = 0  // computed: dim / nHeads
     var vocabSize: Int = 0
     var contextLength: Int = 0
     var ropeTheta: Float = 10000.0
     var rmsNormEps: Float = 1e-6
-    var ropeDim: Int = 0          // rope.dimension_count
+    var ropeDim: Int = 0  // rope.dimension_count
 
     // SSM (Mamba-2) parameters
     var ssmConvKernel: Int = 4
@@ -95,8 +125,8 @@ struct GGUFModelConfig {
     var ssmInnerSize: Int = 2048
     var fullAttentionInterval: Int = 4  // every Nth layer is pure attention
 
-    var keyLength: Int = 0        // total K dimension
-    var valueLength: Int = 0      // total V dimension
+    var keyLength: Int = 0  // total K dimension
+    var valueLength: Int = 0  // total V dimension
 
     var kvDim: Int { nKVHeads * headDim }
     var gqaGroupSize: Int { nHeads / max(nKVHeads, 1) }
@@ -152,7 +182,8 @@ class GGUFLoader {
         fileSize = Int(stat.st_size)
 
         guard let mapped = mmap(nil, fileSize, PROT_READ, MAP_PRIVATE, fd, 0) else {
-            close(fd); fd = -1
+            close(fd)
+            fd = -1
             throw GGUFError.mmapFailed
         }
         mmapData = UnsafeRawPointer(mapped)
@@ -161,7 +192,7 @@ class GGUFLoader {
 
         // Parse magic
         let magic = readUInt32(at: &offset)
-        guard magic == 0x46554747 else { // "GGUF" in little-endian
+        guard magic == 0x4655_4747 else {  // "GGUF" in little-endian
             throw GGUFError.invalidMagic(magic)
         }
 
@@ -368,7 +399,8 @@ class GGUFLoader {
         config.nLayers = intMeta("\(arch).block_count") ?? 0
         config.nHeads = intMeta("\(arch).attention.head_count") ?? 0
         config.nKVHeads = intMeta("\(arch).attention.head_count_kv") ?? config.nHeads
-        config.vocabSize = intMeta("\(arch).vocab_size")
+        config.vocabSize =
+            intMeta("\(arch).vocab_size")
             ?? (metadata["tokenizer.ggml.tokens"] as? [Any])?.count
             ?? 0
         config.contextLength = intMeta("\(arch).context_length") ?? 2048

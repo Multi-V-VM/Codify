@@ -181,7 +181,9 @@ private struct MainView: View {
                                         .frame(height: 40)
 
                                     EditorView()
-                                        .disabled(horizontalSizeClass == .compact && isSideBarVisible)
+                                        .disabled(
+                                            horizontalSizeClass == .compact && isSideBarVisible
+                                        )
                                         .sheet(isPresented: $stateManager.showsNewFileSheet) {
                                             NewFileView(
                                                 targetUrl: App.workSpaceStorage.currentDirectory.url

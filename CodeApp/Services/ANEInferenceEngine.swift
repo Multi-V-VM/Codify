@@ -6,8 +6,8 @@
 //  18 Mamba layers + 6 pure attention layers, all CPU with Accelerate
 //
 
-import Foundation
 import Accelerate
+import Foundation
 
 class ANEInferenceEngine {
 
@@ -50,12 +50,12 @@ class ANEInferenceEngine {
     private let maxSeqLen: Int
 
     // Attention-specific dimensions (derived from actual weight shapes)
-    private let attnHeadDim: Int    // 256 (key_length)
-    private let nQHeads: Int        // 16 (Q sub-heads for differential attention)
-    private let nAttnKVHeads: Int   // 2
-    private let nOutHeads: Int      // 8 (logical output heads = nQHeads/2)
-    private let kvTotalDim: Int     // 512 (nAttnKVHeads * attnHeadDim)
-    private let attnOutDim: Int     // 2048 (nOutHeads * attnHeadDim)
+    private let attnHeadDim: Int  // 256 (key_length)
+    private let nQHeads: Int  // 16 (Q sub-heads for differential attention)
+    private let nAttnKVHeads: Int  // 2
+    private let nOutHeads: Int  // 8 (logical output heads = nQHeads/2)
+    private let kvTotalDim: Int  // 512 (nAttnKVHeads * attnHeadDim)
+    private let attnOutDim: Int  // 2048 (nOutHeads * attnHeadDim)
 
     init(compiler: ANEModelCompiler) {
         self.compiler = compiler
@@ -82,10 +82,10 @@ class ANEInferenceEngine {
         var _nOutHeads = 8
         for lw in compiler.layerWeights {
             if case .attention(let w) = lw {
-                _attnHeadDim = w.attnQNorm.count       // 256
+                _attnHeadDim = w.attnQNorm.count  // 256
                 _nQHeads = w.attnQ.outDim / _attnHeadDim  // 4096/256 = 16
                 _nAttnKVHeads = w.attnK.outDim / _attnHeadDim  // 512/256 = 2
-                _nOutHeads = w.attnOutput.inDim / _attnHeadDim // 2048/256 = 8
+                _nOutHeads = w.attnOutput.inDim / _attnHeadDim  // 2048/256 = 8
                 break
             }
         }
@@ -109,7 +109,8 @@ class ANEInferenceEngine {
             if config.isFullAttentionLayer(l) {
                 kvCaches.append([Float](repeating: 0, count: maxSeqLen * 2 * kvTotalDim))
             } else {
-                convStates.append([Float](repeating: 0, count: (convKernel - 1) * totalConvChannels))
+                convStates.append(
+                    [Float](repeating: 0, count: (convKernel - 1) * totalConvChannels))
                 ssmStates.append([Float](repeating: 0, count: nGroups * dState * dInnerPerGroup))
             }
         }
@@ -197,8 +198,9 @@ class ANEInferenceEngine {
         }
 
         // SSM selective scan
-        var y = ssmScan(xSsm: xSsm, B: bFlat, C: cFlat, dt: dt,
-                        A: w.ssmA, mambaIdx: mambaIdx)
+        var y = ssmScan(
+            xSsm: xSsm, B: bFlat, C: cFlat, dt: dt,
+            A: w.ssmA, mambaIdx: mambaIdx)
 
         // Group RMSNorm
         y = groupRMSNorm(y, weight: w.ssmNorm)
@@ -267,8 +269,10 @@ class ANEInferenceEngine {
 
     // MARK: - SSM Selective Scan
 
-    private func ssmScan(xSsm: [Float], B: [Float], C: [Float],
-                         dt: [Float], A: [Float], mambaIdx: Int) -> [Float] {
+    private func ssmScan(
+        xSsm: [Float], B: [Float], C: [Float],
+        dt: [Float], A: [Float], mambaIdx: Int
+    ) -> [Float] {
         var y = [Float](repeating: 0, count: ssmInner)
 
         // Unsafe buffers: this triple loop runs ssmInner*dState MACs per
@@ -404,7 +408,8 @@ class ANEInferenceEngine {
                         for p in 0...pos {
                             let vPtr = cache + p * strideKV + vBase + kHeadOff
                             var diffScore = scores0[p] - scores1[p]
-                            vDSP_vsma(vPtr, 1, &diffScore, outPtr, 1, outPtr, 1, vDSP_Length(headDim))
+                            vDSP_vsma(
+                                vPtr, 1, &diffScore, outPtr, 1, outPtr, 1, vDSP_Length(headDim))
                         }
                     }
                 }
@@ -499,8 +504,10 @@ class ANEInferenceEngine {
 
     // MARK: - Token Generation
 
-    func generate(promptTokens: [Int], tokenizer: GGUFTokenizer,
-                  onToken: (Int, String) -> Bool) -> String {
+    func generate(
+        promptTokens: [Int], tokenizer: GGUFTokenizer,
+        onToken: (Int, String) -> Bool
+    ) -> String {
         resetCache()
         tokenizer.resetDecodeBuffer()
         var output = ""
@@ -534,7 +541,8 @@ class ANEInferenceEngine {
         if temperature <= 0 {
             var bestIndex = 0
             var bestLogit = -Float.infinity
-            for (index, logit) in logits.enumerated() where tokenizer.isTextToken(index) || tokenizer.isEOS(index) {
+            for (index, logit) in logits.enumerated()
+            where tokenizer.isTextToken(index) || tokenizer.isEOS(index) {
                 if logit > bestLogit {
                     bestLogit = logit
                     bestIndex = index
@@ -587,7 +595,9 @@ class ANEInferenceEngine {
     }
 
     /// Single-pass top-k selection with a size-k min-heap: O(N log k).
-    private func topKCandidates(logits: [Float], k: Int, tokenizer: GGUFTokenizer) -> [(index: Int, logit: Float)] {
+    private func topKCandidates(logits: [Float], k: Int, tokenizer: GGUFTokenizer) -> [(
+        index: Int, logit: Float
+    )] {
         var heap = [(index: Int, logit: Float)]()
         heap.reserveCapacity(k)
 

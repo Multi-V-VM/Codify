@@ -50,10 +50,10 @@ class ExtensionsExtension: CodeAppExtension {
                         },
                         text: "Extension Settings",
                         imageSystemName: "gear"
-                    )
+                    ),
                 ]
             },
-            positionPrecedence: -5, // Second to last (before REMOTE_PORT_FORWARD at -10)
+            positionPrecedence: -5,  // Second to last (before REMOTE_PORT_FORWARD at -10)
             bubble: {
                 // TODO: Show update count when extensions have updates available
                 return nil
@@ -96,7 +96,7 @@ private struct ExtensionOutputToolbar: View {
             Spacer()
 
             Menu {
-                Button("All Extensions") { /* TODO */ }
+                Button("All Extensions") { /* TODO */  }
                 Divider()
                 // TODO: Add menu items for each extension
             } label: {

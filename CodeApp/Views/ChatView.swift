@@ -28,7 +28,8 @@ struct ChatView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 12) {
                         // Chat messages (from whichever backend is active)
-                        let activeMessages = aneLLMService.modelLoaded
+                        let activeMessages =
+                            aneLLMService.modelLoaded
                             ? aneLLMService.messages
                             : llmService.messages
                         ForEach(activeMessages) { message in
@@ -146,7 +147,8 @@ struct ChatView: View {
                     .cornerRadius(8)
                     .lineLimit(1...5)
                     .focused($textFieldFocused)
-                    .disabled((llmService.isGenerating || aneLLMService.isGenerating) && !isEditMode)
+                    .disabled(
+                        (llmService.isGenerating || aneLLMService.isGenerating) && !isEditMode)
 
                     Button(action: isEditMode ? startEditSession : sendMessage) {
                         Image(systemName: isEditMode ? "play.circle.fill" : "arrow.up.circle.fill")
@@ -157,7 +159,11 @@ struct ChatView: View {
                                     : .gray
                             )
                     }
-                    .disabled(isEditMode ? !canRunEdit : (inputText.isEmpty || llmService.isGenerating || aneLLMService.isGenerating))
+                    .disabled(
+                        isEditMode
+                            ? !canRunEdit
+                            : (inputText.isEmpty || llmService.isGenerating
+                                || aneLLMService.isGenerating))
                 }
                 .padding(.horizontal)
                 .padding(.bottom)
@@ -167,7 +173,8 @@ struct ChatView: View {
         .onReceive(
             NotificationCenter.default.publisher(for: VibeCodingNotification.editSelection)
         ) { notification in
-            if let code = notification.userInfo?[VibeCodingNotification.selectedCodeKey] as? String {
+            if let code = notification.userInfo?[VibeCodingNotification.selectedCodeKey] as? String
+            {
                 isEditMode = true
                 inputText = "Edit this code:\n```\n\(code)\n```\n"
             }
@@ -262,7 +269,9 @@ private struct ModeButton: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .foregroundColor(
-                isActive ? Color.init(id: "tab.activeForeground") : Color.init(id: "tab.inactiveForeground")
+                isActive
+                    ? Color.init(id: "tab.activeForeground")
+                    : Color.init(id: "tab.inactiveForeground")
             )
             .background(
                 isActive ? Color.init(id: "tab.activeBackground") : Color.clear
@@ -377,13 +386,16 @@ private struct InlineCodingSessionView: View {
                 // Thinking steps
                 if !session.thinkingSteps.isEmpty {
                     VStack(alignment: .leading, spacing: 3) {
-                        ForEach(Array(session.thinkingSteps.enumerated()), id: \.offset) { _, step in
+                        ForEach(Array(session.thinkingSteps.enumerated()), id: \.offset) {
+                            _, step in
                             Text(step)
                                 .font(.system(size: 11, design: .monospaced))
                                 .foregroundColor(.secondary)
                                 .padding(4)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Color.init(id: "editor.lineHighlightBackground").opacity(0.4))
+                                .background(
+                                    Color.init(id: "editor.lineHighlightBackground").opacity(0.4)
+                                )
                                 .cornerRadius(4)
                         }
                     }
@@ -431,7 +443,10 @@ private struct InlineCodingSessionView: View {
                                         .font(.system(size: 11, weight: .medium))
                                         .padding(.horizontal, 10)
                                         .padding(.vertical, 4)
-                                        .background(feedbackText.isEmpty ? Color.gray.opacity(0.3) : Color.orange)
+                                        .background(
+                                            feedbackText.isEmpty
+                                                ? Color.gray.opacity(0.3) : Color.orange
+                                        )
                                         .foregroundColor(.white)
                                         .cornerRadius(4)
                                 }
@@ -573,23 +588,29 @@ private struct InlineDiffView: View {
                 .foregroundColor(.secondary)
 
             if !action.oldContent.isEmpty {
-                Text(action.oldContent.components(separatedBy: .newlines).map { "- \($0)" }.joined(separator: "\n"))
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundColor(.red)
-                    .padding(4)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.red.opacity(0.08))
-                    .cornerRadius(3)
+                Text(
+                    action.oldContent.components(separatedBy: .newlines).map { "- \($0)" }.joined(
+                        separator: "\n")
+                )
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundColor(.red)
+                .padding(4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.red.opacity(0.08))
+                .cornerRadius(3)
             }
 
             if !action.newContent.isEmpty {
-                Text(action.newContent.components(separatedBy: .newlines).map { "+ \($0)" }.joined(separator: "\n"))
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundColor(.green)
-                    .padding(4)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.green.opacity(0.08))
-                    .cornerRadius(3)
+                Text(
+                    action.newContent.components(separatedBy: .newlines).map { "+ \($0)" }.joined(
+                        separator: "\n")
+                )
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundColor(.green)
+                .padding(4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.green.opacity(0.08))
+                .cornerRadius(3)
             }
         }
         .padding(6)
@@ -766,7 +787,8 @@ struct ChatToolbarView: View {
     }
 
     private func exportConversation() {
-        let markdown = aneLLMService.modelLoaded
+        let markdown =
+            aneLLMService.modelLoaded
             ? aneLLMService.exportConversation()
             : llmService.exportConversation()
         UIPasteboard.general.string = markdown
@@ -793,7 +815,8 @@ struct ChatToolbarView: View {
                 }
             } catch {
                 await MainActor.run {
-                    App.notificationManager.showErrorMessage("Failed to load model: \(error.localizedDescription)")
+                    App.notificationManager.showErrorMessage(
+                        "Failed to load model: \(error.localizedDescription)")
                 }
             }
         }
@@ -808,7 +831,8 @@ struct ChatToolbarView: View {
                 }
             } catch {
                 await MainActor.run {
-                    App.notificationManager.showErrorMessage("Failed to load GGUF: \(error.localizedDescription)")
+                    App.notificationManager.showErrorMessage(
+                        "Failed to load GGUF: \(error.localizedDescription)")
                 }
             }
         }

@@ -5,8 +5,8 @@
 //  Created by Claude on 23/10/2025.
 //
 
-import Foundation
 import Combine
+import Foundation
 
 /// Service for handling inline code completions (like Copilot)
 class InlineCompletionService: ObservableObject {
@@ -21,8 +21,8 @@ class InlineCompletionService: ObservableObject {
 
     // Configuration
     var debounceDelay: TimeInterval = 0.5  // Wait 0.5s after typing stops
-    var maxCompletionLength: Int = 100     // Max tokens to generate
-    var temperature: Float = 0.2            // Lower temperature for more deterministic completions
+    var maxCompletionLength: Int = 100  // Max tokens to generate
+    var temperature: Float = 0.2  // Lower temperature for more deterministic completions
     var enabled: Bool = true
 
     private init() {
@@ -47,7 +47,8 @@ class InlineCompletionService: ObservableObject {
         debounceTimer?.invalidate()
 
         // Debounce - wait for user to stop typing
-        debounceTimer = Timer.scheduledTimer(withTimeInterval: debounceDelay, repeats: false) { [weak self] _ in
+        debounceTimer = Timer.scheduledTimer(withTimeInterval: debounceDelay, repeats: false) {
+            [weak self] _ in
             self?.generateCompletion(
                 fileContent: fileContent,
                 cursorLine: cursorLine,
@@ -139,26 +140,27 @@ class InlineCompletionService: ObservableObject {
         let currentLineBeforeCursor = String(currentLine.prefix(cursorColumn))
 
         // Get context after cursor (for better completion)
-        let afterCursor = lines.suffix(from: min(cursorLine + 1, lines.count)).prefix(10).joined(separator: "\n")
+        let afterCursor = lines.suffix(from: min(cursorLine + 1, lines.count)).prefix(10).joined(
+            separator: "\n")
 
         let languageHint = language.map { " in \($0)" } ?? ""
 
         return """
-        Complete the following code\(languageHint). Provide ONLY the completion for the current line, no explanations.
+            Complete the following code\(languageHint). Provide ONLY the completion for the current line, no explanations.
 
-        Code before cursor:
-        ```
-        \(beforeCursor)
-        \(currentLineBeforeCursor)
-        ```
+            Code before cursor:
+            ```
+            \(beforeCursor)
+            \(currentLineBeforeCursor)
+            ```
 
-        Code after cursor:
-        ```
-        \(afterCursor)
-        ```
+            Code after cursor:
+            ```
+            \(afterCursor)
+            ```
 
-        Complete the current line (provide only the completion text):
-        """
+            Complete the current line (provide only the completion text):
+            """
     }
 
     private func cleanCompletion(_ completion: String) -> String {
@@ -168,7 +170,7 @@ class InlineCompletionService: ObservableObject {
         if cleaned.hasPrefix("```") {
             let lines = cleaned.components(separatedBy: .newlines)
             if lines.count > 2 {
-                cleaned = lines[1..<lines.count-1].joined(separator: "\n")
+                cleaned = lines[1..<lines.count - 1].joined(separator: "\n")
             }
         }
 
@@ -197,8 +199,8 @@ extension InlineCompletionService {
 
         // FIM format: <fim_prefix>prefix<fim_suffix>suffix<fim_middle>
         let fimPrompt = """
-        <fim_prefix>\(prefix)<fim_suffix>\(suffix)<fim_middle>
-        """
+            <fim_prefix>\(prefix)<fim_suffix>\(suffix)<fim_middle>
+            """
 
         llmService.updateGenerationParameters(
             maxTokens: maxCompletionLength,

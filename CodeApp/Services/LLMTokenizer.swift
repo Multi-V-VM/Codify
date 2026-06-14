@@ -131,10 +131,8 @@ class LLMTokenizer {
 
     /// Check if a token ID is a special token
     private func isSpecialToken(_ tokenId: Int) -> Bool {
-        return tokenId == bosTokenId ||
-               tokenId == eosTokenId ||
-               tokenId == unkTokenId ||
-               tokenId == padTokenId
+        return tokenId == bosTokenId || tokenId == eosTokenId || tokenId == unkTokenId
+            || tokenId == padTokenId
     }
 
     /// Get vocabulary size

@@ -137,7 +137,8 @@ struct WasminspectSidebarView: View {
                     }
                 }) {
                     HStack {
-                        Image(systemName: service.state == .disconnected ? "play.fill" : "stop.fill")
+                        Image(
+                            systemName: service.state == .disconnected ? "play.fill" : "stop.fill")
                         Text(service.state == .disconnected ? "Launch" : "Stop")
                     }
                     .frame(maxWidth: .infinity)

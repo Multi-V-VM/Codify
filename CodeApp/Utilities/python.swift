@@ -25,24 +25,30 @@ private func loadPythonWasm() -> Data? {
     if let overridePath = getenv("PYTHON_WASM_PATH") {
         let path = String(cString: overridePath)
         if FileManager.default.fileExists(atPath: path),
-           let data = try? Data(contentsOf: URL(fileURLWithPath: path)) {
+            let data = try? Data(contentsOf: URL(fileURLWithPath: path))
+        {
             return data
         }
     }
 
     // Default: load python.wasm from app bundle Resources
     if let url = Bundle.main.url(forResource: "python", withExtension: "wasm"),
-       let data = try? Data(contentsOf: url) {
+        let data = try? Data(contentsOf: url)
+    {
         return data
     }
 
-    fputs("python.wasm not found. Place it in the app bundle or set PYTHON_WASM_PATH.\n", thread_stderr)
+    fputs(
+        "python.wasm not found. Place it in the app bundle or set PYTHON_WASM_PATH.\n",
+        thread_stderr)
     return nil
 }
 
 // Entry point for the `python` command in the terminal
 @_cdecl("python")
-public func swift_python(argc: Int32, argv: UnsafeMutablePointer<UnsafeMutablePointer<Int8>?>?) -> Int32 {
+public func swift_python(argc: Int32, argv: UnsafeMutablePointer<UnsafeMutablePointer<Int8>?>?)
+    -> Int32
+{
     guard let pythonData = loadPythonWasm() else { return -1 }
 
     // Use original argv as-is (first element typically "python" or "python3")
@@ -61,14 +67,17 @@ public func swift_python(argc: Int32, argv: UnsafeMutablePointer<UnsafeMutablePo
     return pythonData.withUnsafeBytes { buf -> Int32 in
         guard let base = buf.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return -1 }
         return cStrings.withUnsafeBufferPointer { ptr in
-            wasmer_python_run(base, buf.count, ptr.baseAddress, argsArray.count, stdinFD, stdoutFD, stderrFD)
+            wasmer_python_run(
+                base, buf.count, ptr.baseAddress, argsArray.count, stdinFD, stdoutFD, stderrFD)
         }
     }
 }
 
 // Entry point for the `pip` command, forwards to `python -m pip ...`
 @_cdecl("pip")
-public func swift_pip(argc: Int32, argv: UnsafeMutablePointer<UnsafeMutablePointer<Int8>?>?) -> Int32 {
+public func swift_pip(argc: Int32, argv: UnsafeMutablePointer<UnsafeMutablePointer<Int8>?>?)
+    -> Int32
+{
     guard let pythonData = loadPythonWasm() else { return -1 }
 
     // Build argv: ["python", "-m", "pip", <original args after argv[0]>]
@@ -93,8 +102,8 @@ public func swift_pip(argc: Int32, argv: UnsafeMutablePointer<UnsafeMutablePoint
     return pythonData.withUnsafeBytes { buf -> Int32 in
         guard let base = buf.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return -1 }
         return cStrings.withUnsafeBufferPointer { ptr in
-            wasmer_python_run(base, buf.count, ptr.baseAddress, args.count, stdinFD, stdoutFD, stderrFD)
+            wasmer_python_run(
+                base, buf.count, ptr.baseAddress, args.count, stdinFD, stdoutFD, stderrFD)
         }
     }
 }
-

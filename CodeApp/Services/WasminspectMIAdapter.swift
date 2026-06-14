@@ -6,8 +6,8 @@
 //  and parse LLDB output back to MI format
 //
 
-import Foundation
 import Combine
+import Foundation
 
 /// Adapter that bridges GDB MI2 protocol to Wasminspect LLDB-style commands
 class WasminspectMIAdapter: ObservableObject {
@@ -33,7 +33,7 @@ class WasminspectMIAdapter: ObservableObject {
     }
 
     private var nextMIToken = 1
-    private var breakpointIdMap: [String: Int] = [:] // "file:line" -> MI breakpoint ID
+    private var breakpointIdMap: [String: Int] = [:]  // "file:line" -> MI breakpoint ID
 
     private init() {
         // Subscribe to wasminspect state changes
@@ -167,7 +167,7 @@ class WasminspectMIAdapter: ObservableObject {
             return parseFileExec(cmd)
 
         case cmd.hasPrefix("-target-select"):
-            return nil // Handled internally
+            return nil  // Handled internally
 
         case cmd.hasPrefix("-gdb-exit"):
             return "quit"
@@ -251,7 +251,7 @@ class WasminspectMIAdapter: ObservableObject {
         if parts.count >= 2 {
             let path = String(parts[1])
             targetWasmPath = path
-            return nil // Will be handled by launch
+            return nil  // Will be handled by launch
         }
         return nil
     }
@@ -260,7 +260,7 @@ class WasminspectMIAdapter: ObservableObject {
 
     private func processMIOutput(_ lines: [String]) {
         // Convert LLDB output to MI format
-        for line in lines.suffix(10) { // Process recent lines
+        for line in lines.suffix(10) {  // Process recent lines
             if !miOutput.contains(line) {
                 let miLine = convertLLDBToMI(line)
                 if !miLine.isEmpty {
@@ -311,7 +311,9 @@ class WasminspectMIAdapter: ObservableObject {
 
         let pattern = #"frame #(\d+):\s+0x([0-9a-f]+)\s+(.+?)(?:\s+at\s+(.+?):(\d+))?"#
         if let regex = try? NSRegularExpression(pattern: pattern, options: []),
-           let match = regex.firstMatch(in: frame, options: [], range: NSRange(location: 0, length: frame.utf16.count)) {
+            let match = regex.firstMatch(
+                in: frame, options: [], range: NSRange(location: 0, length: frame.utf16.count))
+        {
 
             var level = "0"
             var addr = "0x0"
@@ -329,7 +331,8 @@ class WasminspectMIAdapter: ObservableObject {
                 line = String(frame[r])
             }
 
-            return "frame={level=\"\(level)\",addr=\"\(addr)\",func=\"\(funcName)\",file=\"\(file)\",line=\"\(line)\"}"
+            return
+                "frame={level=\"\(level)\",addr=\"\(addr)\",func=\"\(funcName)\",file=\"\(file)\",line=\"\(line)\"}"
         }
 
         return "~\"\(frame)\""

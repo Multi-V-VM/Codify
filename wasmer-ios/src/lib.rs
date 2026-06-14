@@ -1,17 +1,78 @@
+use std::collections::HashMap;
 use std::ffi::CStr;
+use std::io::SeekFrom;
 use std::os::raw::c_char;
+use std::os::unix::io::{FromRawFd, RawFd};
 use std::path::Path;
+use std::pin::Pin;
 use std::slice;
 use std::sync::Arc;
-use std::os::unix::io::{RawFd, FromRawFd};
-use std::io::SeekFrom;
-use std::pin::Pin;
 use std::task::{Context, Poll};
-use wasmer::{Store, Module, Value};
-use wasmer_wasix::{WasiEnvBuilder, PluggableRuntime};
+use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
+use wasmer::{
+    ExternType, Function, FunctionEnv, FunctionEnvMut, Imports, Instance, Memory, Module, Store,
+    Type, Value,
+};
 use wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager;
-use wasmer_wasix::virtual_fs::{VirtualFile, FsError};
-use tokio::io::{AsyncRead, AsyncWrite, AsyncSeek, ReadBuf};
+use wasmer_wasix::virtual_fs::{FsError, VirtualFile};
+use wasmer_wasix::{PluggableRuntime, WasiEnvBuilder, WasiFunctionEnv};
+
+const CUDA_SUCCESS: i32 = 0;
+const CUDA_ERROR_INVALID_VALUE: i32 = 1;
+const CUDA_MEMCPY_HOST_TO_HOST: i32 = 0;
+const CUDA_MEMCPY_HOST_TO_DEVICE: i32 = 1;
+const CUDA_MEMCPY_DEVICE_TO_HOST: i32 = 2;
+const CUDA_MEMCPY_DEVICE_TO_DEVICE: i32 = 3;
+const CUBLAS_OP_N: i32 = 0;
+
+type AppleSgemmFn = unsafe extern "C" fn(
+    *const f32,
+    *const f32,
+    *const f32,
+    *mut f32,
+    i32,
+    i32,
+    i32,
+    i32,
+    i32,
+    i32,
+    f32,
+    f32,
+) -> i32;
+
+#[derive(Debug)]
+struct CudaBridge {
+    memory: Option<Memory>,
+    allocations: HashMap<u32, Vec<u8>>,
+    next_device_ptr: u32,
+    next_cublas_handle: u32,
+}
+
+impl CudaBridge {
+    fn new() -> Self {
+        Self {
+            memory: None,
+            allocations: HashMap::new(),
+            next_device_ptr: 0x10000,
+            next_cublas_handle: 0xc0010000,
+        }
+    }
+
+    fn allocate_device_ptr(&mut self, size: usize) -> Option<u32> {
+        let ptr = self.next_device_ptr;
+        let step = ((size.max(1) + 15) & !15).max(16);
+        let step = u32::try_from(step).ok()?;
+        self.next_device_ptr = self.next_device_ptr.checked_add(step)?;
+        self.allocations.insert(ptr, vec![0; size]);
+        Some(ptr)
+    }
+
+    fn allocate_cublas_handle(&mut self) -> Option<u32> {
+        let handle = self.next_cublas_handle;
+        self.next_cublas_handle = self.next_cublas_handle.checked_add(1)?;
+        Some(handle)
+    }
+}
 
 // Custom VirtualFile implementation that wraps a file descriptor
 #[derive(Debug)]
@@ -63,11 +124,17 @@ impl VirtualFile for FdFile {
         Ok(()) // No-op for FDs
     }
 
-    fn poll_read_ready(self: std::pin::Pin<&mut Self>, _cx: &mut std::task::Context<'_>) -> std::task::Poll<std::io::Result<usize>> {
+    fn poll_read_ready(
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<usize>> {
         std::task::Poll::Ready(Ok(1))
     }
 
-    fn poll_write_ready(self: std::pin::Pin<&mut Self>, _cx: &mut std::task::Context<'_>) -> std::task::Poll<std::io::Result<usize>> {
+    fn poll_write_ready(
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<usize>> {
         std::task::Poll::Ready(Ok(1))
     }
 }
@@ -140,9 +207,7 @@ pub extern "C" fn wasmer_execute(
     }
 
     // Convert WASM bytes from C
-    let wasm_bytes = unsafe {
-        slice::from_raw_parts(wasm_bytes_ptr, wasm_bytes_len)
-    };
+    let wasm_bytes = unsafe { slice::from_raw_parts(wasm_bytes_ptr, wasm_bytes_len) };
 
     // Convert arguments from C strings to Rust strings
     let mut args: Vec<String> = Vec::new();
@@ -213,8 +278,8 @@ async fn execute_wasm_async(
     // - When JIT is possible (RWX pages allowed: simulator, macOS, or a device
     //   with the JIT entitlement) use the Cranelift compiling engine and cache
     //   the compiled artifact for AOT-style instant reloads.
-    // - Otherwise fall back to the default interpreter (WAMR via the
-    //   "wamr-default" feature), the only App Store-legal option on devices.
+    // - Otherwise fall back to the default interpreter (Wasmi via the
+    //   "wasmi-default" feature), which avoids executable memory on devices.
     let (mut store, jit_enabled) = create_store();
 
     // Load the WASM module, going through the AOT cache when compiling
@@ -238,8 +303,7 @@ async fn execute_wasm_async(
     let task_manager = Arc::new(TokioTaskManager::new(tokio::runtime::Handle::current()));
     let runtime = Arc::new(PluggableRuntime::new(task_manager));
 
-    let mut wasi_env_builder = WasiEnvBuilder::new("wasmer")
-        .runtime(runtime);
+    let mut wasi_env_builder = WasiEnvBuilder::new("wasmer").runtime(runtime);
 
     // Add arguments
     for arg in args {
@@ -306,14 +370,16 @@ async fn execute_wasm_async(
         }
     }
 
-    // Use the high-level instantiate() which handles:
-    // - Memory creation for imported memories (e.g., env.memory)
-    // - Import generation for ALL WASI/WASIX versions the module needs
-    //   (import_object() only generates for a single detected version,
-    //    missing wasix_32v1 functions like fd_dup)
-    // - Proper WasiEnv initialization
-    let (instance, _wasi_env) = wasi_env_builder.instantiate(module.clone(), &mut store)
-        .map_err(|e| format!("Failed to instantiate WASI module: {}", e))?;
+    // CUDA/cuBLAS-flavored WASM needs host imports in addition to WASI. Keep
+    // the standard WASIX instantiation path for normal modules, because it also
+    // handles imported memories and dynamic-linking details.
+    let (instance, _wasi_env) = if module_has_cuda_imports(&module) {
+        instantiate_wasi_with_cuda(wasi_env_builder, module.clone(), &mut store)?
+    } else {
+        wasi_env_builder
+            .instantiate(module.clone(), &mut store)
+            .map_err(|e| format!("Failed to instantiate WASI module: {}", e))?
+    };
 
     // Find and call the _start or main function
     let exit_code = if let Ok(start_func) = instance.exports.get_function("_start") {
@@ -347,7 +413,21 @@ async fn execute_wasm_async(
         }
     } else if let Ok(main_func) = instance.exports.get_function("main") {
         // Reactor pattern
-        match main_func.call(&mut store, &[] as &[Value]) {
+        let main_type = main_func.ty(&store);
+        let main_args = match main_type.params() {
+            [] => Vec::new(),
+            [Type::I32, Type::I32] => vec![Value::I32(args.len() as i32), Value::I32(0)],
+            params => {
+                eprintln!(
+                    "wasmer-ios: unsupported main signature {:?} -> {:?}",
+                    params,
+                    main_type.results()
+                );
+                return Ok(-1);
+            }
+        };
+
+        match main_func.call(&mut store, &main_args) {
             Ok(results) => {
                 // Extract exit code from return value
                 let results = results.to_vec();
@@ -382,6 +462,459 @@ async fn execute_wasm_async(
     };
 
     Ok(exit_code)
+}
+
+fn module_has_cuda_imports(module: &Module) -> bool {
+    module.imports().any(|import| {
+        import.module() == "env"
+            && matches!(
+                import.name(),
+                "cudaMalloc"
+                    | "cudaFree"
+                    | "cudaMemcpy"
+                    | "cudaDeviceSynchronize"
+                    | "cublasCreate_v2"
+                    | "cublasDestroy_v2"
+                    | "cublasSgemm_v2"
+            )
+    })
+}
+
+fn module_has_imported_memory(module: &Module) -> bool {
+    module
+        .imports()
+        .any(|import| matches!(import.ty(), ExternType::Memory(_)))
+}
+
+fn instantiate_wasi_with_cuda(
+    wasi_env_builder: WasiEnvBuilder,
+    module: Module,
+    store: &mut Store,
+) -> Result<(Instance, WasiFunctionEnv), Box<dyn std::error::Error>> {
+    if module_has_imported_memory(&module) {
+        return Err(
+            "CUDA bridge currently supports modules that export their linear memory".into(),
+        );
+    }
+
+    let mut wasi_env = wasi_env_builder
+        .finalize(store)
+        .map_err(|e| format!("Failed to finalize WASI environment: {}", e))?;
+    let mut imports = wasi_env
+        .import_object_for_all_wasi_versions(store, &module)
+        .map_err(|e| format!("Failed to create WASI imports: {}", e))?;
+
+    let cuda_env = FunctionEnv::new(store, CudaBridge::new());
+    define_cuda_imports(store, &mut imports, &cuda_env);
+
+    let instance = Instance::new(store, &module, &imports)
+        .map_err(|e| format!("Failed to instantiate CUDA WASI module: {}", e))?;
+    let memory = instance
+        .exports
+        .get_memory("memory")
+        .map_err(|e| format!("CUDA WASM module must export memory: {}", e))?
+        .clone();
+
+    cuda_env.as_mut(store).memory = Some(memory);
+    wasi_env
+        .initialize(store, instance.clone())
+        .map_err(|e| format!("Failed to initialize WASI environment: {}", e))?;
+
+    Ok((instance, wasi_env))
+}
+
+fn define_cuda_imports(store: &mut Store, imports: &mut Imports, env: &FunctionEnv<CudaBridge>) {
+    imports.define(
+        "env",
+        "cudaMalloc",
+        Function::new_typed_with_env(store, env, cuda_malloc),
+    );
+    imports.define(
+        "env",
+        "cudaFree",
+        Function::new_typed_with_env(store, env, cuda_free),
+    );
+    imports.define(
+        "env",
+        "cudaMemcpy",
+        Function::new_typed_with_env(store, env, cuda_memcpy),
+    );
+    imports.define(
+        "env",
+        "cudaDeviceSynchronize",
+        Function::new_typed_with_env(store, env, cuda_device_synchronize),
+    );
+    imports.define(
+        "env",
+        "cublasCreate_v2",
+        Function::new_typed_with_env(store, env, cublas_create_v2),
+    );
+    imports.define(
+        "env",
+        "cublasDestroy_v2",
+        Function::new_typed_with_env(store, env, cublas_destroy_v2),
+    );
+    imports.define(
+        "env",
+        "cublasSgemm_v2",
+        Function::new_typed_with_env(store, env, cublas_sgemm_v2),
+    );
+}
+
+fn read_guest_memory(
+    ctx: &mut FunctionEnvMut<CudaBridge>,
+    ptr: i32,
+    len: usize,
+) -> Option<Vec<u8>> {
+    if ptr < 0 {
+        return None;
+    }
+    let memory = ctx.data().memory.clone()?;
+    let view = memory.view(&*ctx);
+    let mut bytes = vec![0; len];
+    view.read(ptr as u64, &mut bytes).ok()?;
+    Some(bytes)
+}
+
+fn write_guest_memory(ctx: &mut FunctionEnvMut<CudaBridge>, ptr: i32, bytes: &[u8]) -> Option<()> {
+    if ptr < 0 {
+        return None;
+    }
+    let memory = ctx.data().memory.clone()?;
+    let view = memory.view(&*ctx);
+    view.write(ptr as u64, bytes).ok()?;
+    Some(())
+}
+
+fn write_guest_u32(ctx: &mut FunctionEnvMut<CudaBridge>, ptr: i32, value: u32) -> Option<()> {
+    write_guest_memory(ctx, ptr, &value.to_le_bytes())
+}
+
+fn read_guest_f32(ctx: &mut FunctionEnvMut<CudaBridge>, ptr: i32) -> Option<f32> {
+    let bytes = read_guest_memory(ctx, ptr, 4)?;
+    Some(f32::from_le_bytes(bytes.try_into().ok()?))
+}
+
+fn device_allocation_bytes(ctx: &FunctionEnvMut<CudaBridge>, ptr: i32) -> Option<Vec<u8>> {
+    if ptr < 0 {
+        return None;
+    }
+    ctx.data().allocations.get(&(ptr as u32)).cloned()
+}
+
+fn device_allocation_f32s(ctx: &FunctionEnvMut<CudaBridge>, ptr: i32) -> Option<Vec<f32>> {
+    let bytes = device_allocation_bytes(ctx, ptr)?;
+    if bytes.len() % 4 != 0 {
+        return None;
+    }
+
+    let mut values = Vec::with_capacity(bytes.len() / 4);
+    for chunk in bytes.chunks_exact(4) {
+        values.push(f32::from_le_bytes(chunk.try_into().ok()?));
+    }
+    Some(values)
+}
+
+fn f32s_to_bytes(values: &[f32]) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(values.len() * 4);
+    for value in values {
+        bytes.extend_from_slice(&value.to_le_bytes());
+    }
+    bytes
+}
+
+fn resolve_apple_sgemm(symbol: &[u8]) -> Option<AppleSgemmFn> {
+    let resolved = unsafe { libc::dlsym(libc::RTLD_DEFAULT, symbol.as_ptr() as *const c_char) };
+    if resolved.is_null() {
+        return None;
+    }
+
+    Some(unsafe { std::mem::transmute::<*mut libc::c_void, AppleSgemmFn>(resolved) })
+}
+
+fn try_apple_sgemm(
+    m: usize,
+    n: usize,
+    k: usize,
+    lda: usize,
+    ldb: usize,
+    ldc: usize,
+    alpha: f32,
+    a: &[f32],
+    b: &[f32],
+    beta: f32,
+    c: &[f32],
+) -> Option<Vec<f32>> {
+    if std::env::var("WASM_CUDA_ACCEL").ok().as_deref() != Some("1") {
+        return None;
+    }
+
+    let m_i32 = i32::try_from(m).ok()?;
+    let n_i32 = i32::try_from(n).ok()?;
+    let k_i32 = i32::try_from(k).ok()?;
+    let lda_i32 = i32::try_from(lda).ok()?;
+    let ldb_i32 = i32::try_from(ldb).ok()?;
+    let ldc_i32 = i32::try_from(ldc).ok()?;
+
+    let backend = std::env::var("WASM_CUDA_BACKEND").unwrap_or_else(|_| "metal".to_string());
+    let candidates: &[&[u8]] = match backend.as_str() {
+        "ane" => &[b"codifyone_ane_sgemm\0", b"codifyone_metal_sgemm\0"],
+        "metal" => &[b"codifyone_metal_sgemm\0"],
+        _ => return None,
+    };
+
+    for candidate in candidates {
+        let Some(sgemm) = resolve_apple_sgemm(candidate) else {
+            continue;
+        };
+
+        let mut output = c.to_vec();
+        let rc = unsafe {
+            sgemm(
+                a.as_ptr(),
+                b.as_ptr(),
+                c.as_ptr(),
+                output.as_mut_ptr(),
+                m_i32,
+                n_i32,
+                k_i32,
+                lda_i32,
+                ldb_i32,
+                ldc_i32,
+                alpha,
+                beta,
+            )
+        };
+
+        if rc == CUDA_SUCCESS {
+            return Some(output);
+        }
+    }
+
+    None
+}
+
+fn checked_positive_i32(value: i32) -> Option<usize> {
+    if value < 0 {
+        return None;
+    }
+    usize::try_from(value).ok()
+}
+
+fn cuda_malloc(mut ctx: FunctionEnvMut<CudaBridge>, dev_ptr: i32, size: i32) -> i32 {
+    let size = match checked_positive_i32(size) {
+        Some(size) => size,
+        None => return CUDA_ERROR_INVALID_VALUE,
+    };
+
+    let ptr = match ctx.data_mut().allocate_device_ptr(size) {
+        Some(ptr) => ptr,
+        None => return CUDA_ERROR_INVALID_VALUE,
+    };
+
+    if write_guest_u32(&mut ctx, dev_ptr, ptr).is_none() {
+        ctx.data_mut().allocations.remove(&ptr);
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+
+    CUDA_SUCCESS
+}
+
+fn cuda_free(mut ctx: FunctionEnvMut<CudaBridge>, dev_ptr: i32) -> i32 {
+    if dev_ptr == 0 {
+        return CUDA_SUCCESS;
+    }
+    if dev_ptr < 0 {
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+
+    ctx.data_mut().allocations.remove(&(dev_ptr as u32));
+    CUDA_SUCCESS
+}
+
+fn cuda_memcpy(
+    mut ctx: FunctionEnvMut<CudaBridge>,
+    dst: i32,
+    src: i32,
+    size: i32,
+    kind: i32,
+) -> i32 {
+    let size = match checked_positive_i32(size) {
+        Some(size) => size,
+        None => return CUDA_ERROR_INVALID_VALUE,
+    };
+
+    match kind {
+        CUDA_MEMCPY_HOST_TO_HOST => {
+            let bytes = match read_guest_memory(&mut ctx, src, size) {
+                Some(bytes) => bytes,
+                None => return CUDA_ERROR_INVALID_VALUE,
+            };
+            if write_guest_memory(&mut ctx, dst, &bytes).is_none() {
+                return CUDA_ERROR_INVALID_VALUE;
+            }
+        }
+        CUDA_MEMCPY_HOST_TO_DEVICE => {
+            let bytes = match read_guest_memory(&mut ctx, src, size) {
+                Some(bytes) => bytes,
+                None => return CUDA_ERROR_INVALID_VALUE,
+            };
+            let Some(allocation) = ctx.data_mut().allocations.get_mut(&(dst as u32)) else {
+                return CUDA_ERROR_INVALID_VALUE;
+            };
+            if allocation.len() < size {
+                return CUDA_ERROR_INVALID_VALUE;
+            }
+            allocation[..size].copy_from_slice(&bytes);
+        }
+        CUDA_MEMCPY_DEVICE_TO_HOST => {
+            let Some(bytes) = device_allocation_bytes(&ctx, src) else {
+                return CUDA_ERROR_INVALID_VALUE;
+            };
+            if bytes.len() < size {
+                return CUDA_ERROR_INVALID_VALUE;
+            }
+            if write_guest_memory(&mut ctx, dst, &bytes[..size]).is_none() {
+                return CUDA_ERROR_INVALID_VALUE;
+            }
+        }
+        CUDA_MEMCPY_DEVICE_TO_DEVICE => {
+            let Some(bytes) = device_allocation_bytes(&ctx, src) else {
+                return CUDA_ERROR_INVALID_VALUE;
+            };
+            let Some(allocation) = ctx.data_mut().allocations.get_mut(&(dst as u32)) else {
+                return CUDA_ERROR_INVALID_VALUE;
+            };
+            if bytes.len() < size || allocation.len() < size {
+                return CUDA_ERROR_INVALID_VALUE;
+            }
+            allocation[..size].copy_from_slice(&bytes[..size]);
+        }
+        _ => return CUDA_ERROR_INVALID_VALUE,
+    }
+
+    CUDA_SUCCESS
+}
+
+fn cuda_device_synchronize(_ctx: FunctionEnvMut<CudaBridge>) -> i32 {
+    CUDA_SUCCESS
+}
+
+fn cublas_create_v2(mut ctx: FunctionEnvMut<CudaBridge>, handle_ptr: i32) -> i32 {
+    let handle = match ctx.data_mut().allocate_cublas_handle() {
+        Some(handle) => handle,
+        None => return CUDA_ERROR_INVALID_VALUE,
+    };
+
+    if write_guest_u32(&mut ctx, handle_ptr, handle).is_none() {
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+
+    CUDA_SUCCESS
+}
+
+fn cublas_destroy_v2(_ctx: FunctionEnvMut<CudaBridge>, _handle: i32) -> i32 {
+    CUDA_SUCCESS
+}
+
+fn cublas_sgemm_v2(
+    mut ctx: FunctionEnvMut<CudaBridge>,
+    handle: i32,
+    transa: i32,
+    transb: i32,
+    m: i32,
+    n: i32,
+    k: i32,
+    alpha_ptr: i32,
+    a_ptr: i32,
+    lda: i32,
+    b_ptr: i32,
+    ldb: i32,
+    beta_ptr: i32,
+    c_ptr: i32,
+    ldc: i32,
+) -> i32 {
+    if handle == 0 || transa != CUBLAS_OP_N || transb != CUBLAS_OP_N {
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+
+    let (m, n, k, lda, ldb, ldc) = match (
+        checked_positive_i32(m),
+        checked_positive_i32(n),
+        checked_positive_i32(k),
+        checked_positive_i32(lda),
+        checked_positive_i32(ldb),
+        checked_positive_i32(ldc),
+    ) {
+        (Some(m), Some(n), Some(k), Some(lda), Some(ldb), Some(ldc)) => (m, n, k, lda, ldb, ldc),
+        _ => return CUDA_ERROR_INVALID_VALUE,
+    };
+
+    if lda < m || ldb < k || ldc < m {
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+
+    let alpha = match read_guest_f32(&mut ctx, alpha_ptr) {
+        Some(alpha) => alpha,
+        None => return CUDA_ERROR_INVALID_VALUE,
+    };
+    let beta = match read_guest_f32(&mut ctx, beta_ptr) {
+        Some(beta) => beta,
+        None => return CUDA_ERROR_INVALID_VALUE,
+    };
+    let a = match device_allocation_f32s(&ctx, a_ptr) {
+        Some(a) => a,
+        None => return CUDA_ERROR_INVALID_VALUE,
+    };
+    let b = match device_allocation_f32s(&ctx, b_ptr) {
+        Some(b) => b,
+        None => return CUDA_ERROR_INVALID_VALUE,
+    };
+    let mut c = match device_allocation_f32s(&ctx, c_ptr) {
+        Some(c) => c,
+        None => return CUDA_ERROR_INVALID_VALUE,
+    };
+
+    if let Some(accelerated) = try_apple_sgemm(m, n, k, lda, ldb, ldc, alpha, &a, &b, beta, &c) {
+        c = accelerated;
+    } else {
+        for col in 0..n {
+            for row in 0..m {
+                let mut sum = 0.0f32;
+                for q in 0..k {
+                    let Some(a_index) = row.checked_add(q.saturating_mul(lda)) else {
+                        return CUDA_ERROR_INVALID_VALUE;
+                    };
+                    let Some(b_index) = q.checked_add(col.saturating_mul(ldb)) else {
+                        return CUDA_ERROR_INVALID_VALUE;
+                    };
+                    if a_index >= a.len() || b_index >= b.len() {
+                        return CUDA_ERROR_INVALID_VALUE;
+                    }
+                    sum += a[a_index] * b[b_index];
+                }
+
+                let Some(c_index) = row.checked_add(col.saturating_mul(ldc)) else {
+                    return CUDA_ERROR_INVALID_VALUE;
+                };
+                if c_index >= c.len() {
+                    return CUDA_ERROR_INVALID_VALUE;
+                }
+                c[c_index] = alpha.mul_add(sum, beta * c[c_index]);
+            }
+        }
+    }
+
+    let bytes = f32s_to_bytes(&c);
+    let Some(allocation) = ctx.data_mut().allocations.get_mut(&(c_ptr as u32)) else {
+        return CUDA_ERROR_INVALID_VALUE;
+    };
+    if allocation.len() < bytes.len() {
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+    allocation[..bytes.len()].copy_from_slice(&bytes);
+
+    CUDA_SUCCESS
 }
 
 /// Whether the process can map writable+executable pages. True on the
@@ -503,5 +1036,17 @@ mod tests {
     fn test_version() {
         let version = wasmer_version();
         assert!(!version.is_null());
+    }
+
+    #[test]
+    #[ignore = "requires building examples/wasm-cuda-oxide/cuda_oxide_probe.wasm"]
+    fn test_cuda_oxide_probe() {
+        let wasm_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../examples/wasm-cuda-oxide/cuda_oxide_probe.wasm");
+        let wasm = std::fs::read(&wasm_path).expect("read cuda_oxide_probe.wasm");
+        let args = vec!["cuda_oxide_probe".to_string()];
+        let exit_code = execute_wasm(&wasm, &args, -1, 1, 2).expect("execute CUDA probe");
+
+        assert_eq!(exit_code, 0);
     }
 }

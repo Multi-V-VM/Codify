@@ -6,8 +6,8 @@
 //  Mirrors CoreMLLLMService API for drop-in usage
 //
 
-import Foundation
 import Combine
+import Foundation
 
 class ANELLMService: ObservableObject {
     static let shared = ANELLMService()
@@ -31,10 +31,12 @@ class ANELLMService: ObservableObject {
     private var conversationHistory: [LLMMessage] = []
 
     private init() {
-        conversationHistory.append(LLMMessage(
-            role: .system,
-            content: "You are a helpful coding assistant. Provide concise, accurate code and explanations."
-        ))
+        conversationHistory.append(
+            LLMMessage(
+                role: .system,
+                content:
+                    "You are a helpful coding assistant. Provide concise, accurate code and explanations."
+            ))
     }
 
     // MARK: - Model Loading
@@ -45,7 +47,11 @@ class ANELLMService: ObservableObject {
             await MainActor.run {
                 self.error = "Bundled GGUF model not found in app bundle"
             }
-            throw NSError(domain: "ANELLMService", code: 1, userInfo: [NSLocalizedDescriptionKey: "Qwen3.5-0.8B-Q8_0.gguf not found in app bundle"])
+            throw NSError(
+                domain: "ANELLMService", code: 1,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "Qwen3.5-0.8B-Q8_0.gguf not found in app bundle"
+                ])
         }
         try await loadModel(at: url)
     }
@@ -67,7 +73,8 @@ class ANELLMService: ObservableObject {
 
             await MainActor.run {
                 loadingProgress = 0.05
-                loadingStatus = "GGUF parsed: \(ggufLoader.config.architecture) (\(ggufLoader.config.nLayers) layers, dim=\(ggufLoader.config.dim))"
+                loadingStatus =
+                    "GGUF parsed: \(ggufLoader.config.architecture) (\(ggufLoader.config.nLayers) layers, dim=\(ggufLoader.config.dim))"
             }
 
             // Step 2: Initialize tokenizer
@@ -182,7 +189,8 @@ class ANELLMService: ObservableObject {
         // Generate with streaming
         var fullResponse = ""
 
-        let _ = engine.generate(promptTokens: inputTokens, tokenizer: tokenizer) { [weak self] tokenId, tokenText in
+        let _ = engine.generate(promptTokens: inputTokens, tokenizer: tokenizer) {
+            [weak self] tokenId, tokenText in
             fullResponse += tokenText
             Task { @MainActor in
                 self?.currentResponse = fullResponse
@@ -221,7 +229,8 @@ class ANELLMService: ObservableObject {
         conversationHistory = [
             LLMMessage(
                 role: .system,
-                content: "You are a helpful coding assistant. Provide concise, accurate code and explanations."
+                content:
+                    "You are a helpful coding assistant. Provide concise, accurate code and explanations."
             )
         ]
         messages = []
@@ -251,9 +260,13 @@ class ANELLMService: ObservableObject {
             modelURLs.append(bundled)
         }
 
-        if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+        if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+            .first
+        {
             let modelsDir = documentsURL.appendingPathComponent("Models")
-            if let enumerator = FileManager.default.enumerator(at: modelsDir, includingPropertiesForKeys: nil) {
+            if let enumerator = FileManager.default.enumerator(
+                at: modelsDir, includingPropertiesForKeys: nil)
+            {
                 for case let fileURL as URL in enumerator {
                     if fileURL.pathExtension == "gguf" {
                         modelURLs.append(fileURL)

@@ -110,7 +110,8 @@ class MonacoImplementation: NSObject {
 
         monacoWebView.setupContextMenu { [weak self] hasSelection in
             guard let self = self else { return UIMenu(children: []) }
-            return self.contextMenu?.buildContextMenu(hasSelection: hasSelection) ?? UIMenu(children: [])
+            return self.contextMenu?.buildContextMenu(hasSelection: hasSelection)
+                ?? UIMenu(children: [])
         }
     }
 
@@ -135,7 +136,8 @@ class MonacoImplementation: NSObject {
         let llmService = CoreMLLLMService.shared
 
         Task {
-            _ = await llmService.sendMessage("Generate code based on the context of my current file.")
+            _ = await llmService.sendMessage(
+                "Generate code based on the context of my current file.")
 
             // Show right panel with chat
             await MainActor.run {
@@ -195,59 +197,59 @@ class MonacoImplementation: NSObject {
     // MARK: - Breakpoint support (Monaco glyph margin + gutter click)
     private func injectBreakpointSupport() async {
         let js = """
-        try { editor.updateOptions({ glyphMargin: true }); } catch (e) {}
+            try { editor.updateOptions({ glyphMargin: true }); } catch (e) {}
 
-        if (!window._bp) {
-          window._bp = { decosByUri: new Map(), linesByUri: new Map() };
+            if (!window._bp) {
+              window._bp = { decosByUri: new Map(), linesByUri: new Map() };
 
-          window.toggleBreakpointAt = function(line) {
-            const model = editor.getModel();
-            if (!model) return;
-            const uri = model.uri.toString();
-            const lines = window._bp.linesByUri.get(uri) || new Set();
-            const has = lines.has(line);
-            if (has) lines.delete(line); else lines.add(line);
-            window._bp.linesByUri.set(uri, lines);
+              window.toggleBreakpointAt = function(line) {
+                const model = editor.getModel();
+                if (!model) return;
+                const uri = model.uri.toString();
+                const lines = window._bp.linesByUri.get(uri) || new Set();
+                const has = lines.has(line);
+                if (has) lines.delete(line); else lines.add(line);
+                window._bp.linesByUri.set(uri, lines);
 
-            // Render decorations for this model
-            const oldDecos = window._bp.decosByUri.get(uri) || [];
-            const decos = Array.from(lines).map(ln => ({
-              range: new monaco.Range(ln, 1, ln, 1),
-              options: { glyphMarginClassName: 'breakpoint-glyph', isWholeLine: true }
-            }));
-            const newDecos = editor.deltaDecorations(oldDecos, decos);
-            window._bp.decosByUri.set(uri, newDecos);
+                // Render decorations for this model
+                const oldDecos = window._bp.decosByUri.get(uri) || [];
+                const decos = Array.from(lines).map(ln => ({
+                  range: new monaco.Range(ln, 1, ln, 1),
+                  options: { glyphMarginClassName: 'breakpoint-glyph', isWholeLine: true }
+                }));
+                const newDecos = editor.deltaDecorations(oldDecos, decos);
+                window._bp.decosByUri.set(uri, newDecos);
 
-            // Notify native
-            const path = model.uri.path || uri;
-            const action = has ? 'remove' : 'add';
-            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.toggleMessageHandler) {
-              window.webkit.messageHandlers.toggleMessageHandler.postMessage({
-                Event: 'Breakpoint Toggled', file: path, line: line, action: action
-              });
-            }
-          }
-
-          // Add CSS for breakpoint glyph
-          const style = document.createElement('style');
-          style.textContent = `
-            .breakpoint-glyph { background: radial-gradient(circle at 7px 8px, #ff595e 0 6px, transparent 6px); width: 14px; height: 14px; }
-          `;
-          document.head.appendChild(style);
-
-          // Click handler on glyph margin and line numbers
-          try {
-            editor.onMouseDown((e) => {
-              const t = e.target && e.target.type;
-              const G = monaco.editor.MouseTargetType;
-              if (t === G.GUTTER_GLYPH_MARGIN || t === G.GUTTER_LINE_NUMBERS || t === G.GUTTER_LINE_DECORATIONS) {
-                const line = e.target.position && e.target.position.lineNumber;
-                if (line) window.toggleBreakpointAt(line);
+                // Notify native
+                const path = model.uri.path || uri;
+                const action = has ? 'remove' : 'add';
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.toggleMessageHandler) {
+                  window.webkit.messageHandlers.toggleMessageHandler.postMessage({
+                    Event: 'Breakpoint Toggled', file: path, line: line, action: action
+                  });
+                }
               }
-            });
-          } catch (e) {}
-        }
-        """
+
+              // Add CSS for breakpoint glyph
+              const style = document.createElement('style');
+              style.textContent = `
+                .breakpoint-glyph { background: radial-gradient(circle at 7px 8px, #ff595e 0 6px, transparent 6px); width: 14px; height: 14px; }
+              `;
+              document.head.appendChild(style);
+
+              // Click handler on glyph margin and line numbers
+              try {
+                editor.onMouseDown((e) => {
+                  const t = e.target && e.target.type;
+                  const G = monaco.editor.MouseTargetType;
+                  if (t === G.GUTTER_GLYPH_MARGIN || t === G.GUTTER_LINE_NUMBERS || t === G.GUTTER_LINE_DECORATIONS) {
+                    const line = e.target.position && e.target.position.lineNumber;
+                    if (line) window.toggleBreakpointAt(line);
+                  }
+                });
+              } catch (e) {}
+            }
+            """
         _ = try? await monacoWebView.evaluateJavaScriptAsync(js)
     }
 

@@ -5,9 +5,9 @@
 //  Created by Claude on 21/10/2025.
 //
 
-import Foundation
-import CoreML
 import Combine
+import CoreML
+import Foundation
 
 /// Message for LLM conversation
 struct LLMMessage: Codable, Identifiable, Equatable {
@@ -52,10 +52,12 @@ class CoreMLLLMService: ObservableObject {
         tokenizer = LLMTokenizer()
 
         // Initialize with system message
-        conversationHistory.append(LLMMessage(
-            role: .system,
-            content: "You are a helpful coding assistant integrated into a code editor. Provide concise, accurate, and helpful responses."
-        ))
+        conversationHistory.append(
+            LLMMessage(
+                role: .system,
+                content:
+                    "You are a helpful coding assistant integrated into a code editor. Provide concise, accurate, and helpful responses."
+            ))
     }
 
     // MARK: - Model Loading
@@ -80,7 +82,7 @@ class CoreMLLLMService: ObservableObject {
         // 3. Load it here
 
         // For now, we'll simulate model loading
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+        try await Task.sleep(nanoseconds: 1_000_000_000)  // 1 second
 
         await MainActor.run {
             modelLoaded = true
@@ -214,7 +216,7 @@ class CoreMLLLMService: ObservableObject {
     /// Generate a simulated response (for demo purposes)
     private func generateSimulatedResponse(for conversation: [LLMMessage]) async -> String {
         // Simulate thinking time
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+        try? await Task.sleep(nanoseconds: 500_000_000)  // 0.5 seconds
 
         guard let lastMessage = conversation.last(where: { $0.role == .user }) else {
             return "I'm sorry, I didn't receive a message."
@@ -224,37 +226,41 @@ class CoreMLLLMService: ObservableObject {
 
         // Simple pattern matching for demo
         if content.contains("explain") && content.contains("```") {
-            return "I'd be happy to explain this code! This appears to be a code snippet. To provide a detailed explanation, I would analyze:\n\n1. The overall purpose and functionality\n2. Key algorithms or patterns used\n3. Potential improvements or best practices\n\nNote: This is a demo response. Connect a real Core ML LLM model for actual code analysis."
+            return
+                "I'd be happy to explain this code! This appears to be a code snippet. To provide a detailed explanation, I would analyze:\n\n1. The overall purpose and functionality\n2. Key algorithms or patterns used\n3. Potential improvements or best practices\n\nNote: This is a demo response. Connect a real Core ML LLM model for actual code analysis."
         }
 
         if content.contains("generate") || content.contains("write") {
-            return "I can help you generate code! However, this is currently a demo response. To generate actual code, you'll need to:\n\n1. Load a Core ML LLM model (e.g., CodeLlama, StarCoder)\n2. Configure the model for code generation\n3. Provide specific requirements\n\nWould you like help setting up a real LLM model?"
+            return
+                "I can help you generate code! However, this is currently a demo response. To generate actual code, you'll need to:\n\n1. Load a Core ML LLM model (e.g., CodeLlama, StarCoder)\n2. Configure the model for code generation\n3. Provide specific requirements\n\nWould you like help setting up a real LLM model?"
         }
 
         if content.contains("fix") || content.contains("error") || content.contains("bug") {
-            return "I'm analyzing the code for potential issues. Common things to check:\n\n1. Syntax errors\n2. Type mismatches\n3. Null pointer dereferences\n4. Logic errors\n\nNote: Load a real Core ML model for actual code analysis and debugging assistance."
+            return
+                "I'm analyzing the code for potential issues. Common things to check:\n\n1. Syntax errors\n2. Type mismatches\n3. Null pointer dereferences\n4. Logic errors\n\nNote: Load a real Core ML model for actual code analysis and debugging assistance."
         }
 
-        return "I'm a demo AI assistant. To use real AI capabilities:\n\n1. **Load a Core ML Model**: Use the Settings to load a compatible LLM model\n2. **Supported Models**: Look for Core ML versions of CodeLlama, GPT-style models, or other LLMs\n3. **Model Sources**: Models can be downloaded from Hugging Face or the Apple Model Gallery\n\nHow can I help you with your code today?"
+        return
+            "I'm a demo AI assistant. To use real AI capabilities:\n\n1. **Load a Core ML Model**: Use the Settings to load a compatible LLM model\n2. **Supported Models**: Look for Core ML versions of CodeLlama, GPT-style models, or other LLMs\n3. **Model Sources**: Models can be downloaded from Hugging Face or the Apple Model Gallery\n\nHow can I help you with your code today?"
     }
 
     /// Fallback response when no model is loaded
     private func generateFallbackResponse(for conversation: [LLMMessage]) async -> String {
         return """
-        ⚠️ No AI model is currently loaded.
+            ⚠️ No AI model is currently loaded.
 
-        To use AI features:
-        1. Download a Core ML compatible LLM model
-        2. Load it in Settings > AI Model
-        3. Restart the chat
+            To use AI features:
+            1. Download a Core ML compatible LLM model
+            2. Load it in Settings > AI Model
+            3. Restart the chat
 
-        Recommended models:
-        - CodeLlama (Core ML version)
-        - Mistral (Core ML version)
-        - Llama 2 (Core ML version)
+            Recommended models:
+            - CodeLlama (Core ML version)
+            - Mistral (Core ML version)
+            - Llama 2 (Core ML version)
 
-        Visit the Apple ML Gallery or Hugging Face for compatible models.
-        """
+            Visit the Apple ML Gallery or Hugging Face for compatible models.
+            """
     }
 
     /// Explain code using AI
@@ -313,7 +319,8 @@ class CoreMLLLMService: ObservableObject {
         conversationHistory = [
             LLMMessage(
                 role: .system,
-                content: "You are a helpful coding assistant integrated into a code editor. Provide concise, accurate, and helpful responses."
+                content:
+                    "You are a helpful coding assistant integrated into a code editor. Provide concise, accurate, and helpful responses."
             )
         ]
         messages = []
@@ -345,14 +352,20 @@ extension CoreMLLLMService {
         var modelURLs: [URL] = []
 
         // Check app bundle
-        if let bundleModels = Bundle.main.urls(forResourcesWithExtension: "mlmodelc", subdirectory: nil) {
+        if let bundleModels = Bundle.main.urls(
+            forResourcesWithExtension: "mlmodelc", subdirectory: nil)
+        {
             modelURLs.append(contentsOf: bundleModels)
         }
 
         // Check documents directory
-        if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+        if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+            .first
+        {
             let modelsDir = documentsURL.appendingPathComponent("Models")
-            if let enumerator = FileManager.default.enumerator(at: modelsDir, includingPropertiesForKeys: nil) {
+            if let enumerator = FileManager.default.enumerator(
+                at: modelsDir, includingPropertiesForKeys: nil)
+            {
                 for case let fileURL as URL in enumerator {
                     if fileURL.pathExtension == "mlmodelc" || fileURL.pathExtension == "mlpackage" {
                         modelURLs.append(fileURL)

@@ -5,10 +5,9 @@
 //  Created by Ken Chung on 23/03/2024.
 //
 
+import Combine
 import Runestone
 import SwiftUI
-import UIKit
-import Combine
 import TreeSitterAstroRunestone
 import TreeSitterBashRunestone
 import TreeSitterCPPRunestone
@@ -47,6 +46,7 @@ import TreeSitterTOMLRunestone
 import TreeSitterTSXRunestone
 import TreeSitterTypeScriptRunestone
 import TreeSitterYAMLRunestone
+import UIKit
 
 // MARK: - Custom TextView with Context Menu
 
@@ -845,7 +845,8 @@ extension RunestoneImplementation: EditorImplementation {
         await MainActor.run {
             let selectedRange = textView.selectedRange
             if selectedRange.length > 0,
-               let text = textView.text(in: selectedRange) {
+                let text = textView.text(in: selectedRange)
+            {
                 UIPasteboard.general.string = text
                 textView.insertText("")
             }
@@ -856,7 +857,8 @@ extension RunestoneImplementation: EditorImplementation {
         await MainActor.run {
             let selectedRange = textView.selectedRange
             if selectedRange.length > 0,
-               let text = textView.text(in: selectedRange) {
+                let text = textView.text(in: selectedRange)
+            {
                 UIPasteboard.general.string = text
                 return text
             }
@@ -911,7 +913,8 @@ extension RunestoneImplementation: TextViewDelegate {
         // Trigger inline completion
         if #available(iOS 18.0, *) {
             if let customTextView = textView as? CustomRunestoneTextView,
-               let textLocation = textView.textLocation(at: textView.selectedRange.location) {
+                let textLocation = textView.textLocation(at: textView.selectedRange.location)
+            {
                 customTextView.onTextChanged?(
                     textView.text,
                     textLocation.lineNumber,

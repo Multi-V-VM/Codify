@@ -124,7 +124,8 @@ class VisxExtractor: ObservableObject {
         let (tempURL, response) = try await URLSession.shared.download(from: url)
 
         guard let httpResponse = response as? HTTPURLResponse,
-              (200...299).contains(httpResponse.statusCode) else {
+            (200...299).contains(httpResponse.statusCode)
+        else {
             throw VisxError.downloadFailed
         }
 
@@ -146,7 +147,8 @@ class VisxExtractor: ObservableObject {
         let extensionsDir = documentsURL.appendingPathComponent("Extensions")
 
         // Create extensions directory if needed
-        try? FileManager.default.createDirectory(at: extensionsDir, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(
+            at: extensionsDir, withIntermediateDirectories: true)
 
         // Create unique directory for this extension
         let extensionID = UUID().uuidString
@@ -166,9 +168,11 @@ class VisxExtractor: ObservableObject {
             progressHandler: { [weak self] entryNumber, total, completedSize, totalSize in
                 let progress = Double(completedSize) / Double(totalSize)
                 Task { @MainActor in
-                    self?.progress = 0.3 + (progress * 0.5) // 30-80% progress
+                    self?.progress = 0.3 + (progress * 0.5)  // 30-80% progress
                 }
-                NSLog("📊 Extracting: \(entryNumber)/\(total) files, \(completedSize)/\(totalSize) bytes")
+                NSLog(
+                    "📊 Extracting: \(entryNumber)/\(total) files, \(completedSize)/\(totalSize) bytes"
+                )
             },
             completionHandler: { path, succeeded, error in
                 if let error = error {
@@ -222,7 +226,8 @@ class VisxExtractor: ObservableObject {
         // Parse package.json
         let packageData = try Data(contentsOf: packageURL)
         guard let package = try JSONSerialization.jsonObject(with: packageData) as? [String: Any],
-              let name = package["name"] as? String else {
+            let name = package["name"] as? String
+        else {
             throw VisxError.invalidExtension("Invalid package.json")
         }
 
@@ -236,10 +241,12 @@ class VisxExtractor: ObservableObject {
         let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let extensionsDir = documentsURL.appendingPathComponent("Extensions")
 
-        guard let contents = try? FileManager.default.contentsOfDirectory(
-            at: extensionsDir,
-            includingPropertiesForKeys: nil
-        ) else {
+        guard
+            let contents = try? FileManager.default.contentsOfDirectory(
+                at: extensionsDir,
+                includingPropertiesForKeys: nil
+            )
+        else {
             return []
         }
 
@@ -247,8 +254,10 @@ class VisxExtractor: ObservableObject {
             let packageURL = dir.appendingPathComponent("package.json")
 
             guard let packageData = try? Data(contentsOf: packageURL),
-                  let package = try? JSONSerialization.jsonObject(with: packageData) as? [String: Any],
-                  let name = package["name"] as? String else {
+                let package = try? JSONSerialization.jsonObject(with: packageData)
+                    as? [String: Any],
+                let name = package["name"] as? String
+            else {
                 return nil
             }
 

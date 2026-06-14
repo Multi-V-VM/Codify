@@ -810,8 +810,6 @@
 		94A7FFB3268D085300369147 /* BottomBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A7FFB2268D085300369147 /* BottomBar.swift */; };
 		94AA00022E7F886A00BBCC02 /* node.wasm in Resources */ = {isa = PBXBuildFile; fileRef = 94AA00012E7F886A00BBCC01 /* node.wasm */; };
 		94AA00032E7F886A00BBCC03 /* node.wasm in Resources */ = {isa = PBXBuildFile; fileRef = 94AA00012E7F886A00BBCC01 /* node.wasm */; };
-		C0DA0A012F66000100000001 /* cuda_oxide_probe.wasm in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0A002F66000100000000 /* cuda_oxide_probe.wasm */; };
-		C0DA0A022F66000100000002 /* cuda_oxide_probe.wasm in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0A002F66000100000000 /* cuda_oxide_probe.wasm */; };
 		94B3D65925F776AA00C4F2B1 /* cacert.pem in Resources */ = {isa = PBXBuildFile; fileRef = 94B3D5D525F776A900C4F2B1 /* cacert.pem */; };
 		94B3D6DE25F77AFE00C4F2B1 /* Library in Resources */ = {isa = PBXBuildFile; fileRef = 94B3D6DD25F77AFE00C4F2B1 /* Library */; };
 		94B3DDF1260344E800C4F2B1 /* Color+init.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B3DDF0260344E700C4F2B1 /* Color+init.swift */; };
@@ -974,6 +972,8 @@
 		AAC4000230000001000000A2 /* WasiSysroot in Resources */ = {isa = PBXBuildFile; fileRef = AAC4000030000001000000A0 /* WasiSysroot */; };
 		AAC4000330000001000000A3 /* ane_q8_kernel.c in Sources */ = {isa = PBXBuildFile; fileRef = AAC4000530000001000000A5 /* ane_q8_kernel.c */; };
 		AAC4000430000001000000A4 /* ane_q8_kernel.c in Sources */ = {isa = PBXBuildFile; fileRef = AAC4000530000001000000A5 /* ane_q8_kernel.c */; };
+		C0DA0A012F66000100000001 /* cuda_oxide_probe.wasm in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0A002F66000100000000 /* cuda_oxide_probe.wasm */; };
+		C0DA0A022F66000100000002 /* cuda_oxide_probe.wasm in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0A002F66000100000000 /* cuda_oxide_probe.wasm */; };
 		F97209422F46383C00DA803A /* DebuggerExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97209402F46383C00DA803A /* DebuggerExtension.swift */; };
 		F97209432F46383C00DA803A /* DebuggerExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97209402F46383C00DA803A /* DebuggerExtension.swift */; };
 		F97209452F4638C200DA803A /* DebuggerSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97209442F4638C200DA803A /* DebuggerSidebarView.swift */; };
@@ -1938,7 +1938,7 @@
 		9437153E26BF9FC3000376FB /* RemoteContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteContainer.swift; sourceTree = "<group>"; };
 		9441129C28217D6A00A8F1D7 /* TerminalProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalProvider.swift; sourceTree = "<group>"; };
 		944112A0282181E500A8F1D7 /* SFTPTerminalServiceProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SFTPTerminalServiceProvider.swift; sourceTree = "<group>"; };
-		944EEBF02563C381009D77FE /* Code.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = Code.app; path = CodifyOne.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		944EEBF02563C381009D77FE /* CodifyOne.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CodifyOne.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		944EEBF32563C381009D77FE /* CodeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeApp.swift; sourceTree = "<group>"; };
 		944EEBF72563C386009D77FE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		944EEBFA2563C386009D77FE /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -2036,7 +2036,6 @@
 		94A77830257BD681008FE7B2 /* TerminalTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalTabBar.swift; sourceTree = "<group>"; };
 		94A7FFB2268D085300369147 /* BottomBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomBar.swift; sourceTree = "<group>"; };
 		94AA00012E7F886A00BBCC01 /* node.wasm */ = {isa = PBXFileReference; lastKnownFileType = file; path = node.wasm; sourceTree = "<group>"; };
-		C0DA0A002F66000100000000 /* cuda_oxide_probe.wasm */ = {isa = PBXFileReference; lastKnownFileType = file; path = cuda_oxide_probe.wasm; sourceTree = "<group>"; };
 		94B3D5D525F776A900C4F2B1 /* cacert.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = cacert.pem; sourceTree = "<group>"; };
 		94B3D6DD25F77AFE00C4F2B1 /* Library */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Library; sourceTree = "<group>"; };
 		94B3DDF0260344E700C4F2B1 /* Color+init.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+init.swift"; sourceTree = "<group>"; };
@@ -2142,6 +2141,7 @@
 		AAC4000030000001000000A0 /* WasiSysroot */ = {isa = PBXFileReference; lastKnownFileType = folder; path = WasiSysroot; sourceTree = "<group>"; };
 		AAC4000530000001000000A5 /* ane_q8_kernel.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ane_q8_kernel.c; sourceTree = "<group>"; };
 		AAC4000630000001000000A6 /* ane_q8_kernel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ane_q8_kernel.h; sourceTree = "<group>"; };
+		C0DA0A002F66000100000000 /* cuda_oxide_probe.wasm */ = {isa = PBXFileReference; lastKnownFileType = file; path = cuda_oxide_probe.wasm; sourceTree = "<group>"; };
 		F97209402F46383C00DA803A /* DebuggerExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebuggerExtension.swift; sourceTree = "<group>"; };
 		F97209442F4638C200DA803A /* DebuggerSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebuggerSidebarView.swift; sourceTree = "<group>"; };
 		F97209472F46390B00DA803A /* DebuggerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebuggerService.swift; sourceTree = "<group>"; };
@@ -2435,7 +2435,7 @@
 		944EEBF12563C381009D77FE /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				944EEBF02563C381009D77FE /* Code.app */,
+				944EEBF02563C381009D77FE /* CodifyOne.app */,
 				94369AFC25E3B933008419A0 /* extension.appex */,
 				94196B18280316C7008AAEB2 /* CodeUI.app */,
 				9FE3E292298A14BC00F63DD0 /* CodeUITests.xctest */,
@@ -3620,7 +3620,7 @@
 				947BBCF72C12F5AA00FFD0C5 /* TreeSitterYAMLRunestone */,
 			);
 			productName = testfield;
-			productReference = 944EEBF02563C381009D77FE /* Code.app */;
+			productReference = 944EEBF02563C381009D77FE /* CodifyOne.app */;
 			productType = "com.apple.product-type.application";
 		};
 		9FE3E291298A14BC00F63DD0 /* CodeUITests */ = {
@@ -3803,46 +3803,6 @@
 				"",
 			);
 		};
-		FABC00012F6500000000AAA1 /* Embed hetGPU Apple ANE Runtime */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Embed hetGPU Apple ANE Runtime";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/hetgpu-apple-ane/libcuda.so.1",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PROJECT_DIR}/scripts/embed_hetgpu_ane.sh\"";
-		};
-		FABC00022F6500000000AAA2 /* Embed hetGPU Apple ANE Runtime */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Embed hetGPU Apple ANE Runtime";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/hetgpu-apple-ane/libcuda.so.1",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PROJECT_DIR}/scripts/embed_hetgpu_ane.sh\"";
-		};
 		9455423B27FC410F00DAF941 /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -3857,6 +3817,36 @@
 				"else",
 				"    echo \"warning: swift-format not installed, install it by running brew install swift-format\"",
 				"fi",
+				"",
+			);
+		};
+		FABC00012F6500000000AAA1 /* Embed hetGPU Apple ANE Runtime */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			name = "Embed hetGPU Apple ANE Runtime";
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/hetgpu-apple-ane/libcuda.so.1",
+			);
+			shellPath = /bin/sh;
+			shellScript = (
+				"\"${PROJECT_DIR}/scripts/embed_hetgpu_ane.sh\"",
+				"",
+			);
+		};
+		FABC00022F6500000000AAA2 /* Embed hetGPU Apple ANE Runtime */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			inputPaths = (
+				"$(PROJECT_DIR)/scripts/embed_hetgpu_ane.sh",
+				"$(PROJECT_DIR)/hetgpu-ios/dist/apple-ane",
+			);
+			name = "Embed hetGPU Apple ANE Runtime";
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/hetgpu-apple-ane/libcuda.so.1",
+			);
+			shellPath = /bin/sh;
+			shellScript = (
+				"\"${PROJECT_DIR}/scripts/embed_hetgpu_ane.sh\"",
 				"",
 			);
 		};
@@ -4566,7 +4556,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu23;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -4631,7 +4621,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu23;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;

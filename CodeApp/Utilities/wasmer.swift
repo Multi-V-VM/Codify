@@ -63,7 +63,7 @@ private func executeWasmerNative(arguments: [String]?) -> Int32 {
         let cString = strdup(arg)
         return UnsafePointer(cString)
     }
-    cStrings.append(nil) // Null-terminate the array
+    cStrings.append(nil)  // Null-terminate the array
 
     defer {
         // Clean up allocated C strings

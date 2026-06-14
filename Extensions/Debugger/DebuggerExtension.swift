@@ -18,4 +18,3 @@ class DebuggerExtension: CodeAppExtension {
         app.rightPanelManager.registerPanel(panel: panel)
     }
 }
-

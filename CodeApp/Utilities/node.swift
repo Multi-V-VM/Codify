@@ -52,7 +52,6 @@ func launchCommandInExtension(args: [String]?) -> Int32 {
 
 // MARK: - Wasmer node.wasm support
 
-
 @_silgen_name("wasmer_execute")
 func wasmer_node_run(
     _ wasmBytes: UnsafePointer<UInt8>,
@@ -67,7 +66,8 @@ func wasmer_node_run(
 private func loadNodeWasm() -> Data? {
     // Load from app bundle (added via "Copy Bundle Resources" build phase)
     if let url = Resources.nodeWasm,
-       let data = try? Data(contentsOf: url) {
+        let data = try? Data(contentsOf: url)
+    {
         return data
     }
     fputs("node.wasm not found in app bundle.\n", thread_stderr)
@@ -83,7 +83,7 @@ private func runNodeWasm(args: [String]) -> Int32 {
     cStrings.append(nil)
     defer { cStrings.forEach { if let s = $0 { free(UnsafeMutablePointer(mutating: s)) } } }
 
-    let stdinFd  = (thread_stdin  != nil) ? fileno(thread_stdin)  : STDIN_FILENO
+    let stdinFd = (thread_stdin != nil) ? fileno(thread_stdin) : STDIN_FILENO
     let stdoutFd = (thread_stdout != nil) ? fileno(thread_stdout) : STDOUT_FILENO
     let stderrFd = (thread_stderr != nil) ? fileno(thread_stderr) : STDERR_FILENO
 
@@ -91,8 +91,9 @@ private func runNodeWasm(args: [String]) -> Int32 {
         guard let base = buf.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return -1 }
         return cStrings.withUnsafeBufferPointer { ptr -> Int32 in
             guard let argsPtr = ptr.baseAddress else { return -1 }
-            return wasmer_execute(base, buf.count, argsPtr, args.count,
-                                  stdinFd, stdoutFd, stderrFd)
+            return wasmer_execute(
+                base, buf.count, argsPtr, args.count,
+                stdinFd, stdoutFd, stderrFd)
         }
     }
 }

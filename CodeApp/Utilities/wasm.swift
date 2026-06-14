@@ -38,9 +38,10 @@ public func wasm_cuda_oxide(
     let rawArgs = convertCArguments(argc: argc, argv: argv) ?? ["wasm_cuda_oxide"]
     let stderr = thread_stderr ?? fdopen(STDERR_FILENO, "w")
 
-    guard let wasmURL = Bundle.main.url(
-        forResource: "cuda_oxide_probe",
-        withExtension: "wasm")
+    guard
+        let wasmURL = Bundle.main.url(
+            forResource: "cuda_oxide_probe",
+            withExtension: "wasm")
     else {
         fputs("wasm_cuda_oxide: bundled cuda_oxide_probe.wasm not found\n", stderr)
         return -1
@@ -51,7 +52,7 @@ public func wasm_cuda_oxide(
 }
 
 private func executeWebAssembly(arguments: [String]?) -> Int32 {
-    
+
     guard let arguments = arguments, arguments.count >= 2 else {
         let stderr = thread_stderr ?? fdopen(STDERR_FILENO, "w")
         fputs("Usage: wasm [--gpu|--gpu-backend ane|metal] <wasm-file> [args...]\n", stderr)
@@ -98,7 +99,7 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
         let cString = strdup(arg)
         return UnsafePointer(cString)
     }
-    cStrings.append(nil) // Null-terminate the array
+    cStrings.append(nil)  // Null-terminate the array
 
     defer {
         // Clean up allocated C strings
@@ -120,7 +121,7 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
         }
 
         return cStrings.withUnsafeBufferPointer { argsBuffer in
-            return wasmer_execute(  
+            return wasmer_execute(
                 baseAddress.assumingMemoryBound(to: UInt8.self),
                 bytes.count,
                 argsBuffer.baseAddress!,
@@ -200,25 +201,32 @@ func wasmSysrootURL() -> URL {
 func resolvedWASMCurrentDirectory(_ currentDirectory: String) -> String {
     let fileManager = FileManager.default
     let home = NSHomeDirectory()
-    let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first
+    let documentsURL =
+        fileManager.urls(for: .documentDirectory, in: .userDomainMask).first
         ?? URL(fileURLWithPath: home).appendingPathComponent("Documents")
 
     try? fileManager.createDirectory(at: documentsURL, withIntermediateDirectories: true)
 
     var isDirectory: ObjCBool = false
-    if fileManager.fileExists(atPath: currentDirectory, isDirectory: &isDirectory), isDirectory.boolValue {
+    if fileManager.fileExists(atPath: currentDirectory, isDirectory: &isDirectory),
+        isDirectory.boolValue
+    {
         return currentDirectory
     }
 
     if currentDirectory == home || currentDirectory.hasPrefix(home + "/") {
         try? fileManager.createDirectory(
             at: URL(fileURLWithPath: currentDirectory), withIntermediateDirectories: true)
-        if fileManager.fileExists(atPath: currentDirectory, isDirectory: &isDirectory), isDirectory.boolValue {
+        if fileManager.fileExists(atPath: currentDirectory, isDirectory: &isDirectory),
+            isDirectory.boolValue
+        {
             return currentDirectory
         }
     }
 
-    if fileManager.fileExists(atPath: documentsURL.path, isDirectory: &isDirectory), isDirectory.boolValue {
+    if fileManager.fileExists(atPath: documentsURL.path, isDirectory: &isDirectory),
+        isDirectory.boolValue
+    {
         return documentsURL.path
     }
 
@@ -320,6 +328,7 @@ func configureWASMGPURuntime(backend explicitBackend: String?) -> URL? {
     guard let selectedBackend = explicitBackend else {
         unsetenv("WASM_CUDA_ACCEL")
         unsetenv("WASM_CUDA_BACKEND")
+        unsetenv("HETGPU_APPLE_BACKEND")
         unsetenv("CODIFYONE_HETGPU_ROOT")
         return nil
     }
@@ -333,9 +342,11 @@ func configureWASMGPURuntime(backend explicitBackend: String?) -> URL? {
         Bundle.main.bundleURL.appendingPathComponent("hetgpu-apple-ane"),
     ].compactMap { $0 }
 
-    guard let runtime = candidates.first(where: {
-        FileManager.default.fileExists(atPath: $0.appendingPathComponent("libcuda.so.1").path)
-    }) else {
+    guard
+        let runtime = candidates.first(where: {
+            FileManager.default.fileExists(atPath: $0.appendingPathComponent("libcuda.so.1").path)
+        })
+    else {
         fputs("wasm: bundled hetGPU Apple runtime not found\n", thread_stderr)
         return nil
     }

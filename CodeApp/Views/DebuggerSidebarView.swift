@@ -28,8 +28,11 @@ struct DebuggerSidebarView: View {
             // Connection/config row
             HStack {
                 Text(dbg.selectedBackend == .gdb ? "gdb.wasm:" : "wasminspect:")
-                TextField(dbg.selectedBackend == .gdb ? "/path/to/gdb.wasm" : "/path/to/wasminspect.wasm", text: $dbg.gdbWasmPath)
-                    .textFieldStyle(.roundedBorder)
+                TextField(
+                    dbg.selectedBackend == .gdb ? "/path/to/gdb.wasm" : "/path/to/wasminspect.wasm",
+                    text: $dbg.gdbWasmPath
+                )
+                .textFieldStyle(.roundedBorder)
             }
             HStack {
                 Text("Target:")
@@ -42,7 +45,10 @@ struct DebuggerSidebarView: View {
                     .textFieldStyle(.roundedBorder)
             }
             HStack {
-                Button(action: { dbg.configureDefaultsIfNeeded(); dbg.launch() }) {
+                Button(action: {
+                    dbg.configureDefaultsIfNeeded()
+                    dbg.launch()
+                }) {
                     Label("Connect", systemImage: "antenna.radiowaves.left.and.right")
                 }
                 Button(action: { dbg.terminate() }) {
@@ -57,14 +63,36 @@ struct DebuggerSidebarView: View {
 
             // Controls
             HStack {
-                Button { if !dbg.targetWasmPath.isEmpty { dbg.fileExecAndSymbols(dbg.targetWasmPath) } } label: {
+                Button {
+                    if !dbg.targetWasmPath.isEmpty { dbg.fileExecAndSymbols(dbg.targetWasmPath) }
+                } label: {
                     Image(systemName: "folder.badge.plus")
                 }.help("Load Symbols")
-                Button { dbg.execRun() } label: { Image(systemName: "play.fill") }.help("Run")
-                Button { dbg.execContinue() } label: { Image(systemName: "forward.end.fill") }.help("Continue")
-                Button { dbg.execNext() } label: { Image(systemName: "arrow.turn.down.right") }.help("Step Over")
-                Button { dbg.execStep() } label: { Image(systemName: "arrow.down.right.circle") }.help("Step Into")
-                Button { dbg.execFinish() } label: { Image(systemName: "arrow.uturn.left.circle") }.help("Step Out")
+                Button {
+                    dbg.execRun()
+                } label: {
+                    Image(systemName: "play.fill")
+                }.help("Run")
+                Button {
+                    dbg.execContinue()
+                } label: {
+                    Image(systemName: "forward.end.fill")
+                }.help("Continue")
+                Button {
+                    dbg.execNext()
+                } label: {
+                    Image(systemName: "arrow.turn.down.right")
+                }.help("Step Over")
+                Button {
+                    dbg.execStep()
+                } label: {
+                    Image(systemName: "arrow.down.right.circle")
+                }.help("Step Into")
+                Button {
+                    dbg.execFinish()
+                } label: {
+                    Image(systemName: "arrow.uturn.left.circle")
+                }.help("Step Out")
                 Spacer()
             }
 
@@ -91,7 +119,10 @@ struct DebuggerSidebarView: View {
                     List(dbg.breakpoints, id: \.self) { bp in Text(bp) }
                 }
                 VStack(alignment: .leading) {
-                    HStack { Text("Stack").font(.headline); Spacer() }
+                    HStack {
+                        Text("Stack").font(.headline)
+                        Spacer()
+                    }
                     List(dbg.stackFrames, id: \.self) { fr in Text(fr) }
                 }
             }
@@ -108,9 +139,13 @@ struct DebuggerSidebarView: View {
                     }
                 }
                 HStack {
-                    TextField("-exec-run", text: Binding(get: { "" }, set: { cmd in if !cmd.isEmpty { dbg.sendMI(cmd) } }))
-                        .textFieldStyle(.roundedBorder)
-                    Button("Send") { /* handled via onCommit */ }
+                    TextField(
+                        "-exec-run",
+                        text: Binding(
+                            get: { "" }, set: { cmd in if !cmd.isEmpty { dbg.sendMI(cmd) } })
+                    )
+                    .textFieldStyle(.roundedBorder)
+                    Button("Send") { /* handled via onCommit */  }
                 }
             }
 
@@ -137,4 +172,3 @@ struct DebuggerSidebarView_Previews: PreviewProvider {
         DebuggerSidebarView()
     }
 }
-

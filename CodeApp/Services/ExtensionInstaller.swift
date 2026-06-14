@@ -146,7 +146,8 @@ class ExtensionInstaller {
     /// Get list of installed extensions
     func getInstalledExtensions() -> [InstalledExtension] {
         guard let data = UserDefaults.standard.data(forKey: "InstalledExtensions"),
-              let extensions = try? JSONDecoder().decode([InstalledExtension].self, from: data) else {
+            let extensions = try? JSONDecoder().decode([InstalledExtension].self, from: data)
+        else {
             return []
         }
         return extensions
@@ -201,7 +202,8 @@ class ExtensionInstaller {
     /// Parse package.json manifest from extracted extension
     private func parseManifest(in directory: URL) throws -> ExtensionManifest {
         // Look for package.json in /extension/package.json
-        let manifestURL = directory
+        let manifestURL =
+            directory
             .appendingPathComponent("extension")
             .appendingPathComponent("package.json")
 

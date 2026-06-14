@@ -8,11 +8,12 @@
 import SwiftUI
 
 struct ExtensionSettingsView: View {
-    @AppStorage("extensionMarketplaceURL") private var marketplaceURL: String = "https://asplos.dev/api/marketplace"
+    @AppStorage("extensionMarketplaceURL") private var marketplaceURL: String =
+        "https://asplos.dev/api/marketplace"
     @AppStorage("extensionAutoUpdate") private var autoUpdate: Bool = false
-    @AppStorage("extensionCacheDuration") private var cacheDuration: Int = 24 // hours
+    @AppStorage("extensionCacheDuration") private var cacheDuration: Int = 24  // hours
     @AppStorage("extensionEnableTelemetry") private var enableTelemetry: Bool = false
-    @AppStorage("extensionMaxCacheSize") private var maxCacheSize: Int = 200 // MB
+    @AppStorage("extensionMaxCacheSize") private var maxCacheSize: Int = 200  // MB
 
     @State private var showResetAlert: Bool = false
     @State private var showClearCacheAlert: Bool = false
@@ -56,7 +57,8 @@ struct ExtensionSettingsView: View {
                             }
 
                             Button(action: {
-                                marketplaceURL = "https://marketplace.visualstudio.com/_apis/public/gallery"
+                                marketplaceURL =
+                                    "https://marketplace.visualstudio.com/_apis/public/gallery"
                             }) {
                                 Text("Use Microsoft")
                                     .font(.system(size: 11))
@@ -98,10 +100,11 @@ struct ExtensionSettingsView: View {
                             description: "How long to keep cached marketplace data (hours)"
                         ) {
                             HStack {
-                                Slider(value: Binding(
-                                    get: { Double(cacheDuration) },
-                                    set: { cacheDuration = Int($0) }
-                                ), in: 1...168, step: 1)
+                                Slider(
+                                    value: Binding(
+                                        get: { Double(cacheDuration) },
+                                        set: { cacheDuration = Int($0) }
+                                    ), in: 1...168, step: 1)
 
                                 Text("\(cacheDuration)h")
                                     .font(.system(size: 12, design: .monospaced))
@@ -114,10 +117,11 @@ struct ExtensionSettingsView: View {
                             description: "Maximum disk space for extension cache (MB)"
                         ) {
                             HStack {
-                                Slider(value: Binding(
-                                    get: { Double(maxCacheSize) },
-                                    set: { maxCacheSize = Int($0) }
-                                ), in: 50...1000, step: 50)
+                                Slider(
+                                    value: Binding(
+                                        get: { Double(maxCacheSize) },
+                                        set: { maxCacheSize = Int($0) }
+                                    ), in: 50...1000, step: 50)
 
                                 Text("\(maxCacheSize)MB")
                                     .font(.system(size: 12, design: .monospaced))
@@ -144,7 +148,9 @@ struct ExtensionSettingsView: View {
                             }
                             Button("Cancel", role: .cancel) {}
                         } message: {
-                            Text("This will clear all cached marketplace data. Extensions will be re-downloaded when needed.")
+                            Text(
+                                "This will clear all cached marketplace data. Extensions will be re-downloaded when needed."
+                            )
                         }
                     }
                 }
@@ -200,7 +206,8 @@ struct ExtensionSettingsView: View {
 
                         SettingRow(
                             title: "Extensions Directory",
-                            description: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                            description: FileManager.default.urls(
+                                for: .applicationSupportDirectory, in: .userDomainMask)[0]
                                 .appendingPathComponent("Extensions").path
                         ) {
                             Button(action: {
@@ -243,14 +250,16 @@ struct ExtensionSettingsView: View {
     }
 
     private func openExtensionsDirectory() {
-        let extensionsDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let extensionsDir = FileManager.default.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Extensions")
 
         // Create directory if it doesn't exist
-        try? FileManager.default.createDirectory(at: extensionsDir, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(
+            at: extensionsDir, withIntermediateDirectories: true)
 
         #if os(macOS)
-        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: extensionsDir.path)
+            NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: extensionsDir.path)
         #endif
 
         NSLog("📂 Opening extensions directory: \(extensionsDir.path)")

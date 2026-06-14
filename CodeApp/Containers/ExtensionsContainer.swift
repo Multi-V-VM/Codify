@@ -269,7 +269,7 @@ struct ExtensionsContainer: View {
         .onChange(of: searchText) { newValue in
             // Debounced search
             Task {
-                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s delay
+                try? await Task.sleep(nanoseconds: 500_000_000)  // 0.5s delay
                 await performSearch(query: newValue)
             }
         }
@@ -368,7 +368,7 @@ struct ExtensionsContainer: View {
                 version: "1.0.0",
                 author: "CodifyOne",
                 isEnabled: true
-            )
+            ),
         ]
         .filter { ext in
             searchText.isEmpty || ext.name.localizedCaseInsensitiveContains(searchText)
@@ -401,7 +401,7 @@ struct ExtensionsContainer: View {
                 description: "IntelliSense, linting, debugging for Python",
                 version: "2023.1.0",
                 author: "Microsoft",
-                downloads: 74000000,
+                downloads: 74_000_000,
                 rating: 4.5,
                 isEnabled: false
             ),
@@ -411,10 +411,10 @@ struct ExtensionsContainer: View {
                 description: "Code formatter using prettier",
                 version: "10.1.0",
                 author: "Prettier",
-                downloads: 25000000,
+                downloads: 25_000_000,
                 rating: 4.8,
                 isEnabled: false
-            )
+            ),
         ]
     }
 
@@ -452,7 +452,8 @@ struct ExtensionsContainer: View {
                 }
             } catch {
                 await MainActor.run {
-                    self.marketplaceError = "Failed to load marketplace: \(error.localizedDescription)"
+                    self.marketplaceError =
+                        "Failed to load marketplace: \(error.localizedDescription)"
                     self.isLoadingMarketplace = false
                 }
                 NSLog("Marketplace load error: \(error)")
@@ -522,7 +523,9 @@ struct ExtensionsContainer: View {
                     }
 
                     // Show success notification (TODO: Add proper toast/alert)
-                    NSLog("✅ \(installedExt.effectiveDisplayName) v\(installedExt.version) installed!")
+                    NSLog(
+                        "✅ \(installedExt.effectiveDisplayName) v\(installedExt.version) installed!"
+                    )
                 }
             } catch {
                 NSLog("❌ Installation error: \(error.localizedDescription)")
@@ -634,10 +637,10 @@ struct ExtensionRow: View {
                 if isHovered {
                     Menu {
                         if !isBuiltIn {
-                            Button("Disable") { /* TODO */ }
+                            Button("Disable") { /* TODO */  }
                             Divider()
                         }
-                        Button("Extension Settings") { /* TODO */ }
+                        Button("Extension Settings") { /* TODO */  }
                         if !isBuiltIn {
                             Divider()
                             Button(action: {
@@ -679,7 +682,8 @@ struct RealMarketplaceExtensionRow: View {
             HStack(alignment: .top, spacing: 12) {
                 // Icon (async loaded or placeholder)
                 if let iconURL = extensionInfo.iconURL,
-                   let url = URL(string: iconURL) {
+                    let url = URL(string: iconURL)
+                {
                     AsyncImage(url: url) { phase in
                         switch phase {
                         case .empty:

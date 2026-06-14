@@ -5,8 +5,8 @@
 //  Created by Claude on 23/10/2025.
 //
 
-import Foundation
 import Combine
+import Foundation
 
 /// Represents a code modification action
 struct CodeAction: Identifiable, Equatable {
@@ -150,24 +150,28 @@ class AgentService: ObservableObject {
     /// Analyze instruction and create a plan
     private func analyzeAndPlan(session: AgentSession) async {
         let prompt = """
-        You are a code modification agent. Analyze the following instruction and create a step-by-step plan.
+            You are a code modification agent. Analyze the following instruction and create a step-by-step plan.
 
-        File: \(session.filePath)
-        Current content:
-        ```
-        \(session.fileContent)
-        ```
+            File: \(session.filePath)
+            Current content:
+            ```
+            \(session.fileContent)
+            ```
 
-        Instruction: \(session.instruction)
+            Instruction: \(session.instruction)
 
-        Provide a numbered list of specific steps you would take to implement this change. Be concrete and specific.
-        """
+            Provide a numbered list of specific steps you would take to implement this change. Be concrete and specific.
+            """
 
         let plan = await sendMessageViaActiveLLM(prompt)
 
         // Parse thinking steps from the plan
         let steps = plan.components(separatedBy: .newlines)
-            .filter { $0.trimmingCharacters(in: .whitespaces).hasPrefix("1") || $0.trimmingCharacters(in: .whitespaces).hasPrefix("2") || $0.trimmingCharacters(in: .whitespaces).hasPrefix("3") }
+            .filter {
+                $0.trimmingCharacters(in: .whitespaces).hasPrefix("1")
+                    || $0.trimmingCharacters(in: .whitespaces).hasPrefix("2")
+                    || $0.trimmingCharacters(in: .whitespaces).hasPrefix("3")
+            }
 
         await MainActor.run {
             session.thinkingSteps = steps.isEmpty ? [plan] : steps
@@ -181,32 +185,32 @@ class AgentService: ObservableObject {
         }
 
         let prompt = """
-        You are a code modification agent. Generate the exact code changes needed.
+            You are a code modification agent. Generate the exact code changes needed.
 
-        File: \(session.filePath)
-        Current content:
-        ```
-        \(session.fileContent)
-        ```
+            File: \(session.filePath)
+            Current content:
+            ```
+            \(session.fileContent)
+            ```
 
-        Instruction: \(session.instruction)
+            Instruction: \(session.instruction)
 
-        Provide the changes in this EXACT format:
+            Provide the changes in this EXACT format:
 
-        ACTION: <REPLACE|INSERT|DELETE>
-        LINES: <start_line>-<end_line>
-        DESCRIPTION: <what this change does>
-        OLD:
-        ```
-        <exact old content>
-        ```
-        NEW:
-        ```
-        <exact new content>
-        ```
+            ACTION: <REPLACE|INSERT|DELETE>
+            LINES: <start_line>-<end_line>
+            DESCRIPTION: <what this change does>
+            OLD:
+            ```
+            <exact old content>
+            ```
+            NEW:
+            ```
+            <exact new content>
+            ```
 
-        You can specify multiple actions. Be precise with line numbers (1-indexed).
-        """
+            You can specify multiple actions. Be precise with line numbers (1-indexed).
+            """
 
         let response = await sendMessageViaActiveLLM(prompt)
 
@@ -237,13 +241,15 @@ class AgentService: ObservableObject {
             let blockLines = block.components(separatedBy: .newlines)
 
             guard let actionType = blockLines.first?.trimmingCharacters(in: .whitespaces),
-                  let type = CodeAction.ActionType(rawValue: actionType.uppercased()) else {
+                let type = CodeAction.ActionType(rawValue: actionType.uppercased())
+            else {
                 continue
             }
 
             // Extract description
             let descriptionLine = blockLines.first { $0.contains("DESCRIPTION:") }
-            let description = descriptionLine?
+            let description =
+                descriptionLine?
                 .replacingOccurrences(of: "DESCRIPTION:", with: "")
                 .trimmingCharacters(in: .whitespaces) ?? "Code modification"
 
@@ -252,11 +258,14 @@ class AgentService: ObservableObject {
             var lineStart = 1
             var lineEnd = 1
 
-            if let linesContent = linesLine?.replacingOccurrences(of: "LINES:", with: "").trimmingCharacters(in: .whitespaces) {
+            if let linesContent = linesLine?.replacingOccurrences(of: "LINES:", with: "")
+                .trimmingCharacters(in: .whitespaces)
+            {
                 let rangeParts = linesContent.components(separatedBy: "-")
                 if rangeParts.count == 2,
-                   let start = Int(rangeParts[0].trimmingCharacters(in: .whitespaces)),
-                   let end = Int(rangeParts[1].trimmingCharacters(in: .whitespaces)) {
+                    let start = Int(rangeParts[0].trimmingCharacters(in: .whitespaces)),
+                    let end = Int(rangeParts[1].trimmingCharacters(in: .whitespaces))
+                {
                     lineStart = start
                     lineEnd = end
                 }
@@ -267,7 +276,8 @@ class AgentService: ObservableObject {
             let newContent = extractCodeBlock(from: block, marker: "NEW:")
 
             // Get actual old content from file
-            let actualOldContent = lines.indices.contains(lineStart - 1) && lines.indices.contains(lineEnd - 1)
+            let actualOldContent =
+                lines.indices.contains(lineStart - 1) && lines.indices.contains(lineEnd - 1)
                 ? lines[(lineStart - 1)...(lineEnd - 1)].joined(separator: "\n")
                 : oldContent
 
@@ -296,7 +306,8 @@ class AgentService: ObservableObject {
 
         // Find the code block
         if let startBlock = afterMarker.range(of: "```"),
-           let endBlock = afterMarker[startBlock.upperBound...].range(of: "```") {
+            let endBlock = afterMarker[startBlock.upperBound...].range(of: "```")
+        {
             let code = afterMarker[startBlock.upperBound..<endBlock.lowerBound]
             // Remove the language identifier if present
             let lines = code.components(separatedBy: .newlines).dropFirst()
@@ -309,7 +320,8 @@ class AgentService: ObservableObject {
     // MARK: - Action Application
 
     /// Apply approved actions to the file
-    func applyActions(session: AgentSession, completion: @escaping (Result<String, Error>) -> Void) {
+    func applyActions(session: AgentSession, completion: @escaping (Result<String, Error>) -> Void)
+    {
         Task {
             await MainActor.run {
                 session.status = .applying
@@ -352,11 +364,15 @@ class AgentService: ObservableObject {
             let endIndex = min(lines.count - 1, action.lineEnd - 1)
 
             guard startIndex <= endIndex, startIndex < lines.count else {
-                return .failure(NSError(
-                    domain: "AgentService",
-                    code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: "Invalid line range: \(action.lineStart)-\(action.lineEnd)"]
-                ))
+                return .failure(
+                    NSError(
+                        domain: "AgentService",
+                        code: 1,
+                        userInfo: [
+                            NSLocalizedDescriptionKey:
+                                "Invalid line range: \(action.lineStart)-\(action.lineEnd)"
+                        ]
+                    ))
             }
 
             switch action.type {
@@ -396,12 +412,12 @@ class AgentService: ObservableObject {
         }
 
         let refinedInstruction = """
-        Original instruction: \(originalSession.instruction)
+            Original instruction: \(originalSession.instruction)
 
-        The previous changes were rejected with this feedback: \(feedback)
+            The previous changes were rejected with this feedback: \(feedback)
 
-        Please try again with the feedback in mind.
-        """
+            Please try again with the feedback in mind.
+            """
 
         return startSession(
             instruction: refinedInstruction,

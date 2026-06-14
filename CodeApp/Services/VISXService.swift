@@ -5,8 +5,10 @@
 //  Created by Claude on 21/10/2025.
 //
 
-import Foundation
+// MARK: - Helper for SHA256 (requires CommonCrypto)
+import CommonCrypto
 import Compression
+import Foundation
 import ZIPFoundation
 
 /// VISX Package Manifest
@@ -72,8 +74,10 @@ class VISXService: NSObject, ObservableObject {
         super.init()
 
         // Create directories if needed
-        try? FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
-        try? FileManager.default.createDirectory(at: packagesDirectory, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(
+            at: cacheDirectory, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(
+            at: packagesDirectory, withIntermediateDirectories: true)
     }
 
     // MARK: - Download
@@ -157,7 +161,8 @@ class VISXService: NSObject, ObservableObject {
         }
 
         // Create temporary directory for extraction
-        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(
+            UUID().uuidString)
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
 
         defer {
@@ -261,7 +266,8 @@ class VISXService: NSObject, ObservableObject {
 
             // Create parent directory if needed
             let parentDir = destPath.deletingLastPathComponent()
-            try FileManager.default.createDirectory(at: parentDir, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(
+                at: parentDir, withIntermediateDirectories: true)
 
             // Copy file
             try FileManager.default.copyItem(at: sourcePath, to: destPath)
@@ -285,18 +291,21 @@ class VISXService: NSObject, ObservableObject {
         for type in packageTypes {
             let typeDir = packagesDirectory.appendingPathComponent(type)
 
-            guard let enumerator = FileManager.default.enumerator(
-                at: typeDir,
-                includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles]
-            ) else { continue }
+            guard
+                let enumerator = FileManager.default.enumerator(
+                    at: typeDir,
+                    includingPropertiesForKeys: [.isDirectoryKey],
+                    options: [.skipsHiddenFiles]
+                )
+            else { continue }
 
             for case let packageDir as URL in enumerator {
                 let manifestURL = packageDir.appendingPathComponent("manifest.json")
 
                 if FileManager.default.fileExists(atPath: manifestURL.path) {
                     if let data = try? Data(contentsOf: manifestURL),
-                       let manifest = try? JSONDecoder().decode(VISXManifest.self, from: data) {
+                        let manifest = try? JSONDecoder().decode(VISXManifest.self, from: data)
+                    {
                         packages.append(manifest)
                     }
                 }
@@ -393,9 +402,8 @@ enum VISXError: Error, LocalizedError {
     }
 }
 
-// MARK: - Helper for SHA256 (requires CommonCrypto)
-import CommonCrypto
-
-private func CC_SHA256(_ data: UnsafeRawPointer?, _ len: CC_LONG, _ md: UnsafeMutablePointer<UInt8>?) -> UnsafeMutablePointer<UInt8>? {
+private func CC_SHA256(
+    _ data: UnsafeRawPointer?, _ len: CC_LONG, _ md: UnsafeMutablePointer<UInt8>?
+) -> UnsafeMutablePointer<UInt8>? {
     return CommonCrypto.CC_SHA256(data, len, md)
 }

@@ -11,9 +11,9 @@ import Foundation
 class GGUFTokenizer {
 
     // Vocabulary
-    private var tokens: [String] = []           // id → token string
-    private var scores: [Float] = []            // id → merge score
-    private var tokenTypes: [Int] = []           // id → GGML token type
+    private var tokens: [String] = []  // id → token string
+    private var scores: [Float] = []  // id → merge score
+    private var tokenTypes: [Int] = []  // id → GGML token type
     private var tokenToId: [String: Int] = [:]  // token → id
     private var merges: [(String, String)] = []  // BPE merge pairs
     private var tokenizerModel: String = ""
@@ -46,7 +46,7 @@ class GGUFTokenizer {
         // Bytes in "printable" ranges map to themselves as Unicode codepoints
         // Other bytes map to codepoints starting at U+0100
         var bs: [Int] = []
-        bs.append(contentsOf: Array(33...126))   // ! to ~
+        bs.append(contentsOf: Array(33...126))  // ! to ~
         bs.append(contentsOf: Array(161...172))  // ¡ to ¬
         bs.append(contentsOf: Array(174...255))  // ® to ÿ
 
@@ -74,7 +74,9 @@ class GGUFTokenizer {
         buildByteUnicodeMapping()
         tokenizerModel = (metadata["tokenizer.ggml.model"] as? String)?.lowercased() ?? ""
         usesByteLevelDecoding = tokenizerModel.contains("gpt2") || tokenizerModel.contains("bpe")
-        if tokenizerModel.contains("llama") || tokenizerModel.contains("spm") || tokenizerModel.contains("unigram") {
+        if tokenizerModel.contains("llama") || tokenizerModel.contains("spm")
+            || tokenizerModel.contains("unigram")
+        {
             usesByteLevelDecoding = false
         }
         // Extract token list
@@ -156,22 +158,31 @@ class GGUFTokenizer {
 
             let roleStr = message.role.rawValue
             tokens.append(contentsOf: encode(roleStr))
-            if nlTokenId >= 0 { tokens.append(nlTokenId) }
-            else { tokens.append(contentsOf: encode("\n")) }
+            if nlTokenId >= 0 {
+                tokens.append(nlTokenId)
+            } else {
+                tokens.append(contentsOf: encode("\n"))
+            }
 
             tokens.append(contentsOf: encode(message.content))
 
             if imEndId >= 0 { tokens.append(imEndId) }
-            if nlTokenId >= 0 { tokens.append(nlTokenId) }
-            else { tokens.append(contentsOf: encode("\n")) }
+            if nlTokenId >= 0 {
+                tokens.append(nlTokenId)
+            } else {
+                tokens.append(contentsOf: encode("\n"))
+            }
         }
 
         // Add generation prompt
         if addGeneration {
             if imStartId >= 0 { tokens.append(imStartId) }
             tokens.append(contentsOf: encode("assistant"))
-            if nlTokenId >= 0 { tokens.append(nlTokenId) }
-            else { tokens.append(contentsOf: encode("\n")) }
+            if nlTokenId >= 0 {
+                tokens.append(nlTokenId)
+            } else {
+                tokens.append(contentsOf: encode("\n"))
+            }
         }
 
         return tokens
@@ -216,11 +227,18 @@ class GGUFTokenizer {
         while i < pendingBytes.count {
             let byte = pendingBytes[i]
             let seqLen: Int
-            if byte & 0x80 == 0 { seqLen = 1 }
-            else if byte & 0xE0 == 0xC0 { seqLen = 2 }
-            else if byte & 0xF0 == 0xE0 { seqLen = 3 }
-            else if byte & 0xF8 == 0xF0 { seqLen = 4 }
-            else { i += 1; continue }  // invalid leading byte, skip
+            if byte & 0x80 == 0 {
+                seqLen = 1
+            } else if byte & 0xE0 == 0xC0 {
+                seqLen = 2
+            } else if byte & 0xF0 == 0xE0 {
+                seqLen = 3
+            } else if byte & 0xF8 == 0xF0 {
+                seqLen = 4
+            } else {
+                i += 1
+                continue
+            }  // invalid leading byte, skip
 
             if i + seqLen <= pendingBytes.count {
                 let slice = Array(pendingBytes[i..<(i + seqLen)])
@@ -258,7 +276,7 @@ class GGUFTokenizer {
 
         if id < tokenTypes.count {
             switch tokenTypes[id] {
-            case 2, 3, 5: // unknown, control, unused
+            case 2, 3, 5:  // unknown, control, unused
                 return false
             default:
                 break

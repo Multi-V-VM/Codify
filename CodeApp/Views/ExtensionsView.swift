@@ -63,9 +63,11 @@ struct ExtensionsView: View {
                             .font(.caption)
                     } else {
                         ForEach(installedExtensions) { ext in
-                            ExtensionRow(extension: ext, onDelete: {
-                                deleteExtension(ext)
-                            })
+                            ExtensionRow(
+                                extensionInfo: ext,
+                                onDelete: {
+                                    deleteExtension(ext)
+                                })
                         }
                     }
                 }
@@ -85,9 +87,11 @@ struct ExtensionsView: View {
                 }
             }
             .navigationTitle("Extensions")
-            .navigationBarItems(trailing: Button(action: refreshExtensions) {
-                Image(systemName: "arrow.clockwise")
-            })
+            .navigationBarItems(
+                trailing: Button(action: refreshExtensions) {
+                    Image(systemName: "arrow.clockwise")
+                }
+            )
             .sheet(isPresented: $showingFilePicker) {
                 ExtensionFilePicker(onFileSelected: installFromFile)
             }
@@ -177,17 +181,17 @@ struct ExtensionsView: View {
 // MARK: - Extension Row
 
 struct ExtensionRow: View {
-    let extension: ExtensionInfo
+    let extensionInfo: ExtensionInfo
     let onDelete: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(extension.displayName)
+                    Text(extensionInfo.displayName)
                         .font(.headline)
 
-                    Text("\(extension.name) v\(extension.version)")
+                    Text("\(extensionInfo.name) v\(extensionInfo.version)")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -200,8 +204,8 @@ struct ExtensionRow: View {
                 }
             }
 
-            if !extension.description.isEmpty {
-                Text(extension.description)
+            if !extensionInfo.description.isEmpty {
+                Text(extensionInfo.description)
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .lineLimit(2)
@@ -225,7 +229,9 @@ struct ExtensionFilePicker: UIViewControllerRepresentable {
         return picker
     }
 
-    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+    func updateUIViewController(
+        _ uiViewController: UIDocumentPickerViewController, context: Context
+    ) {}
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onFileSelected: onFileSelected)
@@ -238,7 +244,9 @@ struct ExtensionFilePicker: UIViewControllerRepresentable {
             self.onFileSelected = onFileSelected
         }
 
-        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        func documentPicker(
+            _ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]
+        ) {
             guard let url = urls.first else { return }
             onFileSelected(url)
         }
@@ -270,7 +278,8 @@ struct ServerExtensionBrowser: View {
 
                 ForEach(extensions, id: \.self as! [String: AnyHashable]) { ext in
                     if let filename = ext["filename"] as? String,
-                       let size = ext["size"] as? Int {
+                        let size = ext["size"] as? Int
+                    {
                         Button(action: {
                             installExtension(filename: filename)
                         }) {
@@ -286,9 +295,11 @@ struct ServerExtensionBrowser: View {
                 }
             }
             .navigationTitle("Server Extensions")
-            .navigationBarItems(trailing: Button("Done") {
-                dismiss()
-            })
+            .navigationBarItems(
+                trailing: Button("Done") {
+                    dismiss()
+                }
+            )
             .onAppear {
                 loadExtensions()
             }
@@ -313,8 +324,9 @@ struct ServerExtensionBrowser: View {
                 }
 
                 guard let data = data,
-                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                      let exts = json["extensions"] as? [[String: Any]] else {
+                    let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                    let exts = json["extensions"] as? [[String: Any]]
+                else {
                     errorMessage = "Failed to parse response"
                     return
                 }

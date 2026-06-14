@@ -5,8 +5,8 @@
 //  Helper for handling Core ML model files (.mlpackage, .mlmodelc, .mlmodel)
 //
 
-import Foundation
 import CoreML
+import Foundation
 import UniformTypeIdentifiers
 
 /// Handles Core ML model file detection and loading
@@ -26,9 +26,12 @@ class CoreMLModelHandler {
         let compiledCacheURL = getCachedCompiledModelURL(for: url)
         if FileManager.default.fileExists(atPath: compiledCacheURL.path) {
             // Check if the compiled version is newer than the source
-            if let sourceDate = try? FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate] as? Date,
-               let compiledDate = try? FileManager.default.attributesOfItem(atPath: compiledCacheURL.path)[.modificationDate] as? Date,
-               compiledDate > sourceDate {
+            if let sourceDate = try? FileManager.default.attributesOfItem(atPath: url.path)[
+                .modificationDate] as? Date,
+                let compiledDate = try? FileManager.default.attributesOfItem(
+                    atPath: compiledCacheURL.path)[.modificationDate] as? Date,
+                compiledDate > sourceDate
+            {
                 return compiledCacheURL
             }
         }
@@ -48,7 +51,8 @@ class CoreMLModelHandler {
 
             return compiledCacheURL
         } catch {
-            throw CoreMLModelError.loadingFailed("Model compilation failed: \(error.localizedDescription)")
+            throw CoreMLModelError.loadingFailed(
+                "Model compilation failed: \(error.localizedDescription)")
         }
     }
 
@@ -79,7 +83,10 @@ class CoreMLModelHandler {
         let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         let modelsCache = cacheDir.appendingPathComponent("CompiledModels")
 
-        guard let enumerator = FileManager.default.enumerator(at: modelsCache, includingPropertiesForKeys: [.fileSizeKey]) else {
+        guard
+            let enumerator = FileManager.default.enumerator(
+                at: modelsCache, includingPropertiesForKeys: [.fileSizeKey])
+        else {
             return 0
         }
 
@@ -216,9 +223,9 @@ class CoreMLModelHandler {
 // MARK: - Supporting Types
 
 enum CoreMLModelType {
-    case mlpackage      // .mlpackage (iOS 15+, bundle directory)
-    case compiled       // .mlmodelc (compiled model directory)
-    case source         // .mlmodel (source model file)
+    case mlpackage  // .mlpackage (iOS 15+, bundle directory)
+    case compiled  // .mlmodelc (compiled model directory)
+    case source  // .mlmodel (source model file)
     case unknown
 
     var displayName: String {
@@ -256,8 +263,7 @@ struct CoreMLModelInfo {
     let metadata: [String: Any]
 
     var displayName: String {
-        (metadata[MLModelMetadataKey.description.rawValue] as? String) ??
-        (metadata[MLModelMetadataKey.author.rawValue] as? String) ??
-        url.lastPathComponent
+        (metadata[MLModelMetadataKey.description.rawValue] as? String)
+            ?? (metadata[MLModelMetadataKey.author.rawValue] as? String) ?? url.lastPathComponent
     }
 }
