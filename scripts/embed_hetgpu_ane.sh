@@ -6,6 +6,7 @@ HETGPU_ROOT="${CODIFYONE_HETGPU_SOURCE_ROOT:-$PROJECT_ROOT/hetgpu-ios}"
 SOURCE_DIST="${CODIFYONE_HETGPU_DIST:-$HETGPU_ROOT/dist/apple-ane}"
 RESOURCE_ROOT="${TARGET_BUILD_DIR:?}/${UNLOCALIZED_RESOURCES_FOLDER_PATH:?}"
 DEST_DIST="$RESOURCE_ROOT/hetgpu-apple-ane"
+HETGPU_XCFRAMEWORK="$PROJECT_ROOT/Resources/HetGPUAppleRuntime.xcframework"
 
 embed_ios_system_framework() {
     local xcframework="$PROJECT_ROOT/Resources/Term/ios_system.xcframework"
@@ -75,7 +76,10 @@ if [[ "${CODIFYONE_SKIP_HETGPU_ANE:-0}" == "1" ]]; then
 fi
 
 if [[ ! -f "$SOURCE_DIST/libcuda.so.1" ]]; then
-    if [[ -x "$HETGPU_ROOT/scripts/hetgpu-ane" ]]; then
+    if [[ -f "$HETGPU_XCFRAMEWORK/ios-arm64/libhetgpu_apple_runtime.a" ]]; then
+        echo "Skipping hetGPU command runtime embed; using bundled HetGPUAppleRuntime.xcframework"
+        exit 0
+    elif [[ -x "$HETGPU_ROOT/scripts/hetgpu-ane" ]]; then
         echo "Building hetGPU Apple ANE runtime"
         "$HETGPU_ROOT/scripts/hetgpu-ane" build
     else
