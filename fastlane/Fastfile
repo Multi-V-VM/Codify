@@ -76,7 +76,7 @@ platform :ios do
       api_key: api_key
     )
 
-    project_file = "Code.xcodeproj/project.pbxproj"
+    project_file = File.expand_path("../Code.xcodeproj/project.pbxproj", __dir__)
     project_text = File.read(project_file)
     normalized_project_text = project_text.gsub(/shellScript = \(\n((?:\s+"(?:\\.|[^"])*",\n)+)\s+\);/m) do
       lines = Regexp.last_match(1).scan(/"((?:\\.|[^"])*)",/).flatten
