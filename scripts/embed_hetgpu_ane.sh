@@ -7,6 +7,68 @@ SOURCE_DIST="${CODIFYONE_HETGPU_DIST:-$HETGPU_ROOT/dist/apple-ane}"
 RESOURCE_ROOT="${TARGET_BUILD_DIR:?}/${UNLOCALIZED_RESOURCES_FOLDER_PATH:?}"
 DEST_DIST="$RESOURCE_ROOT/hetgpu-apple-ane"
 
+embed_ios_system_framework() {
+    local xcframework="$PROJECT_ROOT/Resources/Term/ios_system.xcframework"
+    local library_identifier=""
+
+    case "${PLATFORM_NAME:-}" in
+        iphoneos)
+            library_identifier="ios-arm64"
+            ;;
+        iphonesimulator)
+            library_identifier="ios-arm64_x86_64-simulator"
+            ;;
+        macosx)
+            if [[ "${EFFECTIVE_PLATFORM_NAME:-}" == *maccatalyst* ]]; then
+                library_identifier="ios-arm64_x86_64-maccatalyst"
+            fi
+            ;;
+    esac
+
+    if [[ -z "$library_identifier" ]]; then
+        echo "Skipping ios_system embed for unsupported platform: ${PLATFORM_NAME:-unknown}"
+        return 0
+    fi
+
+    local source_framework="$xcframework/$library_identifier/ios_system.framework"
+    local frameworks_folder="${FRAMEWORKS_FOLDER_PATH:-}"
+
+    if [[ -z "$frameworks_folder" ]]; then
+        echo "Skipping ios_system embed because FRAMEWORKS_FOLDER_PATH is empty"
+        return 0
+    fi
+
+    if [[ ! -d "$source_framework" ]]; then
+        echo "error: ios_system framework slice not found at $source_framework" >&2
+        exit 1
+    fi
+
+    local destination_dir="${TARGET_BUILD_DIR:?}/$frameworks_folder"
+    local destination_framework="$destination_dir/ios_system.framework"
+
+    rm -rf "$destination_framework"
+    mkdir -p "$destination_dir"
+    ditto "$source_framework" "$destination_framework"
+    rm -rf "$destination_framework/Headers" "$destination_framework/PrivateHeaders"
+
+    if [[ "${CODE_SIGNING_ALLOWED:-YES}" != "NO" ]]; then
+        local signing_identity="${EXPANDED_CODE_SIGN_IDENTITY:-}"
+        if [[ -z "$signing_identity" ]]; then
+            signing_identity="-"
+        fi
+        /usr/bin/codesign --force --sign "$signing_identity" --timestamp=none "$destination_framework"
+    fi
+
+    if [[ ! -f "$destination_framework/ios_system" ]]; then
+        echo "error: embedded ios_system framework is missing its binary at $destination_framework/ios_system" >&2
+        exit 1
+    fi
+
+    echo "Embedded ios_system framework at $destination_framework"
+}
+
+embed_ios_system_framework
+
 if [[ "${CODIFYONE_SKIP_HETGPU_ANE:-0}" == "1" ]]; then
     echo "Skipping hetGPU ANE embed because CODIFYONE_SKIP_HETGPU_ANE=1"
     exit 0

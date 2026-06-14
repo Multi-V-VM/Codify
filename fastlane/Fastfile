@@ -76,6 +76,14 @@ platform :ios do
       api_key: api_key
     )
 
+    project_file = "Code.xcodeproj/project.pbxproj"
+    project_text = File.read(project_file)
+    normalized_project_text = project_text.gsub(/shellScript = \(\n((?:\s+"(?:\\.|[^"])*",\n)+)\s+\);/m) do
+      lines = Regexp.last_match(1).scan(/"((?:\\.|[^"])*)",/).flatten
+      "shellScript = \"#{lines.join("\\n")}\";"
+    end
+    File.write(project_file, normalized_project_text) if normalized_project_text != project_text
+
     update_code_signing_settings(
       use_automatic_signing: false,
       path: "Code.xcodeproj",
