@@ -4,6 +4,7 @@
 
 #import "KBWebViewBase.h"
 #import "UIFont+YYAdd.h"
+#import "ObjCExceptionCatcher.h"
 
 // ANE Bridge for Neural Engine inference
 #import "../ANE/ane_bridge.h"

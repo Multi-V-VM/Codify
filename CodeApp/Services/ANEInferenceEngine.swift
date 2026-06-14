@@ -43,6 +43,7 @@ class ANEInferenceEngine {
     private let nGroups: Int
     private let dState: Int
     private let ssmInner: Int
+    private let ssmBCDim: Int
     private let dInnerPerGroup: Int
     private let convKernel: Int
     private let totalConvChannels: Int
@@ -69,9 +70,16 @@ class ANEInferenceEngine {
         nGroups = config.ssmGroupCount
         dState = config.ssmStateSize
         ssmInner = config.ssmInnerSize
+        ssmBCDim = nGroups * dState
         dInnerPerGroup = ssmInner / max(nGroups, 1)
         convKernel = config.ssmConvKernel
-        totalConvChannels = ssmInner * 3
+        totalConvChannels =
+            compiler.layerWeights.compactMap { layer -> Int? in
+                if case .mamba(let weights) = layer {
+                    return weights.attnQKV.outDim
+                }
+                return nil
+            }.first ?? (ssmInner + 2 * ssmBCDim)
         vocabSize = config.vocabSize
         maxSeqLen = min(config.contextLength, 2048)
 
@@ -105,12 +113,13 @@ class ANEInferenceEngine {
         kvCaches = []
         lastHidden = [Float](repeating: 0, count: dim)
 
-        for l in 0..<config.nLayers {
-            if config.isFullAttentionLayer(l) {
+        for layer in compiler.layerWeights {
+            switch layer {
+            case .attention:
                 kvCaches.append([Float](repeating: 0, count: maxSeqLen * 2 * kvTotalDim))
-            } else {
-                convStates.append(
-                    [Float](repeating: 0, count: (convKernel - 1) * totalConvChannels))
+            case .mamba(let weights):
+                let channels = weights.attnQKV.outDim
+                convStates.append([Float](repeating: 0, count: (convKernel - 1) * channels))
                 ssmStates.append([Float](repeating: 0, count: nGroups * dState * dInnerPerGroup))
             }
         }
@@ -180,10 +189,16 @@ class ANEInferenceEngine {
         // Causal 1D convolution
         let convOut = causalConv1d(input: xBC, mambaIdx: mambaIdx, weight: w.ssmConv1d)
 
-        // Split: x_ssm, B, C
+        // Split xBC as [x_ssm, B, C]. B/C are nGroups*dState, not always ssmInner.
+        let expectedConvChannels = ssmInner + 2 * ssmBCDim
+        guard convOut.count >= expectedConvChannels else {
+            return x
+        }
         var xSsm = Array(convOut[0..<ssmInner])
-        let bFlat = Array(convOut[ssmInner..<(2 * ssmInner)])
-        let cFlat = Array(convOut[(2 * ssmInner)..<(3 * ssmInner)])
+        let bStart = ssmInner
+        let cStart = ssmInner + ssmBCDim
+        let bFlat = Array(convOut[bStart..<(bStart + ssmBCDim)])
+        let cFlat = Array(convOut[cStart..<(cStart + ssmBCDim)])
 
         // SiLU on x_ssm
         for i in 0..<ssmInner {
@@ -237,7 +252,10 @@ class ANEInferenceEngine {
 
     private func causalConv1d(input: [Float], mambaIdx: Int, weight: [Float]) -> [Float] {
         let K = convKernel  // 4
-        let C = totalConvChannels  // 6144
+        let C = input.count
+        guard K > 0, weight.count >= C * K, convStates[mambaIdx].count >= max(K - 1, 0) * C else {
+            return input
+        }
 
         // Compute conv output FIRST using current state + new input
         // State holds last K-1=3 positions: [t-3, t-2, t-1]

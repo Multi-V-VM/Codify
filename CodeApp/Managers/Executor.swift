@@ -217,6 +217,7 @@ class Executor {
             stdout_pipe = Pipe()
             stdout_file = fdopen(stdout_pipe.fileHandleForWriting.fileDescriptor, "w")
         }
+        setvbuf(stdout_file, nil, _IONBF, 0)
         stdout_pipe.fileHandleForReading.readabilityHandler = self.onStdout
 
         stdout_active = true
@@ -445,6 +446,7 @@ class Executor {
             stdout_pipe = Pipe()
             stdout_file = fdopen(stdout_pipe.fileHandleForWriting.fileDescriptor, "w")
         }
+        setvbuf(stdout_file, nil, _IONBF, 0)
         stdout_pipe.fileHandleForReading.readabilityHandler = self.onStdout
         stdout_active = true
 
@@ -458,6 +460,12 @@ class Executor {
             ios_setDirectoryURL(self.currentWorkingDirectory)
             ios_setContext(UnsafeMutableRawPointer(mutating: self.persistentIdentifier.toCString()))
             ios_setStreams(self.stdin_file, self.stdout_file, self.stdout_file)
+            let previousStdin = thread_stdin
+            let previousStdout = thread_stdout
+            let previousStderr = thread_stderr
+            thread_stdin = self.stdin_file
+            thread_stdout = self.stdout_file
+            thread_stderr = self.stdout_file
 
             // Parse command into argc/argv
             let components = command.split(separator: " ").map { String($0) }
@@ -465,6 +473,9 @@ class Executor {
             cStrings.append(nil)
 
             defer {
+                thread_stdin = previousStdin
+                thread_stdout = previousStdout
+                thread_stderr = previousStderr
                 for ptr in cStrings where ptr != nil {
                     free(ptr)
                 }
@@ -480,20 +491,22 @@ class Executor {
             close(stdin_pipe.fileHandleForReading.fileDescriptor)
             self.stdin_file_input = nil
 
-            // Send end-of-transmission signal
+            // Flush terminal output before sending the end-of-transmission marker.
+            // Short wasm diagnostics such as usage text otherwise remain buffered
+            // until after the terminal reader has already stopped.
+            fflush(thread_stdout)
+            fflush(thread_stderr)
+
             let writeOpen = fcntl(stdout_pipe.fileHandleForWriting.fileDescriptor, F_GETFD)
             if writeOpen >= 0 {
                 stdout_pipe.fileHandleForWriting.write(self.END_OF_TRANSMISSION.data(using: .utf8)!)
                 while self.stdout_active {
                     fflush(thread_stdout)
+                    fflush(thread_stderr)
                 }
             }
 
             close(stdout_pipe.fileHandleForReading.fileDescriptor)
-
-            // Flush output
-            fflush(thread_stdout)
-            fflush(thread_stderr)
 
             DispatchQueue.main.async {
                 self.state = .idle

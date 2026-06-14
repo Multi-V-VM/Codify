@@ -117,23 +117,33 @@ class ANEModelCompiler {
         progress(1 / totalSteps, "Loading final norm...")
         rmsFinalWeight = try loadF32Tensor("output_norm.weight")
 
-        // Step 3: Load each layer
+        // Step 3: Load each layer. Use tensor presence instead of the metadata interval;
+        // some GGUF exports do not describe the hybrid layer layout reliably.
+        var attentionLayerCount = 0
+        var mambaLayerCount = 0
         for l in 0..<config.nLayers {
             let p = Float(l + 2) / totalSteps
 
-            if config.isFullAttentionLayer(l) {
+            if isAttentionLayer(l) {
                 progress(p, "Layer \(l): Loading attention weights...")
                 let weights = try loadAttentionLayer(l)
                 layerWeights.append(.attention(weights))
-            } else {
+                attentionLayerCount += 1
+            } else if isMambaLayer(l) {
                 progress(p, "Layer \(l): Loading Mamba weights...")
                 let weights = try loadMambaLayer(l)
                 layerWeights.append(.mamba(weights))
+                mambaLayerCount += 1
+            } else {
+                throw GGUFError.tensorNotFound("blk.\(l).attn_q.weight or blk.\(l).attn_qkv.weight")
             }
         }
 
         isCompiled = true
-        progress(1.0, "Model loaded (\(config.nLayers) layers)")
+        progress(
+            1.0,
+            "Model loaded (\(config.nLayers) layers: \(attentionLayerCount) attention, \(mambaLayerCount) mamba)"
+        )
     }
 
     // MARK: - Layer Loading
@@ -192,6 +202,15 @@ class ANEModelCompiler {
     }
 
     // MARK: - Helpers
+
+    private func isAttentionLayer(_ layerIndex: Int) -> Bool {
+        loader.tensors["blk.\(layerIndex).attn_q.weight"] != nil
+    }
+
+    private func isMambaLayer(_ layerIndex: Int) -> Bool {
+        loader.tensors["blk.\(layerIndex).attn_qkv.weight"] != nil
+            || loader.tensors["blk.\(layerIndex).ssm_conv1d.weight"] != nil
+    }
 
     /// Load a Q8_0 weight as a raw pointer + dimensions
     private func loadQWeight(_ name: String) throws -> QWeight {

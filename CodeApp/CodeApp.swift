@@ -118,6 +118,38 @@ private func appendArMember(to archive: inout Data, name: String, contents: Data
     }
 }
 
+private func writeArMember(to handle: FileHandle, name: String, contents: Data) {
+    let nameBytes = Data(name.utf8)
+    let useExtendedName = nameBytes.count > 15 || nameBytes.contains(0x20)
+    let headerName = useExtendedName ? "#1/\(nameBytes.count)" : "\(name)/"
+    let payloadSize = contents.count + (useExtendedName ? nameBytes.count : 0)
+
+    handle.write(arField(headerName, width: 16))
+    handle.write(arField("0", width: 12))
+    handle.write(arField("0", width: 6))
+    handle.write(arField("0", width: 6))
+    handle.write(arField("100644", width: 8))
+    handle.write(arField("\(payloadSize)", width: 10))
+    handle.write(Data("`\n".utf8))
+    if useExtendedName {
+        handle.write(nameBytes)
+    }
+    handle.write(contents)
+    if payloadSize % 2 != 0 {
+        handle.write(Data([0x0A]))
+    }
+}
+
+private func fileExistsAndNonEmpty(at url: URL, fileManager: FileManager = FileManager()) -> Bool {
+    guard
+        let attributes = try? fileManager.attributesOfItem(atPath: url.path),
+        let size = attributes[.size] as? NSNumber
+    else {
+        return false
+    }
+    return size.int64Value > 8
+}
+
 private func writeEmptyArArchive(at archiveURL: URL, fileManager: FileManager = FileManager())
     throws
 {
@@ -142,17 +174,36 @@ private func writeArArchive(
         }
         .sorted { $0.lastPathComponent < $1.lastPathComponent }
 
-    var archive = Data("!<arch>\n".utf8)
+    try fileManager.createDirectory(
+        at: archiveURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+
+    let tempURL = archiveURL.deletingLastPathComponent()
+        .appendingPathComponent(".\(archiveURL.lastPathComponent).tmp")
+    try? fileManager.removeItem(at: tempURL)
+    fileManager.createFile(atPath: tempURL.path, contents: nil)
+    guard let handle = FileHandle(forWritingAtPath: tempURL.path) else {
+        throw CocoaError(.fileWriteUnknown)
+    }
+    var didCloseHandle = false
+    defer {
+        if !didCloseHandle {
+            handle.closeFile()
+        }
+        try? fileManager.removeItem(at: tempURL)
+    }
+
+    handle.write(Data("!<arch>\n".utf8))
     for member in members {
-        appendArMember(
-            to: &archive,
+        writeArMember(
+            to: handle,
             name: member.lastPathComponent,
             contents: try Data(contentsOf: member))
     }
 
-    try fileManager.createDirectory(
-        at: archiveURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-    try archive.write(to: archiveURL, options: .atomic)
+    handle.closeFile()
+    didCloseHandle = true
+    try? fileManager.removeItem(at: archiveURL)
+    try fileManager.moveItem(at: tempURL, to: archiveURL)
 }
 
 private func createCSDK() {
@@ -274,17 +325,16 @@ private func createCSDK() {
         // One of the libraries is in a different folder:
         let libraryFileURL = libraryURL.appendingPathComponent(
             "/usr/lib/clang/14.0.0/lib/wasi/libclang_rt.builtins-wasm32.a")
-        if FileManager().fileExists(atPath: libraryFileURL.path) {
-            try! FileManager().removeItem(at: libraryFileURL)
-        }
         let rootDir = Bundle.main.resourcePath! + "/ClangLib"
-        do {
-            try writeArArchive(
-                at: libraryFileURL,
-                objectDirectory: URL(
-                    fileURLWithPath: rootDir + "/usr/src/libclang_rt.builtins-wasm32"))
-        } catch {
-            NSLog("Can't create archive \(libraryFileURL.path): \(error)")
+        if !fileExistsAndNonEmpty(at: libraryFileURL) {
+            do {
+                try writeArArchive(
+                    at: libraryFileURL,
+                    objectDirectory: URL(
+                        fileURLWithPath: rootDir + "/usr/src/libclang_rt.builtins-wasm32"))
+            } catch {
+                NSLog("Can't create archive \(libraryFileURL.path): \(error)")
+            }
         }
         let libraries = [
             "libc", "libc++", "libc++abi", "libc-printscan-long-double",
@@ -294,10 +344,8 @@ private func createCSDK() {
         for library in libraries {
             let libraryFileURL = libraryURL.appendingPathComponent(
                 "usr/lib/wasm32-wasi/" + library + ".a")
-            if FileManager().fileExists(atPath: libraryFileURL.path) {
-                do { try FileManager().removeItem(at: libraryFileURL) } catch {
-                    NSLog("Can't remove \(libraryFileURL.path)")
-                }
+            if fileExistsAndNonEmpty(at: libraryFileURL) {
+                continue
             }
             do {
                 try writeArArchive(
@@ -374,13 +422,15 @@ private func createWasixSysroot() {
             }
         }
 
-        // Rebuild the static libraries from the shipped object files.
+        // Build missing static libraries from the shipped object files. Existing
+        // archives are kept so app updates can refresh symlinks without spending
+        // startup time re-packing large libraries like libc.a.
         let srcRoot = Resources.wasiSysroot.appendingPathComponent("src")
         if let libs = try? fileManager.contentsOfDirectory(atPath: srcRoot.path) {
             for lib in libs.sorted() {
                 let libFile = libDir.appendingPathComponent("\(lib).a")
-                if fileManager.fileExists(atPath: libFile.path) {
-                    try? fileManager.removeItem(at: libFile)
+                if fileExistsAndNonEmpty(at: libFile, fileManager: fileManager) {
+                    continue
                 }
                 do {
                     try writeArArchive(

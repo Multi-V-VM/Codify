@@ -13,8 +13,27 @@ class AppExtensionService: NSObject {
     static let PORT = 50002
     static let shared = AppExtensionService()
     private var task: URLSessionWebSocketTask? = nil
+    private var isStartingServer = false
+
+    private var canStartExtensionServer: Bool {
+        #if targetEnvironment(macCatalyst)
+            return false
+        #else
+            if #available(iOS 14.0, *), ProcessInfo.processInfo.isiOSAppOnMac {
+                return false
+            }
+            return true
+        #endif
+    }
 
     func startServer() {
+        guard canStartExtensionServer else {
+            NSLog("AppExtensionService: extension server disabled on this platform")
+            return
+        }
+        guard !isStartingServer else { return }
+        isStartingServer = true
+        defer { isStartingServer = false }
         guard let className = "TlNFeHRlbnNpb24=".base64Decoded(),
             let BLE: AnyClass = NSClassFromString(className)
         else {
@@ -38,6 +57,9 @@ class AppExtensionService: NSObject {
             "frameworksDirectoryBookmark": frameworkDirBookmark,
             "port": AppExtensionService.PORT,
         ]
+        item.attachments = [
+            NSItemProvider(item: Data() as NSData, typeIdentifier: "com.thebaselab.source")
+        ]
         if let pythonLibraryDirBookmark {
             item.userInfo?["pythonLibraryDirectoryBookmark"] = pythonLibraryDirBookmark
         }
@@ -47,15 +69,23 @@ class AppExtensionService: NSObject {
                 self.startServer()
             } as RequestInterruptionBlock)
 
-        ext.beginExtensionRequestWithInputItems(
-            [item],
-            completion: { uuid in
-                let pid = ext.pid(forRequestIdentifier: uuid)
-                if let uuid = uuid {
-                    print("Started extension request: \(uuid). Extension PID is \(pid)")
-                }
-                print("Extension server listening on 127.0.0.1:\(AppExtensionService.PORT)")
-            } as RequestBeginBlock)
+        do {
+            try ObjCExceptionCatcher.catchException(in: {
+                ext.beginExtensionRequestWithInputItems(
+                    [item],
+                    completion: { uuid in
+                        let pid = ext.pid(forRequestIdentifier: uuid)
+                        if let uuid = uuid {
+                            print("Started extension request: \(uuid). Extension PID is \(pid)")
+                        }
+                        print("Extension server listening on 127.0.0.1:\(AppExtensionService.PORT)")
+                    } as RequestBeginBlock)
+            })
+        } catch {
+            NSLog(
+                "AppExtensionService: failed to start extension server: \(error.localizedDescription)"
+            )
+        }
 
     }
 
@@ -83,6 +113,10 @@ class AppExtensionService: NSObject {
         t_stdin: UnsafeMutablePointer<FILE>,
         t_stdout: UnsafeMutablePointer<FILE>
     ) async throws {
+        guard canStartExtensionServer else {
+            fputs("App extension server is not available on this platform.\n", t_stdout)
+            return
+        }
         await prepareServer()
 
         defer {

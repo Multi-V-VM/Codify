@@ -870,6 +870,8 @@
 		94FE0C95281E50F200C05529 /* UserDefaults+Hosts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FE0C93281E50F200C05529 /* UserDefaults+Hosts.swift */; };
 		94FF3371284348F1003DE5DD /* KBWebViewBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 94FF3370284348F1003DE5DD /* KBWebViewBase.m */; };
 		94FF3372284348F1003DE5DD /* KBWebViewBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 94FF3370284348F1003DE5DD /* KBWebViewBase.m */; };
+		9D5CAA9A2FDE6F4700E7A2FE /* ObjCExceptionCatcher.m in Sources */ = {isa = PBXBuildFile; fileRef = 9D5CAA992FDE6F4700E7A2FE /* ObjCExceptionCatcher.m */; };
+		9D5CAA9B2FDE6F4700E7A2FE /* ObjCExceptionCatcher.m in Sources */ = {isa = PBXBuildFile; fileRef = 9D5CAA992FDE6F4700E7A2FE /* ObjCExceptionCatcher.m */; };
 		9F046C322922203E00BDE4E9 /* ToolbarManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F046C312922203E00BDE4E9 /* ToolbarManager.swift */; };
 		9F046C332922203E00BDE4E9 /* ToolbarManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F046C312922203E00BDE4E9 /* ToolbarManager.swift */; };
 		9F046C3529222D8E00BDE4E9 /* ExtensionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F046C3429222D8E00BDE4E9 /* ExtensionManager.swift */; };
@@ -974,6 +976,8 @@
 		AAC4000430000001000000A4 /* ane_q8_kernel.c in Sources */ = {isa = PBXBuildFile; fileRef = AAC4000530000001000000A5 /* ane_q8_kernel.c */; };
 		C0DA0A012F66000100000001 /* cuda_oxide_probe.wasm in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0A002F66000100000000 /* cuda_oxide_probe.wasm */; };
 		C0DA0A022F66000100000002 /* cuda_oxide_probe.wasm in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0A002F66000100000000 /* cuda_oxide_probe.wasm */; };
+		C0DA0B012F66010100000001 /* CudaAppleBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DA0B002F66010100000000 /* CudaAppleBridge.swift */; };
+		C0DA0B022F66010100000002 /* CudaAppleBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DA0B002F66010100000000 /* CudaAppleBridge.swift */; };
 		F97209422F46383C00DA803A /* DebuggerExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97209402F46383C00DA803A /* DebuggerExtension.swift */; };
 		F97209432F46383C00DA803A /* DebuggerExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97209402F46383C00DA803A /* DebuggerExtension.swift */; };
 		F97209452F4638C200DA803A /* DebuggerSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97209442F4638C200DA803A /* DebuggerSidebarView.swift */; };
@@ -2090,6 +2094,8 @@
 		94FF336E284348F1003DE5DD /* Code-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Code-Bridging-Header.h"; sourceTree = "<group>"; };
 		94FF336F284348F1003DE5DD /* CodeUI-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "CodeUI-Bridging-Header.h"; sourceTree = "<group>"; };
 		94FF3370284348F1003DE5DD /* KBWebViewBase.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = KBWebViewBase.m; sourceTree = "<group>"; };
+		9D5CAA982FDE6F4000E7A2FE /* ObjCExceptionCatcher.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ObjCExceptionCatcher.h; sourceTree = "<group>"; };
+		9D5CAA992FDE6F4700E7A2FE /* ObjCExceptionCatcher.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ObjCExceptionCatcher.m; sourceTree = "<group>"; };
 		9DA5FA622D7A51B30010CE11 /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = ru.lproj/Localizable.strings; sourceTree = "<group>"; };
 		9DFB70332D7A78B2005A5BB4 /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = ru.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		9F046C312922203E00BDE4E9 /* ToolbarManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolbarManager.swift; sourceTree = "<group>"; };
@@ -2142,6 +2148,7 @@
 		AAC4000530000001000000A5 /* ane_q8_kernel.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = ane_q8_kernel.c; sourceTree = "<group>"; };
 		AAC4000630000001000000A6 /* ane_q8_kernel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ane_q8_kernel.h; sourceTree = "<group>"; };
 		C0DA0A002F66000100000000 /* cuda_oxide_probe.wasm */ = {isa = PBXFileReference; lastKnownFileType = file; path = cuda_oxide_probe.wasm; sourceTree = "<group>"; };
+		C0DA0B002F66010100000000 /* CudaAppleBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CudaAppleBridge.swift; sourceTree = "<group>"; };
 		F97209402F46383C00DA803A /* DebuggerExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebuggerExtension.swift; sourceTree = "<group>"; };
 		F97209442F4638C200DA803A /* DebuggerSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebuggerSidebarView.swift; sourceTree = "<group>"; };
 		F97209472F46390B00DA803A /* DebuggerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebuggerService.swift; sourceTree = "<group>"; };
@@ -2617,6 +2624,7 @@
 				947313102BDFB7F9004A9960 /* Shared */,
 				949B3CC625DEAAA600BC83B5 /* node.swift */,
 				94CF58E0265E8A4B00CB6A4B /* wasm.swift */,
+				C0DA0B002F66010100000000 /* CudaAppleBridge.swift */,
 				94F2FEA826A2EB0E007EBC6D /* convertCArguments.swift */,
 				94A4438E25A393B4006643FF /* file */,
 				94A4438725A390C3006643FF /* KeychainWrapper */,
@@ -2630,6 +2638,8 @@
 				94FF336E284348F1003DE5DD /* Code-Bridging-Header.h */,
 				94FF336F284348F1003DE5DD /* CodeUI-Bridging-Header.h */,
 				9FC03E68291F303900DECD1B /* Utilities.swift */,
+				9D5CAA982FDE6F4000E7A2FE /* ObjCExceptionCatcher.h */,
+				9D5CAA992FDE6F4700E7A2FE /* ObjCExceptionCatcher.m */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -3889,6 +3899,7 @@
 				942E31F928086FE800233441 /* KeyChainAccessor.swift in Sources */,
 				9F3C2DEB2918E19B00BFF14C /* Theme.swift in Sources */,
 				94196958280316C7008AAEB2 /* wasm.swift in Sources */,
+				C0DA0B012F66010100000001 /* CudaAppleBridge.swift in Sources */,
 				9F29759D2A1F488E007FDB3D /* deferredRendering.swift in Sources */,
 				94196959280316C7008AAEB2 /* SearchManager.swift in Sources */,
 				F97209452F4638C200DA803A /* DebuggerSidebarView.swift in Sources */,
@@ -3908,6 +3919,7 @@
 				1C4C8E152EA89040008E5E33 /* TerminalKeyboardToolbar.swift in Sources */,
 				1C4C8E162EA89040008E5E33 /* ExplorerCell.swift in Sources */,
 				1C4C8E172EA89040008E5E33 /* PanelView.swift in Sources */,
+				9D5CAA9A2FDE6F4700E7A2FE /* ObjCExceptionCatcher.m in Sources */,
 				1C4C8E182EA89040008E5E33 /* FileTreeView.swift in Sources */,
 				1C4C8E9B2EA9878A008E5E33 /* VISXExtension.swift in Sources */,
 				1C4C8E192EA89040008E5E33 /* RemoteImage.swift in Sources */,
@@ -4134,6 +4146,7 @@
 				1C4C8E6F2EA89040008E5E33 /* MarkdownView.swift in Sources */,
 				1C4C8E702EA89040008E5E33 /* SourceControlIdentityConfiguration.swift in Sources */,
 				1C4C8E712EA89040008E5E33 /* SourceControlSection.swift in Sources */,
+				9D5CAA9B2FDE6F4700E7A2FE /* ObjCExceptionCatcher.m in Sources */,
 				1C4C8E9A2EA9878A008E5E33 /* VISXExtension.swift in Sources */,
 				1C4C8E722EA89040008E5E33 /* DebugMenu.swift in Sources */,
 				1C4C8E732EA89040008E5E33 /* SourceControlTemplateSection.swift in Sources */,
@@ -4179,6 +4192,7 @@
 				942E31F828086FE800233441 /* KeyChainAccessor.swift in Sources */,
 				9F3C2DEA2918E19B00BFF14C /* Theme.swift in Sources */,
 				94CF58E1265E8A4B00CB6A4B /* wasm.swift in Sources */,
+				C0DA0B022F66010100000002 /* CudaAppleBridge.swift in Sources */,
 				9F29759C2A1F488E007FDB3D /* deferredRendering.swift in Sources */,
 				947BF349262453040015DAEB /* SearchManager.swift in Sources */,
 				94A7781E257BC473008FE7B2 /* ArchiveDir.swift in Sources */,
