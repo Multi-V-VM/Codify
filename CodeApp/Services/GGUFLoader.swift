@@ -116,6 +116,7 @@ struct GGUFModelConfig {
     var ropeTheta: Float = 10000.0
     var rmsNormEps: Float = 1e-6
     var ropeDim: Int = 0  // rope.dimension_count
+    var ropeSections: [Int] = []  // rope.dimension_sections, in rotary pairs
 
     // SSM (Mamba-2) parameters
     var ssmConvKernel: Int = 4
@@ -407,6 +408,7 @@ class GGUFLoader {
         config.ropeTheta = floatMeta("\(arch).rope.freq_base") ?? 10000.0
         config.rmsNormEps = floatMeta("\(arch).attention.layer_norm_rms_epsilon") ?? 1e-6
         config.ropeDim = intMeta("\(arch).rope.dimension_count") ?? 0
+        config.ropeSections = intArrayMeta("\(arch).rope.dimension_sections")
 
         // Attention key/value lengths
         config.keyLength = intMeta("\(arch).attention.key_length") ?? 0
@@ -439,6 +441,18 @@ class GGUFLoader {
         if let v = metadata[key] as? UInt64 { return Int(v) }
         if let v = metadata[key] as? Int64 { return Int(v) }
         return nil
+    }
+
+    private func intArrayMeta(_ key: String) -> [Int] {
+        guard let values = metadata[key] as? [Any] else { return [] }
+        return values.compactMap { value in
+            if let v = value as? UInt32 { return Int(v) }
+            if let v = value as? Int32 { return Int(v) }
+            if let v = value as? UInt64 { return Int(v) }
+            if let v = value as? Int64 { return Int(v) }
+            if let v = value as? Int { return v }
+            return nil
+        }
     }
 
     private func floatMeta(_ key: String) -> Float? {

@@ -38,6 +38,7 @@ class ANEInferenceEngine {
     private let dim: Int
     private let hiddenDim: Int
     private let ropeDim: Int
+    private let ropeSections: [Int]
     private let ropeTheta: Float
     private let rmsEps: Float
     private let nGroups: Int
@@ -65,6 +66,7 @@ class ANEInferenceEngine {
         dim = config.dim
         hiddenDim = config.hiddenDim
         ropeDim = config.ropeDim
+        ropeSections = config.ropeSections
         ropeTheta = config.ropeTheta
         rmsEps = config.rmsNormEps
         nGroups = config.ssmGroupCount
@@ -91,9 +93,9 @@ class ANEInferenceEngine {
         for lw in compiler.layerWeights {
             if case .attention(let w) = lw {
                 _attnHeadDim = w.attnQNorm.count  // 256
-                _nQHeads = w.attnQ.outDim / _attnHeadDim  // 4096/256 = 16
-                _nAttnKVHeads = w.attnK.outDim / _attnHeadDim  // 512/256 = 2
                 _nOutHeads = w.attnOutput.inDim / _attnHeadDim  // 2048/256 = 8
+                _nQHeads = _nOutHeads  // attn_q is fused [Q, gate]
+                _nAttnKVHeads = w.attnK.outDim / _attnHeadDim  // 512/256 = 2
                 break
             }
         }
@@ -178,61 +180,44 @@ class ANEInferenceEngine {
         return computeLogits()
     }
 
-    // MARK: - Mamba Layer Forward
+    // MARK: - Gated DeltaNet Layer Forward
 
     private func mambaForward(x: [Float], w: MambaLayerWeights, mambaIdx: Int) -> [Float] {
         let xNorm = rmsNorm(x, weight: w.attnNorm)
 
-        // Project to xBC space
-        let xBC = w.attnQKV.matvec(xNorm)
+        let qkvMixed = w.attnQKV.matvec(xNorm)
+        let z = w.attnGate.matvec(xNorm)
+        var convOut = causalConv1d(input: qkvMixed, mambaIdx: mambaIdx, weight: w.ssmConv1d)
 
-        // Causal 1D convolution
-        let convOut = causalConv1d(input: xBC, mambaIdx: mambaIdx, weight: w.ssmConv1d)
-
-        // Split xBC as [x_ssm, B, C]. B/C are nGroups*dState, not always ssmInner.
-        let expectedConvChannels = ssmInner + 2 * ssmBCDim
-        guard convOut.count >= expectedConvChannels else {
+        // Qwen3.5 recurrent layers are Gated DeltaNet. The convolved projection
+        // is [Q, K, V], each with ssmInner channels, not Mamba [x, B, C].
+        let qkvDim = 2 * ssmBCDim + ssmInner
+        guard convOut.count >= qkvDim else {
             return x
         }
-        var xSsm = Array(convOut[0..<ssmInner])
-        let bStart = ssmInner
-        let cStart = ssmInner + ssmBCDim
-        let bFlat = Array(convOut[bStart..<(bStart + ssmBCDim)])
-        let cFlat = Array(convOut[cStart..<(cStart + ssmBCDim)])
-
-        // SiLU on x_ssm
-        for i in 0..<ssmInner {
-            xSsm[i] = xSsm[i] / (1.0 + exp(-xSsm[i]))
+        for i in 0..<qkvDim {
+            convOut[i] = silu(convOut[i])
         }
 
-        // Compute dt
-        let dtRaw = w.ssmAlpha.matvec(xNorm)
-        var dt = [Float](repeating: 0, count: nGroups)
-        for g in 0..<nGroups {
-            dt[g] = log(1.0 + exp(dtRaw[g] + w.ssmDtBias[g]))  // softplus
+        var q = Array(convOut[0..<ssmBCDim])
+        var k = Array(convOut[ssmBCDim..<(2 * ssmBCDim)])
+        let v = Array(convOut[(2 * ssmBCDim)..<(2 * ssmBCDim + ssmInner)])
+        l2NormalizeHeads(&q, headDim: dState, headCount: nGroups)
+        l2NormalizeHeads(&k, headDim: dState, headCount: nGroups)
+
+        let betaRaw = w.ssmBeta.matvec(xNorm)
+        let alphaRaw = w.ssmAlpha.matvec(xNorm)
+        var beta = [Float](repeating: 0, count: nGroups)
+        var gate = [Float](repeating: 0, count: nGroups)
+        for h in 0..<nGroups {
+            beta[h] = sigmoid(betaRaw[h])
+            gate[h] = softplus(alphaRaw[h] + w.ssmDtBias[h]) * w.ssmA[h]
         }
 
-        // SSM selective scan
-        var y = ssmScan(
-            xSsm: xSsm, B: bFlat, C: cFlat, dt: dt,
-            A: w.ssmA, mambaIdx: mambaIdx)
-
-        // Group RMSNorm
+        var y = gatedDeltaNetStep(q: q, k: k, v: v, gate: gate, beta: beta, mambaIdx: mambaIdx)
         y = groupRMSNorm(y, weight: w.ssmNorm)
-
-        // D skip connection (feedthrough: y += D * x)
-        let D = w.ssmBeta.matvec(xNorm)
-        for g in 0..<nGroups {
-            for j in 0..<dInnerPerGroup {
-                let ch = g * dInnerPerGroup + j
-                y[ch] += D[g] * xSsm[ch]
-            }
-        }
-
-        // Gate (SiLU, NOT sigmoid)
-        let gateRaw = w.attnGate.matvec(xNorm)
-        for i in 0..<ssmInner {
-            y[i] *= gateRaw[i] / (1.0 + exp(-gateRaw[i]))
+        for i in 0..<min(y.count, z.count) {
+            y[i] *= silu(z[i])
         }
 
         // Output projection + residual
@@ -282,6 +267,92 @@ class ANEInferenceEngine {
             convStates[mambaIdx][(K - 2) * C + i] = input[i]
         }
 
+        return output
+    }
+
+    // MARK: - Gated DeltaNet State Update
+
+    private func l2NormalizeHeads(_ values: inout [Float], headDim: Int, headCount: Int) {
+        guard headDim > 0 else { return }
+        for h in 0..<headCount {
+            let off = h * headDim
+            guard off + headDim <= values.count else { break }
+            var sumSq: Float = 0
+            for i in 0..<headDim {
+                sumSq += values[off + i] * values[off + i]
+            }
+            let invNorm = 1.0 / sqrt(sumSq + rmsEps)
+            for i in 0..<headDim {
+                values[off + i] *= invNorm
+            }
+        }
+    }
+
+    private func gatedDeltaNetStep(
+        q: [Float], k: [Float], v: [Float], gate: [Float], beta: [Float], mambaIdx: Int
+    ) -> [Float] {
+        var output = [Float](repeating: 0, count: ssmInner)
+        let scale = 1.0 / sqrt(Float(dState))
+
+        ssmStates[mambaIdx].withUnsafeMutableBufferPointer { stateBuf in
+            let state = stateBuf.baseAddress!
+            q.withUnsafeBufferPointer { qBuf in
+                k.withUnsafeBufferPointer { kBuf in
+                    v.withUnsafeBufferPointer { vBuf in
+                        output.withUnsafeMutableBufferPointer { outBuf in
+                            let qPtr = qBuf.baseAddress!
+                            let kPtr = kBuf.baseAddress!
+                            let vPtr = vBuf.baseAddress!
+                            let outPtr = outBuf.baseAddress!
+
+                            for h in 0..<nGroups {
+                                let stateHead = state + h * dState * dInnerPerGroup
+                                let qHead = qPtr + h * dState
+                                let kHead = kPtr + h * dState
+                                let vHead = vPtr + h * dInnerPerGroup
+                                let outHead = outPtr + h * dInnerPerGroup
+                                let decay = exp(gate[h])
+                                let betaValue = beta[h]
+
+                                for row in 0..<dInnerPerGroup {
+                                    let rowPtr = stateHead + row * dState
+                                    for col in 0..<dState {
+                                        rowPtr[col] *= decay
+                                    }
+                                }
+
+                                var predicted = [Float](repeating: 0, count: dInnerPerGroup)
+                                for row in 0..<dInnerPerGroup {
+                                    let rowPtr = stateHead + row * dState
+                                    var sum: Float = 0
+                                    for col in 0..<dState {
+                                        sum += rowPtr[col] * kHead[col]
+                                    }
+                                    predicted[row] = sum
+                                }
+
+                                for row in 0..<dInnerPerGroup {
+                                    let delta = (vHead[row] - predicted[row]) * betaValue
+                                    let rowPtr = stateHead + row * dState
+                                    for col in 0..<dState {
+                                        rowPtr[col] += kHead[col] * delta
+                                    }
+                                }
+
+                                for row in 0..<dInnerPerGroup {
+                                    let rowPtr = stateHead + row * dState
+                                    var sum: Float = 0
+                                    for col in 0..<dState {
+                                        sum += rowPtr[col] * (qHead[col] * scale)
+                                    }
+                                    outHead[row] = sum
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         return output
     }
 
@@ -348,12 +419,23 @@ class ANEInferenceEngine {
     private func attentionForward(x: [Float], w: AttentionLayerWeights, attnIdx: Int) -> [Float] {
         let xNorm = rmsNorm(x, weight: w.attnNorm)
 
-        // Q/K/V projections (Q: [4096], K: [512], V: [512])
-        var q = w.attnQ.matvec(xNorm)
+        // Qwen3.5 full-attention Q projection is fused per head as
+        // [Q_head0, gate_head0, Q_head1, gate_head1, ...].
+        let qGate = w.attnQ.matvec(xNorm)
+        var q = [Float](repeating: 0, count: attnOutDim)
+        var attnGate = [Float](repeating: 0, count: attnOutDim)
+        for head in 0..<nOutHeads {
+            let sourceBase = head * attnHeadDim * 2
+            let targetBase = head * attnHeadDim
+            for i in 0..<attnHeadDim {
+                q[targetBase + i] = qGate[sourceBase + i]
+                attnGate[targetBase + i] = qGate[sourceBase + attnHeadDim + i]
+            }
+        }
         var k = w.attnK.matvec(xNorm)
         let v = w.attnV.matvec(xNorm)
 
-        // Per-head Q norm (16 Q sub-heads, each attnHeadDim=256)
+        // Per-head Q norm (8 Q heads, each attnHeadDim=256)
         for h in 0..<nQHeads {
             let off = h * attnHeadDim
             var slice = Array(q[off..<(off + attnHeadDim)])
@@ -379,17 +461,11 @@ class ANEInferenceEngine {
             kvCaches[attnIdx][pos * 2 * kvTotalDim + kvTotalDim + i] = v[i]
         }
 
-        // Differential GQA Attention
-        // 16 Q sub-heads → 8 output heads (pairs: sub-heads 2i,2i+1 → output head i)
-        // GQA: nOutHeads(8) / nAttnKVHeads(2) = 4 logical heads per KV head
-        let qSubPerHead = nQHeads / nOutHeads  // 2 (differential pair)
-        let gqaGroupSize = nOutHeads / max(nAttnKVHeads, 1)  // 4
+        // Standard gated GQA attention. nOutHeads(8) / nAttnKVHeads(2) = 4 Q heads per KV head.
+        let gqaGroupSize = nOutHeads / max(nAttnKVHeads, 1)
         let scale = 1.0 / sqrt(Float(attnHeadDim))
-        var attnOut = [Float](repeating: 0, count: attnOutDim)  // [2048]
+        var attnOut = [Float](repeating: 0, count: attnOutDim)
 
-        // vDSP dot products / scaled accumulation over the raw cache buffer:
-        // these loops run O(position) times per token and dominate at long
-        // contexts if left as bounds-checked scalar Swift.
         let headDim = attnHeadDim
         let strideKV = 2 * kvTotalDim
         let vBase = kvTotalDim
@@ -400,38 +476,34 @@ class ANEInferenceEngine {
                 attnOut.withUnsafeMutableBufferPointer { outBuf in
                     let out = outBuf.baseAddress!
 
-                    for oh in 0..<nOutHeads {
-                        let kvHead = oh / gqaGroupSize
+                    for qHead in 0..<nOutHeads {
+                        let kvHead = qHead / gqaGroupSize
+                        let qOff = qHead * headDim
                         let kHeadOff = kvHead * headDim
+                        var scores = [Float](repeating: 0, count: pos + 1)
 
-                        // Differential score pair for each cached position
-                        var scores0 = [Float](repeating: 0, count: pos + 1)
-                        var scores1 = [Float](repeating: 0, count: pos + 1)
-                        let qOff0 = (oh * qSubPerHead) * headDim
-                        let qOff1 = qOff0 + headDim
                         for p in 0...pos {
                             let kPtr = cache + p * strideKV + kHeadOff
-                            var dot0: Float = 0
-                            var dot1: Float = 0
-                            vDSP_dotpr(qPtr + qOff0, 1, kPtr, 1, &dot0, vDSP_Length(headDim))
-                            vDSP_dotpr(qPtr + qOff1, 1, kPtr, 1, &dot1, vDSP_Length(headDim))
-                            scores0[p] = dot0 * scale
-                            scores1[p] = dot1 * scale
+                            var dot: Float = 0
+                            vDSP_dotpr(qPtr + qOff, 1, kPtr, 1, &dot, vDSP_Length(headDim))
+                            scores[p] = dot * scale
                         }
-                        softmax(&scores0)
-                        softmax(&scores1)
+                        softmax(&scores)
 
-                        // Weighted V: output = attn0·V - attn1·V (differential attention)
-                        let outPtr = out + oh * headDim
+                        let outPtr = out + qOff
                         for p in 0...pos {
                             let vPtr = cache + p * strideKV + vBase + kHeadOff
-                            var diffScore = scores0[p] - scores1[p]
+                            var score = scores[p]
                             vDSP_vsma(
-                                vPtr, 1, &diffScore, outPtr, 1, outPtr, 1, vDSP_Length(headDim))
+                                vPtr, 1, &score, outPtr, 1, outPtr, 1, vDSP_Length(headDim))
                         }
                     }
                 }
             }
+        }
+
+        for i in 0..<min(attnOut.count, attnGate.count) {
+            attnOut[i] *= sigmoid(attnGate[i])
         }
 
         // Output projection [2048 → 1024] + residual
@@ -464,25 +536,47 @@ class ANEInferenceEngine {
 
     // MARK: - RoPE
 
-    /// RoPE for attention layers (head_dim = attnHeadDim = 256)
+    /// RoPE for attention layers (head_dim = attnHeadDim = 256). Qwen3.5 uses
+    /// MRoPE sections; for text positions the same scalar position is applied
+    /// to each section, but the rotary frequency index resets per section.
     private func applyRoPEAttn(_ vec: inout [Float], nHeadsCount: Int) {
-        let halfRope = ropeDim / 2  // 32
+        let sections = ropeSections.isEmpty ? [ropeDim / 2] : ropeSections.filter { $0 > 0 }
         for h in 0..<nHeadsCount {
             let off = h * attnHeadDim
-            for i in 0..<halfRope {
-                let freq = 1.0 / pow(ropeTheta, Float(2 * i) / Float(ropeDim))
-                let theta = Float(position) * freq
-                let cosVal = cos(theta)
-                let sinVal = sin(theta)
-                let r0 = vec[off + 2 * i]
-                let r1 = vec[off + 2 * i + 1]
-                vec[off + 2 * i] = r0 * cosVal - r1 * sinVal
-                vec[off + 2 * i + 1] = r0 * sinVal + r1 * cosVal
+            var pairOffset = 0
+            for sectionPairs in sections {
+                for i in 0..<sectionPairs {
+                    let pair = pairOffset + i
+                    guard 2 * pair + 1 < ropeDim else { break }
+                    let freq = 1.0 / pow(ropeTheta, Float(2 * i) / Float(ropeDim))
+                    let theta = Float(position) * freq
+                    let cosVal = cos(theta)
+                    let sinVal = sin(theta)
+                    let r0 = vec[off + 2 * pair]
+                    let r1 = vec[off + 2 * pair + 1]
+                    vec[off + 2 * pair] = r0 * cosVal - r1 * sinVal
+                    vec[off + 2 * pair + 1] = r0 * sinVal + r1 * cosVal
+                }
+                pairOffset += sectionPairs
             }
         }
     }
 
     // MARK: - Helpers
+
+    private func silu(_ x: Float) -> Float {
+        x / (1.0 + exp(-x))
+    }
+
+    private func sigmoid(_ x: Float) -> Float {
+        1.0 / (1.0 + exp(-x))
+    }
+
+    private func softplus(_ x: Float) -> Float {
+        if x > 20 { return x }
+        if x < -20 { return exp(x) }
+        return log(1.0 + exp(x))
+    }
 
     private func rmsNorm(_ x: [Float], weight: [Float]) -> [Float] {
         let n = x.count

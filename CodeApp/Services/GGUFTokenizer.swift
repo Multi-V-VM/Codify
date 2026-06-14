@@ -139,12 +139,12 @@ class GGUFTokenizer {
     func encode(_ text: String) -> [Int] {
         guard !text.isEmpty else { return [] }
 
-        // Convert text to initial byte-level tokens
+        if usesByteLevelDecoding {
+            return encodeByteLevelBPE(text)
+        }
+
         var symbols = textToInitialTokens(text)
-
-        // Apply BPE merges
         applyBPEMerges(&symbols)
-
         return symbols
     }
 
@@ -297,24 +297,52 @@ class GGUFTokenizer {
 
     // MARK: - Private BPE Implementation
 
-    private func textToInitialTokens(_ text: String) -> [Int] {
-        let bytes = Array(text.utf8)
-
-        // Convert raw bytes to GPT-2 unicode characters for vocab lookup
-        let encoded: [Character] = bytes.map { b in
-            byteToUnicode[b] ?? Character(Unicode.Scalar(b))
-        }
-        let encodedStr = String(encoded)
-
+    private func encodeByteLevelBPE(_ text: String) -> [Int] {
+        let chunks = pretokenizeForByteLevelBPE(text)
         var result: [Int] = []
-        let chars = Array(encodedStr)
+        for chunk in chunks {
+            var symbols = byteInitialTokens(chunk)
+            applyBPEMerges(&symbols)
+            result.append(contentsOf: symbols)
+        }
+        return result
+    }
+
+    private func pretokenizeForByteLevelBPE(_ text: String) -> [String] {
+        let pattern =
+            #"(?i:'s|'t|'re|'ve|'m|'ll|'d)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return [text]
+        }
+
+        let nsText = text as NSString
+        let range = NSRange(location: 0, length: nsText.length)
+        let matches = regex.matches(in: text, range: range)
+        if matches.isEmpty { return [text] }
+        return matches.map { nsText.substring(with: $0.range) }
+    }
+
+    private func byteInitialTokens(_ text: String) -> [Int] {
+        Array(text.utf8).map { byte in
+            if let ch = byteToUnicode[byte], let id = tokenToId[String(ch)] {
+                return id
+            }
+            let byteStr = String(format: "<0x%02X>", byte)
+            return tokenToId[byteStr] ?? unknownTokenId
+        }
+    }
+
+    private func textToInitialTokens(_ text: String) -> [Int] {
+        var result: [Int] = []
+        let chars = Array(text)
 
         var i = 0
         while i < chars.count {
             var bestLen = 0
             var bestId = unknownTokenId
 
-            // Try longest match first (up to 32 chars)
+            // SentencePiece-style vocabularies are already segmented pieces;
+            // longest-match is the least surprising fallback without a native SPM model.
             let maxLen = min(32, chars.count - i)
             for len in stride(from: maxLen, through: 1, by: -1) {
                 let sub = String(chars[i..<(i + len)])
@@ -325,23 +353,8 @@ class GGUFTokenizer {
                 }
             }
 
-            if bestLen > 0 {
-                result.append(bestId)
-                i += bestLen
-            } else {
-                // Single byte fallback using hex escape
-                if let b = unicodeToByte[chars[i]] {
-                    let byteStr = String(format: "<0x%02X>", b)
-                    if let id = tokenToId[byteStr] {
-                        result.append(id)
-                    } else {
-                        result.append(unknownTokenId)
-                    }
-                } else {
-                    result.append(unknownTokenId)
-                }
-                i += 1
-            }
+            result.append(bestId)
+            i += max(bestLen, 1)
         }
 
         return result
