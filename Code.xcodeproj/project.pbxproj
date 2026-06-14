@@ -16,6 +16,8 @@
 		1C4C8CD62EA69AE0008E5E33 /* WasmerRuntime.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C4C8CD02EA69AB8008E5E33 /* WasmerRuntime.xcframework */; };
 		1C4C8CD72EA69C7E008E5E33 /* WasmerRuntime.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C4C8CD02EA69AB8008E5E33 /* WasmerRuntime.xcframework */; };
 		1C4C8CD82EA69C7E008E5E33 /* WasmerRuntime.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C4C8CD02EA69AB8008E5E33 /* WasmerRuntime.xcframework */; };
+		1C9F00042F5B0000008E5E33 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C9F00062F5B0000008E5E33 /* Metal.framework */; };
+		1C9F00052F5B0000008E5E33 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C9F00062F5B0000008E5E33 /* Metal.framework */; };
 		1C4C8CDB2EA86398008E5E33 /* ExtensionsExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4C8CD92EA86398008E5E33 /* ExtensionsExtension.swift */; };
 		1C4C8CDC2EA86398008E5E33 /* ExtensionsExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4C8CD92EA86398008E5E33 /* ExtensionsExtension.swift */; };
 		1C4C8CFA2EA866AF008E5E33 /* ExtensionInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4C8CF72EA866AF008E5E33 /* ExtensionInstaller.swift */; };
@@ -1497,6 +1499,8 @@
 /* Begin PBXFileReference section */
 		1C4C8CCE2EA44B1D008E5E33 /* FiraCode-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "FiraCode-Regular.ttf"; sourceTree = "<group>"; };
 		1C4C8CD02EA69AB8008E5E33 /* WasmerRuntime.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = WasmerRuntime.xcframework; path = Resources/WasmerRuntime.xcframework; sourceTree = "<group>"; };
+		1C9F00012F5B0000008E5E33 /* HetGPUAppleRuntime.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = HetGPUAppleRuntime.xcframework; path = hetgpu-ios/HetGPUAppleRuntime.xcframework; sourceTree = "<group>"; };
+		1C9F00062F5B0000008E5E33 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		1C4C8CD92EA86398008E5E33 /* ExtensionsExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionsExtension.swift; sourceTree = "<group>"; };
 		1C4C8CF72EA866AF008E5E33 /* ExtensionInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionInstaller.swift; sourceTree = "<group>"; };
 		1C4C8CF82EA866AF008E5E33 /* MarketplaceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketplaceService.swift; sourceTree = "<group>"; };
@@ -2185,6 +2189,7 @@
 				947BBC8E2C12ED7E00FFD0C5 /* TreeSitterOCamlRunestone in Frameworks */,
 				94196991280316C7008AAEB2 /* ios_system.xcframework in Frameworks */,
 				1C4C8CD72EA69C7E008E5E33 /* WasmerRuntime.xcframework in Frameworks */,
+				1C9F00052F5B0000008E5E33 /* Metal.framework in Frameworks */,
 				946DABA82BBD997800E73257 /* TreeSitterCRunestone in Frameworks */,
 				947BBC782C12ED7D00FFD0C5 /* TreeSitterHaskellRunestone in Frameworks */,
 				947BBC7C2C12ED7E00FFD0C5 /* TreeSitterJavaRunestone in Frameworks */,
@@ -2247,6 +2252,7 @@
 				947BBCC62C12F5A200FFD0C5 /* TreeSitterHaskellRunestone in Frameworks */,
 				94B7C4C825F551F800F1EF4E /* ios_system.xcframework in Frameworks */,
 				1C4C8CD62EA69AE0008E5E33 /* WasmerRuntime.xcframework in Frameworks */,
+				1C9F00042F5B0000008E5E33 /* Metal.framework in Frameworks */,
 				947BBCD82C12F5A500FFD0C5 /* TreeSitterMarkdownInlineRunestone in Frameworks */,
 				94C893B92793D01500DFBF29 /* curl_ios.xcframework in Frameworks */,
 				947BBCC82C12F5A200FFD0C5 /* TreeSitterHTMLRunestone in Frameworks */,
@@ -2360,6 +2366,7 @@
 			isa = PBXGroup;
 			children = (
 				F9FE0DBA2F594A00008DFB0E /* IOSurface.framework */,
+				1C9F00062F5B0000008E5E33 /* Metal.framework */,
 				942E321128093CA600233441 /* NMSSH.xcframework */,
 				945E7E3727CA79C900BA1D95 /* NodeMobile.xcframework */,
 			);
@@ -2415,6 +2422,7 @@
 			isa = PBXGroup;
 			children = (
 				1C4C8CD02EA69AB8008E5E33 /* WasmerRuntime.xcframework */,
+				1C9F00012F5B0000008E5E33 /* HetGPUAppleRuntime.xcframework */,
 				94F88FDA2C628AA800326AD0 /* FiraCode-Regular.ttf */,
 				94F88FDC2C628AB200326AD0 /* FiraCode-Regular.ttf */,
 				9434C3F12BA345A700EB1CF6 /* PrivacyInfo.xcprivacy */,
@@ -4375,6 +4383,7 @@
 				ENABLE_BITCODE = NO;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_TESTING_SEARCH_PATHS = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)",
@@ -4390,6 +4399,26 @@
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
 				MARKETING_VERSION = 1.12.0;
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/hetgpu-ios/HetGPUAppleRuntime.xcframework/ios-arm64/libhetgpu_apple_runtime.a",
+					"-Wl,-u,_hetgpu_apple_metal_compile_msl",
+					"-Wl,-u,_hetgpu_apple_metal_get_function",
+					"-Wl,-u,_hetgpu_apple_metal_launch_raw",
+					"-Wl,-u,_hetgpu_apple_metal_release_module",
+					"-Wl,-u,_hetgpu_apple_metal_release_function",
+					"-Wl,-u,_hetgpu_apple_metal_free_string",
+				);
+				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/hetgpu-ios/HetGPUAppleRuntime.xcframework/ios-arm64-simulator/libhetgpu_apple_runtime.a",
+					"-Wl,-u,_hetgpu_apple_metal_compile_msl",
+					"-Wl,-u,_hetgpu_apple_metal_get_function",
+					"-Wl,-u,_hetgpu_apple_metal_launch_raw",
+					"-Wl,-u,_hetgpu_apple_metal_release_module",
+					"-Wl,-u,_hetgpu_apple_metal_release_function",
+					"-Wl,-u,_hetgpu_apple_metal_free_string",
+				);
 				OTHER_SWIFT_FLAGS = "-Xcc -Wno-incomplete-umbrella";
 				PRODUCT_BUNDLE_IDENTIFIER = "vickiegpt.VS-Code";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -4423,6 +4452,7 @@
 				ENABLE_BITCODE = NO;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_TESTING_SEARCH_PATHS = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)",
@@ -4439,6 +4469,26 @@
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
 				MARKETING_VERSION = 1.12.0;
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/hetgpu-ios/HetGPUAppleRuntime.xcframework/ios-arm64/libhetgpu_apple_runtime.a",
+					"-Wl,-u,_hetgpu_apple_metal_compile_msl",
+					"-Wl,-u,_hetgpu_apple_metal_get_function",
+					"-Wl,-u,_hetgpu_apple_metal_launch_raw",
+					"-Wl,-u,_hetgpu_apple_metal_release_module",
+					"-Wl,-u,_hetgpu_apple_metal_release_function",
+					"-Wl,-u,_hetgpu_apple_metal_free_string",
+				);
+				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/hetgpu-ios/HetGPUAppleRuntime.xcframework/ios-arm64-simulator/libhetgpu_apple_runtime.a",
+					"-Wl,-u,_hetgpu_apple_metal_compile_msl",
+					"-Wl,-u,_hetgpu_apple_metal_get_function",
+					"-Wl,-u,_hetgpu_apple_metal_launch_raw",
+					"-Wl,-u,_hetgpu_apple_metal_release_module",
+					"-Wl,-u,_hetgpu_apple_metal_release_function",
+					"-Wl,-u,_hetgpu_apple_metal_free_string",
+				);
 				OTHER_SWIFT_FLAGS = "-Xcc -Wno-incomplete-umbrella";
 				PRODUCT_BUNDLE_IDENTIFIER = "vickiegpt.VS-Code";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -4467,6 +4517,7 @@
 				ENABLE_BITCODE = NO;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)",
@@ -4506,6 +4557,7 @@
 				ENABLE_BITCODE = NO;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)",
@@ -4675,6 +4727,7 @@
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_TESTING_SEARCH_PATHS = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)",
@@ -4690,6 +4743,26 @@
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
 				MARKETING_VERSION = 1.12.0;
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/hetgpu-ios/HetGPUAppleRuntime.xcframework/ios-arm64/libhetgpu_apple_runtime.a",
+					"-Wl,-u,_hetgpu_apple_metal_compile_msl",
+					"-Wl,-u,_hetgpu_apple_metal_get_function",
+					"-Wl,-u,_hetgpu_apple_metal_launch_raw",
+					"-Wl,-u,_hetgpu_apple_metal_release_module",
+					"-Wl,-u,_hetgpu_apple_metal_release_function",
+					"-Wl,-u,_hetgpu_apple_metal_free_string",
+				);
+				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/hetgpu-ios/HetGPUAppleRuntime.xcframework/ios-arm64-simulator/libhetgpu_apple_runtime.a",
+					"-Wl,-u,_hetgpu_apple_metal_compile_msl",
+					"-Wl,-u,_hetgpu_apple_metal_get_function",
+					"-Wl,-u,_hetgpu_apple_metal_launch_raw",
+					"-Wl,-u,_hetgpu_apple_metal_release_module",
+					"-Wl,-u,_hetgpu_apple_metal_release_function",
+					"-Wl,-u,_hetgpu_apple_metal_free_string",
+				);
 				OTHER_SWIFT_FLAGS = "-Xcc -Wno-incomplete-umbrella";
 				PRODUCT_BUNDLE_IDENTIFIER = "vickiegpt.VS-Code";
 				PRODUCT_NAME = CodifyOne;
@@ -4722,6 +4795,7 @@
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_TESTING_SEARCH_PATHS = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)",
@@ -4738,6 +4812,26 @@
 				);
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
 				MARKETING_VERSION = 1.12.0;
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/hetgpu-ios/HetGPUAppleRuntime.xcframework/ios-arm64/libhetgpu_apple_runtime.a",
+					"-Wl,-u,_hetgpu_apple_metal_compile_msl",
+					"-Wl,-u,_hetgpu_apple_metal_get_function",
+					"-Wl,-u,_hetgpu_apple_metal_launch_raw",
+					"-Wl,-u,_hetgpu_apple_metal_release_module",
+					"-Wl,-u,_hetgpu_apple_metal_release_function",
+					"-Wl,-u,_hetgpu_apple_metal_free_string",
+				);
+				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/hetgpu-ios/HetGPUAppleRuntime.xcframework/ios-arm64-simulator/libhetgpu_apple_runtime.a",
+					"-Wl,-u,_hetgpu_apple_metal_compile_msl",
+					"-Wl,-u,_hetgpu_apple_metal_get_function",
+					"-Wl,-u,_hetgpu_apple_metal_launch_raw",
+					"-Wl,-u,_hetgpu_apple_metal_release_module",
+					"-Wl,-u,_hetgpu_apple_metal_release_function",
+					"-Wl,-u,_hetgpu_apple_metal_free_string",
+				);
 				OTHER_SWIFT_FLAGS = "-Xcc -Wno-incomplete-umbrella";
 				PRODUCT_BUNDLE_IDENTIFIER = "vickiegpt.VS-Code";
 				PRODUCT_NAME = CodifyOne;

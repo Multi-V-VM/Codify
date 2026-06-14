@@ -5,8 +5,62 @@
 //  Created by Ken Chung on 12/12/2020.
 //
 
+import Darwin
 import SwiftUI
 import ios_system
+
+private var executorCrashSignalOutputFD: Int32 = STDERR_FILENO
+
+private func executorWriteCrashSignalMessage(_ message: StaticString) {
+    message.withUTF8Buffer { buffer in
+        guard let baseAddress = buffer.baseAddress else { return }
+        _ = write(executorCrashSignalOutputFD, baseAddress, buffer.count)
+    }
+}
+
+private func executorCrashSignalHandler(_ signalNumber: Int32) {
+    switch signalNumber {
+    case SIGSEGV:
+        executorWriteCrashSignalMessage(
+            "\r\nwasm: runtime crashed with SIGSEGV (segmentation fault)\r\n")
+    case SIGBUS:
+        executorWriteCrashSignalMessage("\r\nwasm: runtime crashed with SIGBUS (bus error)\r\n")
+    case SIGILL:
+        executorWriteCrashSignalMessage(
+            "\r\nwasm: runtime crashed with SIGILL (illegal instruction)\r\n")
+    case SIGABRT:
+        executorWriteCrashSignalMessage("\r\nwasm: runtime aborted with SIGABRT\r\n")
+    default:
+        executorWriteCrashSignalMessage("\r\nwasm: runtime crashed with a fatal signal\r\n")
+    }
+
+    signal(signalNumber, SIG_DFL)
+    raise(signalNumber)
+}
+
+private struct ExecutorCrashSignalHandlers {
+    let segv: sig_t?
+    let bus: sig_t?
+    let ill: sig_t?
+    let abrt: sig_t?
+}
+
+@discardableResult
+private func installExecutorCrashSignalHandlers(outputFD: Int32) -> ExecutorCrashSignalHandlers {
+    executorCrashSignalOutputFD = outputFD
+    return ExecutorCrashSignalHandlers(
+        segv: signal(SIGSEGV, executorCrashSignalHandler),
+        bus: signal(SIGBUS, executorCrashSignalHandler),
+        ill: signal(SIGILL, executorCrashSignalHandler),
+        abrt: signal(SIGABRT, executorCrashSignalHandler))
+}
+
+private func restoreExecutorCrashSignalHandlers(_ handlers: ExecutorCrashSignalHandlers) {
+    signal(SIGSEGV, handlers.segv)
+    signal(SIGBUS, handlers.bus)
+    signal(SIGILL, handlers.ill)
+    signal(SIGABRT, handlers.abrt)
+}
 
 class Executor {
 
@@ -482,10 +536,14 @@ class Executor {
             }
 
             let argc = Int32(components.count)
-            let argv = UnsafeMutablePointer(mutating: cStrings)
+            let outputFD = stdout_pipe.fileHandleForWriting.fileDescriptor
+            let crashHandlers = installExecutorCrashSignalHandlers(outputFD: outputFD)
 
             // Call wasm function
-            let exitCode = wasm(argc: argc, argv: argv)
+            let exitCode = cStrings.withUnsafeMutableBufferPointer { buffer in
+                wasm(argc: argc, argv: buffer.baseAddress)
+            }
+            restoreExecutorCrashSignalHandlers(crashHandlers)
 
             // Close stdin pipe
             close(stdin_pipe.fileHandleForReading.fileDescriptor)
@@ -534,6 +592,7 @@ class Executor {
             stdout_pipe = Pipe()
             stdout_file = fdopen(stdout_pipe.fileHandleForWriting.fileDescriptor, "w")
         }
+        setvbuf(stdout_file, nil, _IONBF, 0)
         stdout_pipe.fileHandleForReading.readabilityHandler = self.onStdout
         stdout_active = true
 
@@ -559,21 +618,24 @@ class Executor {
             }
 
             let argc = Int32(components.count)
-            let argv = UnsafeMutablePointer(mutating: cStrings)
+            let outputFD = stdout_pipe.fileHandleForWriting.fileDescriptor
+            let crashHandlers = installExecutorCrashSignalHandlers(outputFD: outputFD)
 
-            let exitCode: Int32
-            switch cmdName {
-            case "node":
-                exitCode = node(argc: argc, argv: argv)
-            case "npm":
-                exitCode = npm(argc: argc, argv: argv)
-            case "npx":
-                exitCode = npx(argc: argc, argv: argv)
-            case "nodeg":
-                exitCode = nodeg(argc: argc, argv: argv)
-            default:
-                exitCode = 1
+            let exitCode: Int32 = cStrings.withUnsafeMutableBufferPointer { buffer in
+                switch cmdName {
+                case "node":
+                    return node(argc: argc, argv: buffer.baseAddress)
+                case "npm":
+                    return npm(argc: argc, argv: buffer.baseAddress)
+                case "npx":
+                    return npx(argc: argc, argv: buffer.baseAddress)
+                case "nodeg":
+                    return nodeg(argc: argc, argv: buffer.baseAddress)
+                default:
+                    return 1
+                }
             }
+            restoreExecutorCrashSignalHandlers(crashHandlers)
 
             close(stdin_pipe.fileHandleForReading.fileDescriptor)
             self.stdin_file_input = nil

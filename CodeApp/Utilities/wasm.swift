@@ -246,30 +246,39 @@ func wasmHostHomeURL(fileManager: FileManager = .default) -> URL {
 
 func wasmTemporaryRuntimeURL(fileManager: FileManager = .default) -> URL {
     let uid = getuid()
-    let candidates = [
+    var candidates = [URL]()
+
+    if let applicationSupportURL = try? fileManager.url(
+        for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+    {
+        candidates.append(
+            applicationSupportURL.appendingPathComponent("CodifyOne-wasm", isDirectory: true))
+    }
+    if let libraryURL = try? fileManager.url(
+        for: .libraryDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+    {
+        candidates.append(libraryURL.appendingPathComponent("CodifyOne-wasm", isDirectory: true))
+    }
+
+    candidates.append(
+        wasmSysrootURL().appendingPathComponent("runtime", isDirectory: true))
+    candidates.append(
         URL(fileURLWithPath: "/private/tmp", isDirectory: true)
-            .appendingPathComponent("CodifyOne-wasm-\(uid)", isDirectory: true),
+            .appendingPathComponent("CodifyOne-wasm-\(uid)", isDirectory: true))
+    candidates.append(
         URL(fileURLWithPath: "/tmp", isDirectory: true)
-            .appendingPathComponent("CodifyOne-wasm-\(uid)", isDirectory: true),
-        URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-            .appendingPathComponent("CodifyOne-wasm", isDirectory: true),
-    ]
+            .appendingPathComponent("CodifyOne-wasm-\(uid)", isDirectory: true))
 
-    var existingFallback: URL?
     for candidate in candidates {
-        guard wasmEnsureHostDirectory(candidate.path) else { continue }
-        if !candidate.path.contains("/Library/Containers/") {
-            return candidate
-        }
-        existingFallback = existingFallback ?? candidate
+        let canonicalCandidate = candidate.standardizedFileURL.resolvingSymlinksInPath()
+        guard wasmEnsureHostDirectory(canonicalCandidate.path) else { continue }
+        return canonicalCandidate
     }
 
-    if let existingFallback {
-        return existingFallback
-    }
-
-    let fallbackURL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-        .appendingPathComponent("CodifyOne-wasm", isDirectory: true)
+    let fallbackURL = wasmHostHomeURL(fileManager: fileManager)
+        .appendingPathComponent("Library/CodifyOne-wasm", isDirectory: true)
+        .standardizedFileURL
+        .resolvingSymlinksInPath()
     _ = wasmEnsureHostDirectory(fallbackURL.path)
     return fallbackURL
 }
@@ -288,7 +297,7 @@ func safeWASMCurrentDirectory(_ currentDirectory: String) -> String {
     let runtimeFallbackPath =
         wasmEnsureHostDirectory(runtimeHomeURL.path) ? runtimeHomeURL.path : runtimeRootPath
 
-    if currentDirectory.contains("/Library/Containers/")
+    if wasmHostPathIsAppContainer(currentDirectory)
         && currentDirectory.hasSuffix("/Data/Documents")
     {
         let stderr = thread_stderr ?? fdopen(STDERR_FILENO, "w")
@@ -299,7 +308,7 @@ func safeWASMCurrentDirectory(_ currentDirectory: String) -> String {
     }
 
     if wasmHostDirectoryExists(currentDirectory),
-        !currentDirectory.contains("/Library/Containers/")
+        !wasmHostPathIsAppContainer(currentDirectory)
             || currentDirectory == runtimeRootPath
             || currentDirectory.hasPrefix(runtimeRootPath + "/")
     {
@@ -311,6 +320,37 @@ func safeWASMCurrentDirectory(_ currentDirectory: String) -> String {
         "wasm: using temporary cwd because requested cwd is unavailable to Wasmer: \(currentDirectory)\n",
         stderr)
     return runtimeFallbackPath
+}
+
+func wasmHostPathIsAppContainer(_ path: String) -> Bool {
+    path.contains("/Library/Containers/")
+        || path.contains("/Containers/Data/Application/")
+        || path.contains("/Bundle/Application/")
+        || path.contains("/Wrapper/") && path.contains(".app/")
+        || path.contains(".app/")
+        || path.hasPrefix("/var/mobile/Containers/")
+        || path.hasPrefix("/private/var/mobile/Containers/")
+        || path.hasPrefix("/var/containers/Bundle/Application/")
+        || path.hasPrefix("/private/var/containers/Bundle/Application/")
+}
+
+func wasmHostPathIsUsableByWasmer(_ path: String) -> Bool {
+    wasmHostDirectoryExists(path) && !wasmHostPathIsAppContainer(path)
+}
+
+func wasmGuestPath(forHostPath hostPath: String, hostRoot: String, guestRoot: String) -> String? {
+    if hostPath == hostRoot {
+        return guestRoot
+    }
+    guard hostPath.hasPrefix(hostRoot + "/") else {
+        return nil
+    }
+
+    let suffix = String(hostPath.dropFirst(hostRoot.count))
+    if guestRoot == "/" {
+        return suffix.isEmpty ? "/" : suffix
+    }
+    return guestRoot + suffix
 }
 
 func resolvedWASMCurrentDirectory(_ currentDirectory: String) -> String {
@@ -391,31 +431,19 @@ func setupWASMSysroot(currentDirectory: String, gpuBackend: String? = nil) {
     // Preopen only directories that exist. Wasmer validates metadata for every
     // preopen at instantiation time, so a stale sandbox home path aborts WASI setup.
     let runtimeRootURL = wasmTemporaryRuntimeURL(fileManager: fileManager)
+    let runtimeRootPath = runtimeRootURL.path
     let tempURL = runtimeRootURL.appendingPathComponent("tmp", isDirectory: true)
     _ = wasmEnsureHostDirectory(tempURL.path)
-    let wasmCWDForPreopen = safeWASMCurrentDirectory(resolvedCurrentDirectory)
-    var preopens = [runtimeRootURL.path, tempURL.path]
-    if !wasmCWDForPreopen.hasPrefix(runtimeRootURL.path) {
-        preopens.append(wasmCWDForPreopen)
-    }
-    if let gpuRuntime {
-        preopens.append(gpuRuntime.path)
-    }
-    preopens = preopens.reduce(into: [String]()) { result, path in
-        guard wasmHostDirectoryExists(path), !result.contains(path) else { return }
-        result.append(path)
-    }
-    setenv("WASM_PREOPENS", preopens.joined(separator: ":"), 1)
+    let runtimeHomeURL = runtimeRootURL.appendingPathComponent("home", isDirectory: true)
+    let runtimeHomePath =
+        wasmEnsureHostDirectory(runtimeHomeURL.path) ? runtimeHomeURL.path : runtimeRootPath
+    let wasmCWDHost = safeWASMCurrentDirectory(resolvedCurrentDirectory)
 
-    // Map standard Unix locations onto the persistent skeleton. Only /tmp and
-    // /usr: the wasix root fs pre-creates /etc and /home, and mounting over
-    // those fails with "file exists" (verified against the wasmer CLI). The
-    // guest /etc is writable memfs, and the skeleton etc/ stays reachable via
-    // its host path through the sandbox preopen.
-    //
-    // The guest /usr must point at a host directory Wasmer can stat. Do not pass
-    // stale bundle/container paths into WASM_MAP_DIRS; Wasmer aborts WASI setup
-    // before the module starts when any mapped host path is missing.
+    var preopens = [String]()
+
+    // Map standard Unix locations only when the host path is outside the app
+    // container. The Wasmer iOS bridge cannot stat container paths reliably at
+    // WASI setup time, so /tmp and /home are left as guest memfs by default.
     let libraryURL = homeURL.appendingPathComponent("Library")
     let runtimeUsrURL = runtimeRootURL.appendingPathComponent("usr", isDirectory: true)
     for dir in ["include", "lib", "bin"] {
@@ -429,32 +457,68 @@ func setupWASMSysroot(currentDirectory: String, gpuBackend: String? = nil) {
             Resources.wasiSysroot,
             runtimeUsrURL,
         ]
-        .first { wasmHostDirectoryExists($0.path) && !$0.path.contains("/Library/Containers/") }?
-        .path ?? runtimeUsrURL.path
+        .first { wasmHostPathIsUsableByWasmer($0.path) }?
+        .path
 
-    var mapEntries: [(guest: String, host: String)] = [
-        ("/tmp", tempURL.path),
-        ("/usr", usrHost),
-    ]
-    if let gpuRuntime {
+    var mapEntries: [(guest: String, host: String)] = []
+    if let usrHost {
+        mapEntries.append(("/usr", usrHost))
+    }
+    if wasmHostPathIsUsableByWasmer(tempURL.path) {
+        mapEntries.append(("/tmp", tempURL.path))
+        preopens.append(tempURL.path)
+    }
+
+    let wasmCWD: String
+    if let guestPath = wasmGuestPath(
+        forHostPath: wasmCWDHost, hostRoot: runtimeHomePath, guestRoot: "/home")
+    {
+        wasmCWD = guestPath
+    } else if let guestPath = wasmGuestPath(
+        forHostPath: wasmCWDHost, hostRoot: tempURL.path, guestRoot: "/tmp")
+    {
+        wasmCWD = guestPath
+    } else if let guestPath = wasmGuestPath(
+        forHostPath: wasmCWDHost, hostRoot: runtimeRootPath, guestRoot: "/")
+    {
+        wasmCWD = guestPath
+    } else if wasmHostPathIsUsableByWasmer(wasmCWDHost) {
+        wasmCWD = "/workspace"
+        mapEntries.append(("/workspace", wasmCWDHost))
+        preopens.append(wasmCWDHost)
+    } else {
+        wasmCWD = "/"
+    }
+
+    if let gpuRuntime, wasmHostPathIsUsableByWasmer(gpuRuntime.path) {
+        preopens.append(gpuRuntime.path)
         mapEntries.append(("/opt/hetgpu", gpuRuntime.path))
     }
+    preopens = preopens.reduce(into: [String]()) { result, path in
+        guard wasmHostPathIsUsableByWasmer(path), !result.contains(path) else { return }
+        result.append(path)
+    }
+    if preopens.isEmpty {
+        unsetenv("WASM_PREOPENS")
+    } else {
+        setenv("WASM_PREOPENS", preopens.joined(separator: ":"), 1)
+    }
+
     let mapDirs = mapEntries.compactMap { entry -> String? in
-        guard wasmHostDirectoryExists(entry.host) else { return nil }
+        guard wasmHostPathIsUsableByWasmer(entry.host) else { return nil }
         return "\(entry.guest)::\(entry.host)"
     }
-    setenv("WASM_MAP_DIRS", mapDirs.joined(separator: ";"), 1)
+    if mapDirs.isEmpty {
+        unsetenv("WASM_MAP_DIRS")
+    } else {
+        setenv("WASM_MAP_DIRS", mapDirs.joined(separator: ";"), 1)
+    }
 
-    let wasmCWD = safeWASMCurrentDirectory(resolvedCurrentDirectory)
     setenv("WASM_CWD", wasmCWD, 1)
     setenv("PWD", wasmCWD, 1)
     // Guest-only HOME override, applied by the runtime so the host HOME
-    // (used by node/npm and ios_system commands) is left untouched. Points at
-    // a host directory that has been verified immediately before Wasmer setup.
-    let runtimeHomeURL = runtimeRootURL.appendingPathComponent("home", isDirectory: true)
-    let runtimeHomePath =
-        wasmEnsureHostDirectory(runtimeHomeURL.path) ? runtimeHomeURL.path : runtimeRootURL.path
-    setenv("WASM_GUEST_HOME", runtimeHomePath, 1)
+    // (used by node/npm and ios_system commands) is left untouched.
+    setenv("WASM_GUEST_HOME", wasmCWD == "/" ? "/" : "/home", 1)
 
     // AOT artifact cache, used when the runtime selects a compiling engine.
     let aotCache = homeURL.appendingPathComponent("Library/Caches/wasmer-aot")
