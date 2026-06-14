@@ -27,9 +27,9 @@ find_tool() {
     return 1
 }
 
-if [ ! -d "$SCRIPT_DIR/../wasmer/lib/api" ]; then
-    echo "Missing local Wasmer checkout at: $SCRIPT_DIR/../wasmer"
-    echo "Clone it with: git clone --depth 1 --branch v6.1.0 https://github.com/wasmerio/wasmer.git ../wasmer"
+if [ ! -d "$SCRIPT_DIR/wasmer/lib/api" ]; then
+    echo "Missing local Wasmer checkout at: $SCRIPT_DIR/wasmer"
+    echo "Clone it with: git clone --depth 1 --branch v6.1.0 https://github.com/wasmerio/wasmer.git wasmer"
     exit 1
 fi
 

@@ -55,7 +55,7 @@ class WASMService {
             })
 
         try? webServer.start(options: [
-            GCDWebServerOption_AutomaticallySuspendInBackground: true,
+            GCDWebServerOption_AutomaticallySuspendInBackground: false,
             GCDWebServerOption_BindToLocalhost: true,
             GCDWebServerOption_Port: WASMService.PORT,
         ])

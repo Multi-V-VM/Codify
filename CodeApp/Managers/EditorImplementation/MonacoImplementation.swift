@@ -22,7 +22,7 @@ class EditorService {
             forBasePath: "/", directoryPath: directoryPath, indexFilename: "index.html",
             cacheAge: 10, allowRangeRequests: true)
         try? webServer.start(options: [
-            GCDWebServerOption_AutomaticallySuspendInBackground: true,
+            GCDWebServerOption_AutomaticallySuspendInBackground: false,
             GCDWebServerOption_Port: EditorService.PORT,
         ])
     }

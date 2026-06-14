@@ -1,0 +1,10 @@
+[submodule "wasmer-ios/wasmer"]
+	path = wasmer-ios/wasmer
+	url = https://github.com/Multi-V-VM/wasmer
+[submodule "proton-ios/proton"]
+	path = proton-ios/proton
+	url = https://github.com/Multi-V-VM/proton
+[submodule "hetgpu-ios"]
+	path = hetgpu-ios
+	url = https://github.com/Multi-V-VM/hetGPU/
+	branch = apple
