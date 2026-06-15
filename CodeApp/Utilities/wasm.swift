@@ -51,6 +51,27 @@ public func wasm_cuda_oxide(
     return executeWebAssembly(arguments: launchArgs)
 }
 
+@_cdecl("wasm_cuda_ptx")
+public func wasm_cuda_ptx(
+    argc: Int32,
+    argv: UnsafeMutablePointer<UnsafeMutablePointer<Int8>?>?
+) -> Int32 {
+    let rawArgs = convertCArguments(argc: argc, argv: argv) ?? ["wasm_cuda_ptx"]
+    let stderr = thread_stderr ?? fdopen(STDERR_FILENO, "w")
+
+    guard
+        let wasmURL = Bundle.main.url(
+            forResource: "cuda_ptx_probe",
+            withExtension: "wasm")
+    else {
+        fputs("wasm_cuda_ptx: bundled cuda_ptx_probe.wasm not found\n", stderr)
+        return -1
+    }
+
+    let launchArgs = ["wasm", "--gpu-backend", "metal", wasmURL.path] + Array(rawArgs.dropFirst())
+    return executeWebAssembly(arguments: launchArgs)
+}
+
 private func executeWebAssembly(arguments: [String]?) -> Int32 {
 
     guard let arguments = arguments, arguments.count >= 2 else {
@@ -547,8 +568,10 @@ func configureWASMGPURuntime(backend explicitBackend: String?) -> URL? {
             FileManager.default.fileExists(atPath: $0.appendingPathComponent("libcuda.so.1").path)
         })
     else {
-        clearWASMGPURuntimeEnv()
-        fputs("wasm: bundled hetGPU Apple runtime not found\n", thread_stderr)
+        unsetenv("CODIFYONE_HETGPU_ROOT")
+        setenv("HETGPU_APPLE_BACKEND", selectedBackend, 1)
+        setenv("WASM_CUDA_ACCEL", "1", 1)
+        setenv("WASM_CUDA_BACKEND", selectedBackend, 1)
         return nil
     }
 
