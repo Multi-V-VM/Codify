@@ -94,6 +94,14 @@ struct EditorView: View {
                             }
                             .keyboardShortcut("p", modifiers: [.command, .shift])
 
+                            Button("Find") {
+                                Task {
+                                    await App.monacoInstance.focus()
+                                    await App.monacoInstance.openSearchWidget()
+                                }
+                            }
+                            .keyboardShortcut("f", modifiers: [.command])
+
                             Button("Zoom in") {
                                 if self.editorTextSize < 30 {
                                     self.editorTextSize += 1

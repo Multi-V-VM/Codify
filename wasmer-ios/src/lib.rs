@@ -530,16 +530,19 @@ async fn execute_wasm_async(
         }
     }
 
-    // CUDA/cuBLAS-flavored WASM needs host imports in addition to WASI. Keep
-    // the standard WASIX instantiation path for normal modules, because it also
-    // handles imported memories and dynamic-linking details.
-    let (instance, _wasi_env) = if module_needs_host_imports(&module) {
+    // CUDA/cuBLAS/display-flavored WASM needs host imports in addition to WASI.
+    // Normal WASI modules can use the standard instantiation path, but still
+    // need an explicit Wasmer-WASIX bootstrap before _start runs.
+    let (instance, wasi_env) = if module_needs_host_imports(&module) {
         instantiate_wasi_with_host_imports(wasi_env_builder, module.clone(), &mut store)?
     } else {
         wasi_env_builder
             .instantiate(module.clone(), &mut store)
             .map_err(|e| format!("Failed to instantiate WASI module: {}", e))?
     };
+
+    unsafe { wasi_env.bootstrap(&mut store) }
+        .map_err(|e| format!("Failed to bootstrap WASI module: {}", e))?;
 
     // Find and call the _start or main function
     let exit_code = if let Ok(start_func) = instance.exports.get_function("_start") {
@@ -729,7 +732,26 @@ fn instantiate_wasi_with_host_imports(
 }
 
 fn define_display_imports(store: &mut Store, imports: &mut Imports, env: &FunctionEnv<CudaBridge>) {
-    let _ = (store, imports, env);
+    imports.define(
+        "env",
+        "proton_wasm_display_configure",
+        Function::new_typed_with_env(store, env, proton_wasm_display_configure),
+    );
+    imports.define(
+        "env",
+        "proton_wasm_present_rgba",
+        Function::new_typed_with_env(store, env, proton_wasm_present_rgba),
+    );
+    imports.define(
+        "env",
+        "proton_wasm_set_window_title",
+        Function::new_typed_with_env(store, env, proton_wasm_set_window_title),
+    );
+    imports.define(
+        "env",
+        "proton_wasm_poll_input_event",
+        Function::new_typed_with_env(store, env, proton_wasm_poll_input_event),
+    );
 }
 
 fn define_cuda_imports(store: &mut Store, imports: &mut Imports, env: &FunctionEnv<CudaBridge>) {

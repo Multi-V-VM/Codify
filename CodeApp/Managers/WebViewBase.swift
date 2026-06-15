@@ -148,6 +148,12 @@ class WebViewBase: KBWebViewBase {
         return nil
     }
 
+    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        // Web-backed editors provide their own full context menus. Returning false prevents
+        // WKWebView/UIKit from falling back to the default Copy/Paste edit menu.
+        return false
+    }
+
     func setupContextMenu(
         selectionStateScript: String = "editor.getSelection().isEmpty()",
         menuProvider: @escaping (Bool) -> UIMenu
@@ -192,9 +198,7 @@ class WebViewBase: KBWebViewBase {
 
     private func showContextMenu(menu: UIMenu, at point: CGPoint) {
         // Create a view controller to present the menu
-        guard let windowScene = self.window?.windowScene,
-            let window = windowScene.windows.first
-        else { return }
+        guard self.window?.windowScene != nil else { return }
 
         // For iOS 14+, we can use UIMenu with UIButton
         let menuButton = UIButton(frame: CGRect(x: point.x, y: point.y, width: 1, height: 1))

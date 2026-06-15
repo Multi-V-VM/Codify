@@ -248,6 +248,36 @@ class TerminalInstance: NSObject, WKScriptMessageHandler, WKNavigationDelegate, 
     }
 
     private func buildContextMenu(hasSelection: Bool) -> UIMenu {
+        var editingActions: [UIAction] = []
+        let pasteAttributes: UIMenuElement.Attributes =
+            UIPasteboard.general.hasStrings ? [] : .disabled
+
+        editingActions.append(
+            UIAction(
+                title: NSLocalizedString("Copy", comment: ""),
+                image: UIImage(systemName: "doc.on.doc")
+            ) { [weak self] _ in
+                self?.copySelectionToPasteboard()
+            })
+
+        editingActions.append(
+            UIAction(
+                title: NSLocalizedString("Paste", comment: ""),
+                image: UIImage(systemName: "doc.on.clipboard"),
+                attributes: pasteAttributes
+            ) { [weak self] _ in
+                guard let text = UIPasteboard.general.string else { return }
+                self?.type(text: text)
+            })
+
+        editingActions.append(
+            UIAction(
+                title: NSLocalizedString("Select All", comment: ""),
+                image: UIImage(systemName: "selection.pin.in.out")
+            ) { [weak self] _ in
+                self?.executeScript("term.selectAll()")
+            })
+
         let commandActions: [UIAction] = [
             UIAction(
                 title: NSLocalizedString("Command Palette...", comment: ""),
@@ -308,6 +338,7 @@ class TerminalInstance: NSObject, WKScriptMessageHandler, WKNavigationDelegate, 
         return UIMenu(
             title: "",
             children: [
+                UIMenu(title: "", options: .displayInline, children: editingActions),
                 UIMenu(title: "", options: .displayInline, children: commandActions),
                 UIMenu(title: "", options: .displayInline, children: terminalActions),
             ]

@@ -22,20 +22,17 @@ class EditorContextMenu {
     func buildContextMenu(hasSelection: Bool) -> UIMenu {
         var menuItems: [UIMenuElement] = []
 
+        let editingSection = buildEditingSection(hasSelection: hasSelection)
+        menuItems.append(editingSection)
+
         let commandSection = buildCommandSection()
         menuItems.append(commandSection)
 
-        // AI Features Section (if has selection)
-        if hasSelection {
-            let aiSection = buildAISection()
-            menuItems.append(aiSection)
-        }
+        let aiSection = buildAISection(hasSelection: hasSelection)
+        menuItems.append(aiSection)
 
-        // Code Actions Section
-        if hasSelection {
-            let codeActionsSection = buildCodeActionsSection()
-            menuItems.append(codeActionsSection)
-        }
+        let codeActionsSection = buildCodeActionsSection(hasSelection: hasSelection)
+        menuItems.append(codeActionsSection)
 
         // Refactoring Section
         let refactoringSection = buildRefactoringSection(hasSelection: hasSelection)
@@ -44,10 +41,13 @@ class EditorContextMenu {
         return UIMenu(children: menuItems)
     }
 
-    private func buildAISection() -> UIMenu {
+    private func buildAISection(hasSelection: Bool) -> UIMenu {
+        let selectionAttributes: UIMenuElement.Attributes = hasSelection ? [] : .disabled
+
         let explainAction = UIAction(
             title: NSLocalizedString("Explain", comment: ""),
-            image: UIImage(systemName: "lightbulb")
+            image: UIImage(systemName: "lightbulb"),
+            attributes: selectionAttributes
         ) { [weak self] _ in
             guard let self = self else { return }
             Task {
@@ -65,7 +65,8 @@ class EditorContextMenu {
 
         let addToChatAction = UIAction(
             title: NSLocalizedString("Add Selection to Chat", comment: ""),
-            image: UIImage(systemName: "bubble.left.and.text.bubble.right")
+            image: UIImage(systemName: "bubble.left.and.text.bubble.right"),
+            attributes: selectionAttributes
         ) { [weak self] _ in
             guard let self = self else { return }
             Task {
@@ -76,7 +77,8 @@ class EditorContextMenu {
 
         let editWithAIAction = UIAction(
             title: NSLocalizedString("Edit with AI", comment: ""),
-            image: UIImage(systemName: "wand.and.stars")
+            image: UIImage(systemName: "wand.and.stars"),
+            attributes: selectionAttributes
         ) { [weak self] _ in
             guard let self = self else { return }
             Task {
@@ -92,6 +94,69 @@ class EditorContextMenu {
         )
     }
 
+    private func buildEditingSection(hasSelection: Bool) -> UIMenu {
+        var actions: [UIAction] = []
+        let selectionAttributes: UIMenuElement.Attributes = hasSelection ? [] : .disabled
+        let pasteAttributes: UIMenuElement.Attributes =
+            UIPasteboard.general.hasStrings ? [] : .disabled
+
+        let cutAction = UIAction(
+            title: NSLocalizedString("Cut", comment: ""),
+            image: UIImage(systemName: "scissors"),
+            attributes: selectionAttributes
+        ) { [weak self] _ in
+            Task {
+                await self?.editorImplementation?.cutSelection()
+            }
+        }
+        actions.append(cutAction)
+
+        let copyAction = UIAction(
+            title: NSLocalizedString("Copy", comment: ""),
+            image: UIImage(systemName: "doc.on.doc")
+        ) { [weak self] _ in
+            Task {
+                if let text = await self?.editorImplementation?.copySelection() {
+                    UIPasteboard.general.string = text
+                }
+            }
+        }
+        actions.append(copyAction)
+
+        let pasteAction = UIAction(
+            title: NSLocalizedString("Paste", comment: ""),
+            image: UIImage(systemName: "doc.on.clipboard"),
+            attributes: pasteAttributes
+        ) { [weak self] _ in
+            guard let text = UIPasteboard.general.string else { return }
+            Task {
+                await self?.editorImplementation?.pasteText(text: text)
+            }
+        }
+        actions.append(pasteAction)
+
+        var deleteAttributes: UIMenuElement.Attributes = .destructive
+        if !hasSelection {
+            deleteAttributes.insert(.disabled)
+        }
+        let deleteAction = UIAction(
+            title: NSLocalizedString("Delete", comment: ""),
+            image: UIImage(systemName: "trash"),
+            attributes: deleteAttributes
+        ) { [weak self] _ in
+            Task {
+                await self?.editorImplementation?.deleteSelection()
+            }
+        }
+        actions.append(deleteAction)
+
+        return UIMenu(
+            title: "",
+            options: .displayInline,
+            children: actions
+        )
+    }
+
     private func buildCommandSection() -> UIMenu {
         let commandPaletteAction = UIAction(
             title: NSLocalizedString("Command Palette...", comment: ""),
@@ -99,6 +164,15 @@ class EditorContextMenu {
         ) { [weak self] _ in
             Task {
                 await self?.editorImplementation?._toggleCommandPalatte()
+            }
+        }
+
+        let findAction = UIAction(
+            title: NSLocalizedString("Find...", comment: ""),
+            image: UIImage(systemName: "doc.text.magnifyingglass")
+        ) { [weak self] _ in
+            Task {
+                await self?.editorImplementation?.openSearchWidget()
             }
         }
 
@@ -123,14 +197,17 @@ class EditorContextMenu {
         return UIMenu(
             title: "",
             options: .displayInline,
-            children: [commandPaletteAction, goToLineAction, formatDocumentAction]
+            children: [commandPaletteAction, findAction, goToLineAction, formatDocumentAction]
         )
     }
 
-    private func buildCodeActionsSection() -> UIMenu {
+    private func buildCodeActionsSection(hasSelection: Bool) -> UIMenu {
+        let selectionAttributes: UIMenuElement.Attributes = hasSelection ? [] : .disabled
+
         let formatSelectionAction = UIAction(
             title: NSLocalizedString("Format Selection", comment: ""),
-            image: UIImage(systemName: "text.alignleft")
+            image: UIImage(systemName: "text.alignleft"),
+            attributes: selectionAttributes
         ) { [weak self] _ in
             Task {
                 await self?.editorImplementation?.formatSelection()
@@ -146,18 +223,18 @@ class EditorContextMenu {
 
     private func buildRefactoringSection(hasSelection: Bool) -> UIMenu {
         var actions: [UIAction] = []
+        let selectionAttributes: UIMenuElement.Attributes = hasSelection ? [] : .disabled
 
-        if hasSelection {
-            let changeAllAction = UIAction(
-                title: NSLocalizedString("Change All Occurrences", comment: ""),
-                image: UIImage(systemName: "arrow.triangle.2.circlepath")
-            ) { [weak self] _ in
-                Task {
-                    await self?.editorImplementation?.findAllOccurrences()
-                }
+        let changeAllAction = UIAction(
+            title: NSLocalizedString("Change All Occurrences", comment: ""),
+            image: UIImage(systemName: "arrow.triangle.2.circlepath"),
+            attributes: selectionAttributes
+        ) { [weak self] _ in
+            Task {
+                await self?.editorImplementation?.findAllOccurrences()
             }
-            actions.append(changeAllAction)
         }
+        actions.append(changeAllAction)
 
         let renameAction = UIAction(
             title: NSLocalizedString("Rename Symbol", comment: ""),

@@ -775,10 +775,12 @@ func setupWASMSysroot(currentDirectory: String, gpuBackend: String? = nil) {
     } else {
         setenv("WASM_CWD", wasmCWD, 1)
     }
+    let guestHome = wasmCWD == "/" ? "/" : "/home"
     setenv("PWD", wasmCWD, 1)
-    // Guest-only HOME override, applied by the runtime so the host HOME
-    // (used by node/npm and ios_system commands) is left untouched.
-    setenv("WASM_GUEST_HOME", wasmCWD == "/" ? "/" : "/home", 1)
+    setenv("HOME", guestHome, 1)
+    // Bridge-only HOME override; the Rust runtime uses it to avoid exposing
+    // the host HOME value if one leaks in from a caller.
+    setenv("WASM_GUEST_HOME", guestHome, 1)
 
     // AOT artifact cache, used when the runtime selects a compiling engine.
     // Keep the env value short: the iOS bridge copies env strings into guest
@@ -787,8 +789,10 @@ func setupWASMSysroot(currentDirectory: String, gpuBackend: String? = nil) {
     let aotCache = runtimeHomeURL.appendingPathComponent(aotCacheName, isDirectory: true)
     try? fileManager.createDirectory(at: aotCache, withIntermediateDirectories: true)
     if gpuBackend != nil {
+        unsetenv("WASM_FORCE_INTERPRETER")
         setenv("WASM_AOT_CACHE", aotCacheName, 1)
     } else {
+        setenv("WASM_FORCE_INTERPRETER", "1", 1)
         unsetenv("WASM_AOT_CACHE")
     }
 
@@ -878,6 +882,8 @@ private func withMinimalWASMProcessEnvironment<T>(
         "WASM_CWD",
         "WASM_GUEST_HOME",
         "WASM_AOT_CACHE",
+        "WASM_FORCE_INTERPRETER",
+        "HOME",
         "PWD",
     ]
 
@@ -974,6 +980,7 @@ func configureWASMGPURuntime(backend explicitBackend: String?) -> URL? {
 func clearWASMGPURuntimeEnv() {
     unsetenv("WASM_CUDA_ACCEL")
     unsetenv("WASM_CUDA_BACKEND")
+    unsetenv("WASM_FORCE_INTERPRETER")
     unsetenv("HETGPU_APPLE_BACKEND")
     unsetenv("CODIFYONE_HETGPU_ROOT")
     unsetenv("LD_LIBRARY_PATH")

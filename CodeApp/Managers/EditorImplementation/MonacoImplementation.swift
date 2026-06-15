@@ -187,6 +187,7 @@ class MonacoImplementation: NSObject {
         await configureCustomOptions()
         await configureTheme()
         await injectBreakpointSupport()
+        await injectContextMenuSupport()
 
         // Built-in Node.js types
         await injectTypes(
@@ -248,6 +249,37 @@ class MonacoImplementation: NSObject {
                   }
                 });
               } catch (e) {}
+            }
+            """
+        _ = try? await monacoWebView.evaluateJavaScriptAsync(js)
+    }
+
+    private func injectContextMenuSupport() async {
+        let js = """
+            if (!window.codifyContextMenuInstalled) {
+              window.codifyContextMenuInstalled = true;
+              document.addEventListener('contextmenu', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                let hasSelection = false;
+                try {
+                  hasSelection = !!editor && !editor.getSelection().isEmpty();
+                } catch (e) {}
+                try {
+                  const domSelection = window.getSelection();
+                  hasSelection = hasSelection || !!(domSelection && !domSelection.isCollapsed);
+                } catch (e) {}
+
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.toggleMessageHandler) {
+                  window.webkit.messageHandlers.toggleMessageHandler.postMessage({
+                    Event: 'ContextMenu',
+                    X: event.clientX,
+                    Y: event.clientY,
+                    HasSelection: hasSelection
+                  });
+                }
+              }, true);
             }
             """
         _ = try? await monacoWebView.evaluateJavaScriptAsync(js)
@@ -370,6 +402,14 @@ extension MonacoImplementation: WKScriptMessageHandler {
         }
 
         switch event {
+        case "ContextMenu":
+            let hasSelection = result["HasSelection"] as? Bool ?? false
+            let x = result["X"] as? CGFloat ?? 0
+            let y = result["Y"] as? CGFloat ?? 0
+            monacoWebView.showConfiguredContextMenu(
+                hasSelection: hasSelection,
+                at: CGPoint(x: x, y: y)
+            )
         case "focus":
             delegate?.didEnterFocus()
         case "Request Diff Update":
