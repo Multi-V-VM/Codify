@@ -55,7 +55,7 @@ if [ -n "$RUST_TOOLCHAIN" ]; then
     echo "Using Rust toolchain override: $RUST_TOOLCHAIN"
 fi
 
-RUSTFLAGS_BASE="-C debuginfo=0 -C strip=symbols -C embed-bitcode=no -C link-dead-code=no"
+RUSTFLAGS_BASE="-C debuginfo=0 -C strip=debuginfo -C embed-bitcode=no -C link-dead-code=no"
 if [ "${WASMER_IOS_Z_SMALL:-0}" = "1" ]; then
     if [ "$RUST_TOOLCHAIN" != "nightly" ] && [[ "$RUST_TOOLCHAIN" != nightly-* ]]; then
         echo "WASMER_IOS_Z_SMALL=1 requires WASMER_IOS_TOOLCHAIN=nightly or a nightly-* toolchain."
@@ -88,6 +88,10 @@ rustup_target_add() {
 }
 
 strip_static_library() {
+    if [ "${WASMER_IOS_ARCHIVE_STRIP:-0}" != "1" ]; then
+        return 0
+    fi
+
     local library="$1"
     local strip_bin
     strip_bin="$(
@@ -124,6 +128,9 @@ rustup_target_add x86_64-apple-ios
 echo "Cleaning previous builds..."
 # cargo clean
 rm -rf WasmerRuntime.xcframework
+rm -f target/aarch64-apple-ios/release/libwasmer_ios.a
+rm -f target/aarch64-apple-ios-sim/release/libwasmer_ios.a
+rm -f target/x86_64-apple-ios/release/libwasmer_ios.a
 rm -rf target/universal-sim/release/libwasmer_ios.a
 
 # Build for iOS device (ARM64)

@@ -865,19 +865,11 @@ private func withMinimalWASMProcessEnvironment<T>(
     _ body: () -> T
 ) -> T {
     let snapshot = snapshotProcessEnvironment()
-    let retainedKeys = [
-        "CODIFYONE_HETGPU_ROOT",
-        "DYLD_FALLBACK_LIBRARY_PATH",
-        "DYLD_INSERT_LIBRARIES",
-        "DYLD_LIBRARY_PATH",
-        "HETGPU_APPLE_BACKEND",
-        "LD_LIBRARY_PATH",
+    var retainedKeys = [
         "PROTON_WASM_DISPLAY",
         "PROTON_WASM_DISPLAY_FORMAT",
         "PROTON_WASM_PREFIX_ROOT",
         "PROTON_WASM_RUNTIME_ROOT",
-        "WASM_CUDA_ACCEL",
-        "WASM_CUDA_BACKEND",
         "WASM_PREOPENS",
         "WASM_MAP_DIRS",
         "WASM_CWD",
@@ -885,6 +877,22 @@ private func withMinimalWASMProcessEnvironment<T>(
         "WASM_AOT_CACHE",
         "PWD",
     ]
+
+    let gpuRuntimeEnabled =
+        snapshot["WASM_CUDA_ACCEL"] == "1" || snapshot["HETGPU_APPLE_BACKEND"] != nil
+    if gpuRuntimeEnabled {
+        retainedKeys += [
+            "CODIFYONE_HETGPU_ROOT",
+            "DYLD_FALLBACK_LIBRARY_PATH",
+            "DYLD_INSERT_LIBRARIES",
+            "DYLD_LIBRARY_PATH",
+            "HETGPU_APPLE_BACKEND",
+            "LD_LIBRARY_PATH",
+            "WASM_CUDA_ACCEL",
+            "WASM_CUDA_BACKEND",
+        ]
+    }
+
     let retained = retainedKeys.reduce(into: [String: String]()) { result, key in
         if let value = snapshot[key], !value.isEmpty {
             result[key] = value
@@ -965,6 +973,10 @@ func clearWASMGPURuntimeEnv() {
     unsetenv("WASM_CUDA_BACKEND")
     unsetenv("HETGPU_APPLE_BACKEND")
     unsetenv("CODIFYONE_HETGPU_ROOT")
+    unsetenv("LD_LIBRARY_PATH")
+    unsetenv("DYLD_LIBRARY_PATH")
+    unsetenv("DYLD_FALLBACK_LIBRARY_PATH")
+    unsetenv("DYLD_INSERT_LIBRARIES")
 }
 
 func prependEnvPath(_ name: String, _ value: String) {

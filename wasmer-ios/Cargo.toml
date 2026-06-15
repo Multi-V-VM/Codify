@@ -35,4 +35,4 @@ codegen-units = 1   # Better optimization
 debug = 0           # Do not emit debug info into archive members
 incremental = false # Keep release builds deterministic and compact
 panic = "abort"     # Remove unwinding tables from the iOS static library
-strip = "symbols"   # Strip symbols where rustc can do so directly
+strip = "debuginfo" # Keep link-critical symbols in the static library

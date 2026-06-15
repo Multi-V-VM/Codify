@@ -40,6 +40,7 @@ class WebViewBase: KBWebViewBase {
     private var schemeHandler = SchemeHandler()
     var contextMenuConfiguration: ((Bool) -> UIMenu)?
     private var contextMenuSelectionStateScript = "editor.getSelection().isEmpty()"
+    private var contextMenuInteraction: UIContextMenuInteraction?
 
     init() {
         let config = WKWebViewConfiguration()
@@ -162,6 +163,12 @@ class WebViewBase: KBWebViewBase {
         longPressGesture.minimumPressDuration = 0.5
         longPressGesture.delegate = self
         self.addGestureRecognizer(longPressGesture)
+
+        if contextMenuInteraction == nil {
+            let interaction = UIContextMenuInteraction(delegate: self)
+            self.addInteraction(interaction)
+            contextMenuInteraction = interaction
+        }
     }
 
     @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
@@ -214,5 +221,18 @@ extension WebViewBase: UIGestureRecognizerDelegate {
         shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
     ) -> Bool {
         return true
+    }
+}
+
+extension WebViewBase: UIContextMenuInteractionDelegate {
+    func contextMenuInteraction(
+        _ interaction: UIContextMenuInteraction,
+        configurationForMenuAtLocation location: CGPoint
+    ) -> UIContextMenuConfiguration? {
+        guard contextMenuConfiguration != nil else { return nil }
+
+        return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
+            self?.contextMenuConfiguration?(false) ?? UIMenu(children: [])
+        }
     }
 }

@@ -247,15 +247,13 @@ class TerminalInstance: NSObject, WKScriptMessageHandler, WKNavigationDelegate, 
     private func buildContextMenu(hasSelection: Bool) -> UIMenu {
         var actions: [UIMenuElement] = []
 
-        if hasSelection {
-            actions.append(
-                UIAction(
-                    title: NSLocalizedString("Copy", comment: ""),
-                    image: UIImage(systemName: "doc.on.doc")
-                ) { [weak self] _ in
-                    self?.copySelectionToPasteboard()
-                })
-        }
+        actions.append(
+            UIAction(
+                title: NSLocalizedString("Copy", comment: ""),
+                image: UIImage(systemName: "doc.on.doc")
+            ) { [weak self] _ in
+                self?.copySelectionToPasteboard()
+            })
 
         actions.append(
             UIAction(
