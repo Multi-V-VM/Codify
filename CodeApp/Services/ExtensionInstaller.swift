@@ -72,7 +72,8 @@ class ExtensionInstaller {
         NSLog("✅ Extracted .vsix to temporary directory")
 
         // 3. Find and parse package.json manifest
-        let manifest = try parseManifest(in: tempDir)
+        let extensionSourceDir = try findExtensionRoot(in: tempDir)
+        let manifest = try parseManifest(in: extensionSourceDir)
         NSLog("✅ Parsed manifest: \(manifest.name) v\(manifest.version)")
 
         // 4. Check if already installed
@@ -92,15 +93,7 @@ class ExtensionInstaller {
             attributes: nil
         )
 
-        // 6. Find extension folder inside extracted archive
-        // .vsix structure: /extension/package.json and other files
-        let extensionSourceDir = tempDir.appendingPathComponent("extension")
-
-        guard FileManager.default.fileExists(atPath: extensionSourceDir.path) else {
-            throw InstallError.extractionFailed("extension folder not found in .vsix")
-        }
-
-        // 7. Move extension files to permanent location
+        // 6. Move extension files to permanent location
         try FileManager.default.moveItem(at: extensionSourceDir, to: targetDir)
         NSLog("✅ Installed extension to: \(targetDir.path)")
 
@@ -199,13 +192,45 @@ class ExtensionInstaller {
         }
     }
 
-    /// Parse package.json manifest from extracted extension
-    private func parseManifest(in directory: URL) throws -> ExtensionManifest {
-        // Look for package.json in /extension/package.json
-        let manifestURL =
-            directory
-            .appendingPathComponent("extension")
-            .appendingPathComponent("package.json")
+    /// Find the extension root inside an extracted VSIX archive.
+    private func findExtensionRoot(in directory: URL) throws -> URL {
+        let fileManager = FileManager.default
+        let standardRoot = directory.appendingPathComponent("extension", isDirectory: true)
+        if fileManager.fileExists(atPath: standardRoot.appendingPathComponent("package.json").path)
+        {
+            return standardRoot
+        }
+        if fileManager.fileExists(atPath: directory.appendingPathComponent("package.json").path) {
+            return directory
+        }
+
+        guard
+            let enumerator = fileManager.enumerator(
+                at: directory,
+                includingPropertiesForKeys: [.isRegularFileKey],
+                options: [.skipsHiddenFiles]
+            )
+        else {
+            throw InstallError.missingManifest
+        }
+
+        var candidates: [URL] = []
+        for case let fileURL as URL in enumerator where fileURL.lastPathComponent == "package.json"
+        {
+            candidates.append(fileURL.deletingLastPathComponent())
+        }
+
+        if let root = candidates.sorted(by: { $0.pathComponents.count < $1.pathComponents.count })
+            .first
+        {
+            return root
+        }
+        throw InstallError.missingManifest
+    }
+
+    /// Parse package.json manifest from extracted extension root.
+    private func parseManifest(in extensionRoot: URL) throws -> ExtensionManifest {
+        let manifestURL = extensionRoot.appendingPathComponent("package.json")
 
         guard FileManager.default.fileExists(atPath: manifestURL.path) else {
             throw InstallError.missingManifest

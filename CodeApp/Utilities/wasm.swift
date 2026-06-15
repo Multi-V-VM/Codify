@@ -6,6 +6,7 @@
 //  Backup of old implementation saved as wasm.swift.backup
 //
 
+import Darwin
 import Foundation
 import ios_system
 
@@ -23,6 +24,180 @@ func wasmer_execute(
 
 @_silgen_name("wasmer_version")
 func wasmer_version() -> UnsafePointer<Int8>
+
+@_silgen_name("_NSGetEnviron")
+func codifyNSGetEnviron() -> UnsafeMutablePointer<
+    UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?
+>
+
+private struct WASMImportEntry {
+    let module: String
+    let name: String
+    let kind: UInt8
+}
+
+private struct WASMMemoryEntry {
+    let minimumPages: UInt64
+    let maximumPages: UInt64?
+    let isShared: Bool
+}
+
+private struct WASMModuleSummary {
+    let imports: [WASMImportEntry]
+    let memories: [WASMMemoryEntry]
+    let hasStart: Bool
+    let exports: [String]
+}
+
+private func readWASMULEB(_ bytes: [UInt8], _ offset: inout Int, end: Int) -> UInt64? {
+    var result: UInt64 = 0
+    var shift: UInt64 = 0
+    while offset < end {
+        let byte = bytes[offset]
+        offset += 1
+        result |= UInt64(byte & 0x7F) << shift
+        if byte < 0x80 { return result }
+        shift += 7
+        if shift > 63 { return nil }
+    }
+    return nil
+}
+
+private func readWASMName(_ bytes: [UInt8], _ offset: inout Int, end: Int) -> String? {
+    guard let length = readWASMULEB(bytes, &offset, end: end) else { return nil }
+    let nameEnd = offset + Int(length)
+    guard nameEnd <= end else { return nil }
+    defer { offset = nameEnd }
+    return String(bytes: bytes[offset..<nameEnd], encoding: .utf8)
+}
+
+private func readWASMLimits(_ bytes: [UInt8], _ offset: inout Int, end: Int) -> WASMMemoryEntry? {
+    guard let flags = readWASMULEB(bytes, &offset, end: end),
+        let minimum = readWASMULEB(bytes, &offset, end: end)
+    else { return nil }
+    let maximum = (flags & 1) != 0 ? readWASMULEB(bytes, &offset, end: end) : nil
+    return WASMMemoryEntry(minimumPages: minimum, maximumPages: maximum, isShared: (flags & 2) != 0)
+}
+
+private func readWASMModuleSummary(from data: Data) -> WASMModuleSummary? {
+    let bytes = [UInt8](data)
+    guard bytes.count >= 8,
+        bytes[0] == 0x00, bytes[1] == 0x61, bytes[2] == 0x73, bytes[3] == 0x6D
+    else { return nil }
+
+    var offset = 8
+    var imports = [WASMImportEntry]()
+    var memories = [WASMMemoryEntry]()
+    var hasStart = false
+    var exports = [String]()
+
+    while offset < bytes.count {
+        let sectionID = bytes[offset]
+        offset += 1
+        guard let sectionSize = readWASMULEB(bytes, &offset, end: bytes.count) else { return nil }
+        let sectionEnd = offset + Int(sectionSize)
+        guard sectionEnd <= bytes.count else { return nil }
+
+        switch sectionID {
+        case 2:
+            guard let importCount = readWASMULEB(bytes, &offset, end: sectionEnd) else {
+                return nil
+            }
+            for _ in 0..<importCount {
+                guard let module = readWASMName(bytes, &offset, end: sectionEnd),
+                    let name = readWASMName(bytes, &offset, end: sectionEnd),
+                    offset < sectionEnd
+                else { return nil }
+                let kind = bytes[offset]
+                offset += 1
+                imports.append(WASMImportEntry(module: module, name: name, kind: kind))
+
+                switch kind {
+                case 0:
+                    _ = readWASMULEB(bytes, &offset, end: sectionEnd)
+                case 1:
+                    offset += 1
+                    guard readWASMLimits(bytes, &offset, end: sectionEnd) != nil else { return nil }
+                case 2:
+                    guard let memory = readWASMLimits(bytes, &offset, end: sectionEnd) else {
+                        return nil
+                    }
+                    memories.append(memory)
+                case 3:
+                    offset += 2
+                    guard offset <= sectionEnd else { return nil }
+                default:
+                    return nil
+                }
+            }
+        case 5:
+            guard let memoryCount = readWASMULEB(bytes, &offset, end: sectionEnd) else {
+                return nil
+            }
+            for _ in 0..<memoryCount {
+                guard let memory = readWASMLimits(bytes, &offset, end: sectionEnd) else {
+                    return nil
+                }
+                memories.append(memory)
+            }
+        case 7:
+            guard let exportCount = readWASMULEB(bytes, &offset, end: sectionEnd) else {
+                return nil
+            }
+            for _ in 0..<exportCount {
+                guard let name = readWASMName(bytes, &offset, end: sectionEnd), offset < sectionEnd
+                else { return nil }
+                offset += 1
+                _ = readWASMULEB(bytes, &offset, end: sectionEnd)
+                exports.append(name)
+            }
+        case 8:
+            hasStart = true
+        default:
+            break
+        }
+
+        offset = sectionEnd
+    }
+
+    return WASMModuleSummary(
+        imports: imports, memories: memories, hasStart: hasStart, exports: exports)
+}
+
+private func wasmRuntimeCompatibilityIssue(_ summary: WASMModuleSummary) -> String? {
+    for entry in summary.imports {
+        if entry.module.hasPrefix("wasix_") {
+            return
+                "module imports WASIX runtime feature \(entry.module).\(entry.name); rebuild it as WASI preview1"
+        }
+        if entry.module == "env", entry.name.hasPrefix("__wasi_") {
+            return
+                "module imports \(entry.module).\(entry.name); clang linked WASI syscalls with the wrong import ABI"
+        }
+        if entry.module == "env", entry.kind == 2 {
+            return
+                "module imports host memory env.\(entry.name), which this Wasmer bridge does not provide"
+        }
+    }
+
+    if summary.memories.isEmpty {
+        return "module defines no linear memory"
+    }
+
+    return nil
+}
+
+private func wasmModuleDiagnostic(_ summary: WASMModuleSummary) -> String {
+    let importModules = Set(summary.imports.map(\.module)).sorted().joined(separator: ",")
+    let memories = summary.memories.map { memory -> String in
+        let maximum = memory.maximumPages.map(String.init) ?? "none"
+        let shared = memory.isShared ? ",shared" : ""
+        return "\(memory.minimumPages)..\(maximum)\(shared)"
+    }.joined(separator: ",")
+    let hasStartExport = summary.exports.contains("_start")
+    return
+        "imports=[\(importModules)] memory=[\(memories)] startSection=\(summary.hasStart) exportsStart=\(hasStartExport)"
+}
 
 @_cdecl("wasm")
 public func wasm(argc: Int32, argv: UnsafeMutablePointer<UnsafeMutablePointer<Int8>?>?) -> Int32 {
@@ -113,9 +288,29 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
         return -1
     }
 
-    // Prepare arguments for the WASM module
-    // First argument should be the program name (wasm file)
-    let wasmArgs = [arguments[0]] + Array(arguments.dropFirst(commandOptions.wasmIndex))
+    guard let moduleSummary = readWASMModuleSummary(from: wasmData) else {
+        let stderr = thread_stderr ?? fdopen(STDERR_FILENO, "w")
+        fputs("wasm: input is not a valid WebAssembly module\n", stderr)
+        return -1
+    }
+
+    let stderr = thread_stderr ?? fdopen(STDERR_FILENO, "w")
+    fputs("wasm: module \(wasmModuleDiagnostic(moduleSummary))\n", stderr)
+    fflush(stderr)
+    if let issue = wasmRuntimeCompatibilityIssue(moduleSummary) {
+        fputs("wasm: \(issue)\n", stderr)
+        fflush(stderr)
+        return -1
+    }
+
+    // Prepare arguments for the WASM module. WASI argv[0] is a guest-visible
+    // program name; keep host container paths out of argv because the Wasmer
+    // bridge writes these strings into guest memory during args_get.
+    let userArgs = Array(arguments.dropFirst(commandOptions.wasmIndex + 1))
+    let wasmProgramName = URL(fileURLWithPath: fileName).lastPathComponent
+    let wasmArgs = [wasmProgramName] + userArgs
+    fputs("wasm: argvCount=\(wasmArgs.count) argv0=\(wasmProgramName)\n", stderr)
+    fflush(stderr)
 
     // Convert Swift strings to C strings
     var cStrings: [UnsafePointer<Int8>?] = wasmArgs.map { arg in
@@ -137,24 +332,33 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
     let stdoutFd: Int32 = (thread_stdout != nil) ? fileno(thread_stdout) : STDOUT_FILENO
     let stderrFd: Int32 = (thread_stderr != nil) ? fileno(thread_stderr) : STDERR_FILENO
 
-    // Execute WASM with native Wasmer
-    let exitCode = wasmData.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) -> Int32 in
-        guard let baseAddress = bytes.baseAddress else {
-            return -1
-        }
+    // Execute WASM with native Wasmer. The iOS bridge inherits process
+    // environment into WASI, so keep it tiny while the module starts.
+    let exitCode = withMinimalWASMProcessEnvironment(stderr: stderr) {
+        wasmData.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) -> Int32 in
+            guard let baseAddress = bytes.baseAddress else {
+                return -1
+            }
 
-        return cStrings.withUnsafeBufferPointer { argsBuffer in
-            return wasmer_execute(
-                baseAddress.assumingMemoryBound(to: UInt8.self),
-                bytes.count,
-                argsBuffer.baseAddress!,
-                wasmArgs.count,
-                stdinFd,
-                stdoutFd,
-                stderrFd
-            )
+            return cStrings.withUnsafeBufferPointer { argsBuffer in
+                return wasmer_execute(
+                    baseAddress.assumingMemoryBound(to: UInt8.self),
+                    bytes.count,
+                    argsBuffer.baseAddress!,
+                    wasmArgs.count,
+                    stdinFd,
+                    stdoutFd,
+                    stderrFd
+                )
+            }
         }
     }
+
+    fputs("wasm: exitCode=\(exitCode)\n", stderr)
+    if exitCode != 0 {
+        fputs("wasm: nonzero exit from Wasmer/WASI execution\n", stderr)
+    }
+    fflush(stderr)
 
     return exitCode
 }
@@ -269,6 +473,13 @@ func wasmTemporaryRuntimeURL(fileManager: FileManager = .default) -> URL {
     let uid = getuid()
     var candidates = [URL]()
 
+    candidates.append(
+        URL(fileURLWithPath: "/private/tmp", isDirectory: true)
+            .appendingPathComponent("CodifyOne-wasm-\(uid)", isDirectory: true))
+    candidates.append(
+        URL(fileURLWithPath: "/tmp", isDirectory: true)
+            .appendingPathComponent("CodifyOne-wasm-\(uid)", isDirectory: true))
+
     if let applicationSupportURL = try? fileManager.url(
         for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
     {
@@ -283,12 +494,6 @@ func wasmTemporaryRuntimeURL(fileManager: FileManager = .default) -> URL {
 
     candidates.append(
         wasmSysrootURL().appendingPathComponent("runtime", isDirectory: true))
-    candidates.append(
-        URL(fileURLWithPath: "/private/tmp", isDirectory: true)
-            .appendingPathComponent("CodifyOne-wasm-\(uid)", isDirectory: true))
-    candidates.append(
-        URL(fileURLWithPath: "/tmp", isDirectory: true)
-            .appendingPathComponent("CodifyOne-wasm-\(uid)", isDirectory: true))
 
     for candidate in candidates {
         let canonicalCandidate = candidate.standardizedFileURL.resolvingSymlinksInPath()
@@ -318,13 +523,19 @@ func safeWASMCurrentDirectory(_ currentDirectory: String) -> String {
     let runtimeFallbackPath =
         wasmEnsureHostDirectory(runtimeHomeURL.path) ? runtimeHomeURL.path : runtimeRootPath
 
+    if wasmHostDirectoryExists(currentDirectory), wasmHostPathIsWasmRuntime(currentDirectory) {
+        return currentDirectory
+    }
+
     if wasmHostPathIsAppContainer(currentDirectory)
-        && currentDirectory.hasSuffix("/Data/Documents")
+        && (currentDirectory.hasSuffix("/Documents")
+            || currentDirectory.hasSuffix("/Data/Documents"))
     {
         let stderr = thread_stderr ?? fdopen(STDERR_FILENO, "w")
         fputs(
             "wasm: using internal cwd because container Documents is not valid for Wasmer\n",
             stderr)
+        fflush(stderr)
         return runtimeFallbackPath
     }
 
@@ -341,6 +552,12 @@ func safeWASMCurrentDirectory(_ currentDirectory: String) -> String {
         "wasm: using temporary cwd because requested cwd is unavailable to Wasmer: \(currentDirectory)\n",
         stderr)
     return runtimeFallbackPath
+}
+
+func wasmHostPathIsWasmRuntime(_ path: String) -> Bool {
+    path.contains("/CodifyOne-wasm/")
+        || path.hasSuffix("/CodifyOne-wasm")
+        || path.contains("/CodifyOne-wasm-")
 }
 
 func wasmHostPathIsAppContainer(_ path: String) -> Bool {
@@ -542,9 +759,106 @@ func setupWASMSysroot(currentDirectory: String, gpuBackend: String? = nil) {
     setenv("WASM_GUEST_HOME", wasmCWD == "/" ? "/" : "/home", 1)
 
     // AOT artifact cache, used when the runtime selects a compiling engine.
-    let aotCache = homeURL.appendingPathComponent("Library/Caches/wasmer-aot")
+    // Keep it in the runtime root so Wasmer never receives an app-container path.
+    let aotCache = runtimeRootURL.appendingPathComponent("aot-cache", isDirectory: true)
     try? fileManager.createDirectory(at: aotCache, withIntermediateDirectories: true)
     setenv("WASM_AOT_CACHE", aotCache.path, 1)
+
+    logWASMRuntimeEnvironment(
+        wasmCWD: wasmCWD,
+        runtimeRootPath: runtimeRootPath,
+        preopens: preopens,
+        mapDirs: mapDirs,
+        aotCachePath: aotCache.path)
+}
+
+func logWASMRuntimeEnvironment(
+    wasmCWD: String,
+    runtimeRootPath: String,
+    preopens: [String],
+    mapDirs: [String],
+    aotCachePath: String
+) {
+    let stderr = thread_stderr ?? fdopen(STDERR_FILENO, "w")
+    let preopenLength = preopens.joined(separator: ":").utf8.count
+    let mapDirsLength = mapDirs.joined(separator: ";").utf8.count
+    fputs(
+        "wasm: env cwd=\(wasmCWD) runtime=\(runtimeRootPath) preopens=\(preopens.count)/\(preopenLength) mapDirs=\(mapDirs.count)/\(mapDirsLength) aotLen=\(aotCachePath.utf8.count)\n",
+        stderr)
+    fflush(stderr)
+}
+
+private func snapshotProcessEnvironment() -> [String: String] {
+    var snapshot = [String: String]()
+    guard let environment = codifyNSGetEnviron().pointee else { return snapshot }
+
+    var index = 0
+    while let entry = environment[index] {
+        let pair = String(cString: entry)
+        if let separator = pair.firstIndex(of: "=") {
+            let key = String(pair[..<separator])
+            let value = String(pair[pair.index(after: separator)...])
+            snapshot[key] = value
+        }
+        index += 1
+    }
+    return snapshot
+}
+
+private func setEnvironmentValue(_ name: String, _ value: String?) {
+    if let value {
+        setenv(name, value, 1)
+    } else {
+        unsetenv(name)
+    }
+}
+
+private func withMinimalWASMProcessEnvironment<T>(
+    stderr: UnsafeMutablePointer<FILE>?,
+    _ body: () -> T
+) -> T {
+    let snapshot = snapshotProcessEnvironment()
+    let retainedKeys = [
+        "WASM_PREOPENS",
+        "WASM_MAP_DIRS",
+        "WASM_CWD",
+        "WASM_GUEST_HOME",
+        "WASM_AOT_CACHE",
+        "PWD",
+    ]
+    let retained = retainedKeys.reduce(into: [String: String]()) { result, key in
+        if let value = snapshot[key], !value.isEmpty {
+            result[key] = value
+        }
+    }
+
+    for key in snapshot.keys {
+        unsetenv(key)
+    }
+    for (key, value) in retained {
+        setenv(key, value, 1)
+    }
+
+    let retainedLength = retained.reduce(0) { partial, entry in
+        partial + entry.key.utf8.count + entry.value.utf8.count + 2
+    }
+    if let stderr {
+        fputs(
+            "wasm: minimal env kept=\(retained.count)/\(retainedLength) original=\(snapshot.count)\n",
+            stderr)
+        fflush(stderr)
+    }
+
+    defer {
+        for key in snapshot.keys {
+            unsetenv(key)
+        }
+        for (key, value) in snapshot {
+            setenv(key, value, 1)
+        }
+    }
+
+    return body()
 }
 
 func configureWASMGPURuntime(backend explicitBackend: String?) -> URL? {

@@ -170,6 +170,11 @@ class Executor {
             return
         }
 
+        if ["wasm_cuda_ptx", "cuda_ptx", "cuda-ptx"].contains(cmdName) {
+            handleWasmCudaPTXCommand(command: command, completionHandler: completionHandler)
+            return
+        }
+
         // Check if executing a file directly (e.g., ./a.out, a.out, build/main.wasm)
         // If it's a WASM file, forward to wasm runtime
         if let wasmCommand = detectAndForwardWasmFile(command: command) {
@@ -314,11 +319,8 @@ class Executor {
         {
             filePath = currentWorkingDirectory.path + "/" + executable
         } else {
-            // Bare name (e.g. `a.out`, `main.wasm`): resolve against the working
-            // directory, but never shadow a real command — PATH lookup wins.
-            guard ios_executable(executable.toCString()) == 0 else {
-                return nil
-            }
+            // Bare name (e.g. `a.out`, `main.wasm`): prefer a WASM file in the
+            // current directory. Otherwise leave normal PATH commands alone.
             filePath = currentWorkingDirectory.path + "/" + executable
         }
 
@@ -343,10 +345,10 @@ class Executor {
             return nil
         }
 
-        // It's a WASM file! Forward to wasm runtime
-        // Preserve any arguments from the original command
+        // It's a WASM file. Forward to the runtime and preserve arguments.
         if components.count > 1 {
-            return "wasm \(filePath) \(components[1])"
+            let rest = components.dropFirst().joined(separator: " ")
+            return "wasm \(filePath) \(rest)"
         } else {
             return "wasm \(filePath)"
         }
@@ -401,14 +403,41 @@ class Executor {
         command: String,
         completionHandler: @escaping (Int32) -> Void
     ) {
+        handleBundledWasmCudaProbeCommand(
+            command: command,
+            resourceName: "cuda_oxide_probe",
+            commandName: "wasm_cuda_oxide",
+            backendFlag: "--gpu",
+            completionHandler: completionHandler)
+    }
+
+    private func handleWasmCudaPTXCommand(
+        command: String,
+        completionHandler: @escaping (Int32) -> Void
+    ) {
+        handleBundledWasmCudaProbeCommand(
+            command: command,
+            resourceName: "cuda_ptx_probe",
+            commandName: "wasm_cuda_ptx",
+            backendFlag: "--gpu-backend metal",
+            completionHandler: completionHandler)
+    }
+
+    private func handleBundledWasmCudaProbeCommand(
+        command: String,
+        resourceName: String,
+        commandName: String,
+        backendFlag: String,
+        completionHandler: @escaping (Int32) -> Void
+    ) {
         guard
             let wasmURL = Bundle.main.url(
-                forResource: "cuda_oxide_probe",
+                forResource: resourceName,
                 withExtension: "wasm")
         else {
             DispatchQueue.main.async {
                 self.receivedStderr(
-                    "wasm_cuda_oxide: bundled cuda_oxide_probe.wasm not found\r\n"
+                    "\(commandName): bundled \(resourceName).wasm not found\r\n"
                         .data(using: .utf8)!)
                 completionHandler(127)
             }
@@ -417,7 +446,7 @@ class Executor {
 
         let tokens = command.split(separator: " ").map(String.init)
         let rest = tokens.dropFirst().joined(separator: " ")
-        let wasmCommand = "wasm --gpu \(wasmURL.path)" + (rest.isEmpty ? "" : " \(rest)")
+        let wasmCommand = "wasm \(backendFlag) \(wasmURL.path)" + (rest.isEmpty ? "" : " \(rest)")
         handleWasmCommand(command: wasmCommand, completionHandler: completionHandler)
     }
 
@@ -447,9 +476,14 @@ class Executor {
             self.state = .running
             Thread.current.name = command
 
-            // Switch to ios_system session and set up streams
+            // Switch to ios_system session and set up streams. Wasmer cannot use
+            // the app container Documents directory as its host cwd, so run the
+            // bridge from a stable runtime directory while passing the module by
+            // absolute path.
             ios_switchSession(self.persistentIdentifier.toCString())
-            ios_setDirectoryURL(self.currentWorkingDirectory)
+            let wasmHostCWD = URL(
+                fileURLWithPath: safeWASMCurrentDirectory(self.currentWorkingDirectory.path))
+            ios_setDirectoryURL(wasmHostCWD)
             ios_setContext(UnsafeMutableRawPointer(mutating: self.persistentIdentifier.toCString()))
             ios_setStreams(self.stdin_file, self.stdout_file, self.stdout_file)
             let previousStdin = thread_stdin
@@ -458,6 +492,9 @@ class Executor {
             thread_stdin = self.stdin_file
             thread_stdout = self.stdout_file
             thread_stderr = self.stdout_file
+
+            fputs("wasm runner: \(command)\n", self.stdout_file)
+            fflush(self.stdout_file)
 
             // Parse command into argc/argv
             let components = command.split(separator: " ").map { String($0) }
