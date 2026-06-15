@@ -12,8 +12,8 @@
         {
           "glass" : true,
           "hidden" : false,
-          "image-name" : "Rectangle 2-2.svg",
-          "name" : "Rectangle 2-2"
+          "image-name" : "favicon.png",
+          "name" : "favicon"
         }
       ],
       "lighting" : "individual",

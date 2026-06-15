@@ -52,6 +52,18 @@ embed_ios_system_framework() {
     ditto "$source_framework" "$destination_framework"
     rm -rf "$destination_framework/Headers" "$destination_framework/PrivateHeaders"
 
+    local destination_binary="$destination_framework/ios_system"
+    if [[ -f "$destination_binary" ]]; then
+        local bitcode_strip_tool=""
+        bitcode_strip_tool="$(xcrun --find bitcode_strip 2>/dev/null || true)"
+        if [[ -n "$bitcode_strip_tool" ]]; then
+            "$bitcode_strip_tool" "$destination_binary" -r -o "$destination_binary"
+            echo "Stripped bitcode from $destination_binary"
+        else
+            echo "warning: bitcode_strip not found; ios_system may fail App Store validation" >&2
+        fi
+    fi
+
     if [[ "${CODE_SIGNING_ALLOWED:-YES}" != "NO" ]]; then
         local signing_identity="${EXPANDED_CODE_SIGN_IDENTITY:-}"
         if [[ -z "$signing_identity" ]]; then
