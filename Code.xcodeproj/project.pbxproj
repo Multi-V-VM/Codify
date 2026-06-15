@@ -980,6 +980,8 @@
 		C0DA0A022F66000100000002 /* cuda_oxide_probe.wasm in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0A002F66000100000000 /* cuda_oxide_probe.wasm */; };
 		C0DA0C012F66020100000001 /* cuda_ptx_probe.wasm in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0C002F66020100000000 /* cuda_ptx_probe.wasm */; };
 		C0DA0C022F66020100000002 /* cuda_ptx_probe.wasm in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0C002F66020100000000 /* cuda_ptx_probe.wasm */; };
+		C0DA0D012F66030100000001 /* proton_display_probe.wasm in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0D002F66030100000000 /* proton_display_probe.wasm */; };
+		C0DA0D022F66030100000002 /* proton_display_probe.wasm in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0D002F66030100000000 /* proton_display_probe.wasm */; };
 		C0DA0B012F66010100000001 /* CudaAppleBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DA0B002F66010100000000 /* CudaAppleBridge.swift */; };
 		C0DA0B022F66010100000002 /* CudaAppleBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DA0B002F66010100000000 /* CudaAppleBridge.swift */; };
 		F97209422F46383C00DA803A /* DebuggerExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97209402F46383C00DA803A /* DebuggerExtension.swift */; };
@@ -2155,6 +2157,7 @@
 		AAC4000630000001000000A6 /* ane_q8_kernel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ane_q8_kernel.h; sourceTree = "<group>"; };
 		C0DA0A002F66000100000000 /* cuda_oxide_probe.wasm */ = {isa = PBXFileReference; lastKnownFileType = file; path = cuda_oxide_probe.wasm; sourceTree = "<group>"; };
 		C0DA0C002F66020100000000 /* cuda_ptx_probe.wasm */ = {isa = PBXFileReference; lastKnownFileType = file; path = cuda_ptx_probe.wasm; sourceTree = "<group>"; };
+		C0DA0D002F66030100000000 /* proton_display_probe.wasm */ = {isa = PBXFileReference; lastKnownFileType = file; path = proton_display_probe.wasm; sourceTree = "<group>"; };
 		C0DA0B002F66010100000000 /* CudaAppleBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CudaAppleBridge.swift; sourceTree = "<group>"; };
 		F97209402F46383C00DA803A /* DebuggerExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebuggerExtension.swift; sourceTree = "<group>"; };
 		F97209442F4638C200DA803A /* DebuggerSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebuggerSidebarView.swift; sourceTree = "<group>"; };
@@ -2552,6 +2555,7 @@
 				94AA00012E7F886A00BBCC01 /* node.wasm */,
 				C0DA0A002F66000100000000 /* cuda_oxide_probe.wasm */,
 				C0DA0C002F66020100000000 /* cuda_ptx_probe.wasm */,
+				C0DA0D002F66030100000000 /* proton_display_probe.wasm */,
 			);
 			path = NodeJS;
 			sourceTree = "<group>";
@@ -3756,6 +3760,7 @@
 				94AA00022E7F886A00BBCC02 /* node.wasm in Resources */,
 				C0DA0A012F66000100000001 /* cuda_oxide_probe.wasm in Resources */,
 				C0DA0C012F66020100000001 /* cuda_ptx_probe.wasm in Resources */,
+				C0DA0D012F66030100000001 /* proton_display_probe.wasm in Resources */,
 				F9FE0DBE2F594A00008DFB0E /* Qwen3.5-0.8B-Q8_0.gguf in Resources */,
 				941969A6280316C7008AAEB2 /* terminal.bundle in Resources */,
 				941969A7280316C7008AAEB2 /* LaunchScreen.storyboard in Resources */,
@@ -3795,6 +3800,7 @@
 				94AA00032E7F886A00BBCC03 /* node.wasm in Resources */,
 				C0DA0A022F66000100000002 /* cuda_oxide_probe.wasm in Resources */,
 				C0DA0C022F66020100000002 /* cuda_ptx_probe.wasm in Resources */,
+				C0DA0D022F66030100000002 /* proton_display_probe.wasm in Resources */,
 				F9FE0DBF2F594A00008DFB0E /* Qwen3.5-0.8B-Q8_0.gguf in Resources */,
 				94B3D6DE25F77AFE00C4F2B1 /* Library in Resources */,
 				948D127C2583F734008F877A /* terminal.bundle in Resources */,

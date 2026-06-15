@@ -726,7 +726,7 @@ private func setupEnvironment() {
     ).path
     setenv(
         "CCC_OVERRIDE_OPTIONS",
-        "#^--target=wasm32-wasi +-fno-exceptions +-lc-printscan-long-double +-Wl,--allow-undefined-file=\(wasiImports)",
+        "#^--target=wasm32-wasi +-fno-exceptions +-lc-printscan-long-double +-Wl,-z,stack-size=1048576 +-Wl,--initial-memory=16777216 +-Wl,--allow-undefined-file=\(wasiImports)",
         1)
     setenv("MAKESYSPATH", Bundle.main.resourcePath! + "ClangLib/usr/share/mk", 1)
     setenv("PHPRC", bundleUrl.path.toCString(), 1)

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::ffi::{CStr, CString};
 use std::io::SeekFrom;
 use std::os::raw::{c_char, c_void};
@@ -7,15 +7,15 @@ use std::path::Path;
 use std::pin::Pin;
 use std::ptr;
 use std::slice;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
-use wasmer::{
+use wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager;
+use wasmer_wasix::virtual_fs::{FsError, VirtualFile};
+use wasmer_wasix::wasmer::{
     ExternType, Function, FunctionEnv, FunctionEnvMut, Imports, Instance, Memory, Module, Store,
     Type, Value,
 };
-use wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager;
-use wasmer_wasix::virtual_fs::{FsError, VirtualFile};
 use wasmer_wasix::{PluggableRuntime, WasiEnvBuilder, WasiFunctionEnv};
 
 const CUDA_SUCCESS: i32 = 0;
@@ -27,6 +27,48 @@ const CUDA_MEMCPY_DEVICE_TO_HOST: i32 = 2;
 const CUDA_MEMCPY_DEVICE_TO_DEVICE: i32 = 3;
 const CUBLAS_OP_N: i32 = 0;
 const HETGPU_CUDA_R_32F: i32 = 0;
+const PROTON_WASM_DISPLAY_FORMAT_RGBA8: i32 = 1;
+const PROTON_WASM_DISPLAY_ERROR_INVALID_VALUE: i32 = 1;
+
+#[repr(C)]
+pub struct WasmerDisplayFrame {
+    width: u32,
+    height: u32,
+    stride: u32,
+    format: u32,
+    data: *const u8,
+    data_len: usize,
+    frame_id: u64,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct WasmerDisplayInputEvent {
+    event_type: u32,
+    code: u32,
+    x: i32,
+    y: i32,
+    value: i32,
+    modifiers: u32,
+}
+
+type WasmerDisplayFrameCallback = unsafe extern "C" fn(*const WasmerDisplayFrame, *mut c_void);
+
+#[derive(Clone, Copy)]
+struct DisplayCallbackState {
+    callback: Option<WasmerDisplayFrameCallback>,
+    user_data: usize,
+}
+
+static DISPLAY_CALLBACK: Mutex<DisplayCallbackState> = Mutex::new(DisplayCallbackState {
+    callback: None,
+    user_data: 0,
+});
+static DISPLAY_INPUT_EVENTS: OnceLock<Mutex<VecDeque<WasmerDisplayInputEvent>>> = OnceLock::new();
+
+fn display_input_events() -> &'static Mutex<VecDeque<WasmerDisplayInputEvent>> {
+    DISPLAY_INPUT_EVENTS.get_or_init(|| Mutex::new(VecDeque::new()))
+}
 
 type LegacyAppleSgemmFn = unsafe extern "C" fn(
     *const f32,
@@ -121,6 +163,7 @@ struct CudaBridge {
     modules: HashMap<u32, PtxModule>,
     next_function_handle: u32,
     functions: HashMap<u32, PtxFunction>,
+    next_display_frame_id: u64,
 }
 
 impl CudaBridge {
@@ -135,6 +178,7 @@ impl CudaBridge {
             modules: HashMap::new(),
             next_function_handle: 0xf00d0000,
             functions: HashMap::new(),
+            next_display_frame_id: 1,
         }
     }
 
@@ -177,6 +221,12 @@ impl CudaBridge {
         self.next_function_handle = self.next_function_handle.checked_add(1)?;
         self.functions.insert(handle, function);
         Some(handle)
+    }
+
+    fn allocate_display_frame_id(&mut self) -> u64 {
+        let frame_id = self.next_display_frame_id;
+        self.next_display_frame_id = self.next_display_frame_id.wrapping_add(1).max(1);
+        frame_id
     }
 }
 
@@ -409,10 +459,13 @@ async fn execute_wasm_async(
     let task_manager = Arc::new(TokioTaskManager::new(tokio::runtime::Handle::current()));
     let runtime = Arc::new(PluggableRuntime::new(task_manager));
 
-    let mut wasi_env_builder = WasiEnvBuilder::new("wasmer").runtime(runtime);
+    let program_name = args.first().map(String::as_str).unwrap_or("wasmer");
+    let mut wasi_env_builder = WasiEnvBuilder::new(program_name).runtime(runtime);
 
-    // Add arguments
-    for arg in args {
+    // Add arguments after argv[0]. WasiEnvBuilder::new() already sets the
+    // command name, so adding args[0] again shifts argv and can corrupt WASI
+    // startup expectations in libc-built command modules.
+    for arg in args.iter().skip(1) {
         wasi_env_builder = wasi_env_builder.arg(arg);
     }
 
@@ -468,10 +521,11 @@ async fn execute_wasm_async(
         }
     }
 
-    // Start the guest in the host working directory so relative paths behave
-    // like a normal binary launched from the shell.
+    // Start the guest in a mapped guest directory only. "/" is the guest root,
+    // but Path::new("/") is also a valid host path on iOS; passing it through
+    // here makes the runtime use the host root as cwd, which is not intended.
     if let Ok(cwd) = std::env::var("WASM_CWD") {
-        if Path::new(&cwd).is_dir() {
+        if cwd != "/" && Path::new(&cwd).is_dir() {
             wasi_env_builder = wasi_env_builder.current_dir(cwd);
         }
     }
@@ -479,8 +533,8 @@ async fn execute_wasm_async(
     // CUDA/cuBLAS-flavored WASM needs host imports in addition to WASI. Keep
     // the standard WASIX instantiation path for normal modules, because it also
     // handles imported memories and dynamic-linking details.
-    let (instance, _wasi_env) = if module_has_cuda_imports(&module) {
-        instantiate_wasi_with_cuda(wasi_env_builder, module.clone(), &mut store)?
+    let (instance, _wasi_env) = if module_needs_host_imports(&module) {
+        instantiate_wasi_with_host_imports(wasi_env_builder, module.clone(), &mut store)?
     } else {
         wasi_env_builder
             .instantiate(module.clone(), &mut store)
@@ -609,20 +663,37 @@ fn module_has_cuda_imports(module: &Module) -> bool {
     })
 }
 
+fn module_has_display_imports(module: &Module) -> bool {
+    module.imports().any(|import| {
+        import.module() == "env"
+            && matches!(
+                import.name(),
+                "proton_wasm_display_configure"
+                    | "proton_wasm_present_rgba"
+                    | "proton_wasm_set_window_title"
+                    | "proton_wasm_poll_input_event"
+            )
+    })
+}
+
+fn module_needs_host_imports(module: &Module) -> bool {
+    module_has_cuda_imports(module) || module_has_display_imports(module)
+}
+
 fn module_has_imported_memory(module: &Module) -> bool {
     module
         .imports()
         .any(|import| matches!(import.ty(), ExternType::Memory(_)))
 }
 
-fn instantiate_wasi_with_cuda(
+fn instantiate_wasi_with_host_imports(
     wasi_env_builder: WasiEnvBuilder,
     module: Module,
     store: &mut Store,
 ) -> Result<(Instance, WasiFunctionEnv), Box<dyn std::error::Error>> {
     if module_has_imported_memory(&module) {
         return Err(
-            "CUDA bridge currently supports modules that export their linear memory".into(),
+            "host import bridge currently supports modules that export their linear memory".into(),
         );
     }
 
@@ -634,14 +705,19 @@ fn instantiate_wasi_with_cuda(
         .map_err(|e| format!("Failed to create WASI imports: {}", e))?;
 
     let cuda_env = FunctionEnv::new(store, CudaBridge::new());
-    define_cuda_imports(store, &mut imports, &cuda_env);
+    if module_has_cuda_imports(&module) {
+        define_cuda_imports(store, &mut imports, &cuda_env);
+    }
+    if module_has_display_imports(&module) {
+        define_display_imports(store, &mut imports, &cuda_env);
+    }
 
     let instance = Instance::new(store, &module, &imports)
-        .map_err(|e| format!("Failed to instantiate CUDA WASI module: {}", e))?;
+        .map_err(|e| format!("Failed to instantiate host-import WASI module: {}", e))?;
     let memory = instance
         .exports
         .get_memory("memory")
-        .map_err(|e| format!("CUDA WASM module must export memory: {}", e))?
+        .map_err(|e| format!("host-import WASM module must export memory: {}", e))?
         .clone();
 
     cuda_env.as_mut(store).memory = Some(memory);
@@ -650,6 +726,10 @@ fn instantiate_wasi_with_cuda(
         .map_err(|e| format!("Failed to initialize WASI environment: {}", e))?;
 
     Ok((instance, wasi_env))
+}
+
+fn define_display_imports(store: &mut Store, imports: &mut Imports, env: &FunctionEnv<CudaBridge>) {
+    let _ = (store, imports, env);
 }
 
 fn define_cuda_imports(store: &mut Store, imports: &mut Imports, env: &FunctionEnv<CudaBridge>) {
@@ -867,6 +947,138 @@ fn read_guest_f32(ctx: &mut FunctionEnvMut<CudaBridge>, ptr: i32) -> Option<f32>
     Some(f32::from_le_bytes(bytes.try_into().ok()?))
 }
 
+fn emit_display_frame(
+    data: &[u8],
+    width: u32,
+    height: u32,
+    stride: u32,
+    format: u32,
+    frame_id: u64,
+) -> i32 {
+    let callback_state = match DISPLAY_CALLBACK.lock() {
+        Ok(state) => *state,
+        Err(_) => return PROTON_WASM_DISPLAY_ERROR_INVALID_VALUE,
+    };
+
+    if let Some(callback) = callback_state.callback {
+        let frame = WasmerDisplayFrame {
+            width,
+            height,
+            stride,
+            format,
+            data: data.as_ptr(),
+            data_len: data.len(),
+            frame_id,
+        };
+        unsafe {
+            callback(&frame, callback_state.user_data as *mut c_void);
+        }
+    }
+
+    0
+}
+
+fn proton_wasm_display_configure(
+    _ctx: FunctionEnvMut<CudaBridge>,
+    width: i32,
+    height: i32,
+    format: i32,
+) -> i32 {
+    if width <= 0 || height <= 0 || format != PROTON_WASM_DISPLAY_FORMAT_RGBA8 {
+        return PROTON_WASM_DISPLAY_ERROR_INVALID_VALUE;
+    }
+    0
+}
+
+fn proton_wasm_present_rgba(
+    mut ctx: FunctionEnvMut<CudaBridge>,
+    data_ptr: i32,
+    width: i32,
+    height: i32,
+    stride: i32,
+) -> i32 {
+    let width = match checked_positive_i32(width) {
+        Some(width) if width > 0 => width,
+        _ => return PROTON_WASM_DISPLAY_ERROR_INVALID_VALUE,
+    };
+    let height = match checked_positive_i32(height) {
+        Some(height) if height > 0 => height,
+        _ => return PROTON_WASM_DISPLAY_ERROR_INVALID_VALUE,
+    };
+    let stride = match checked_positive_i32(stride) {
+        Some(stride) if stride >= width.saturating_mul(4) => stride,
+        _ => return PROTON_WASM_DISPLAY_ERROR_INVALID_VALUE,
+    };
+    let byte_len = match stride.checked_mul(height) {
+        Some(len) if len <= 64 * 1024 * 1024 => len,
+        _ => return PROTON_WASM_DISPLAY_ERROR_INVALID_VALUE,
+    };
+    let bytes = match read_guest_memory(&mut ctx, data_ptr, byte_len) {
+        Some(bytes) => bytes,
+        None => return PROTON_WASM_DISPLAY_ERROR_INVALID_VALUE,
+    };
+    let frame_id = ctx.data_mut().allocate_display_frame_id();
+
+    emit_display_frame(
+        &bytes,
+        width as u32,
+        height as u32,
+        stride as u32,
+        PROTON_WASM_DISPLAY_FORMAT_RGBA8 as u32,
+        frame_id,
+    )
+}
+
+fn proton_wasm_set_window_title(
+    mut ctx: FunctionEnvMut<CudaBridge>,
+    title_ptr: i32,
+    title_len: i32,
+) -> i32 {
+    let title_len = match checked_positive_i32(title_len) {
+        Some(title_len) if title_len <= 4096 => title_len,
+        _ => return PROTON_WASM_DISPLAY_ERROR_INVALID_VALUE,
+    };
+    let Some(title) = read_guest_memory(&mut ctx, title_ptr, title_len) else {
+        return PROTON_WASM_DISPLAY_ERROR_INVALID_VALUE;
+    };
+
+    if let Ok(title) = String::from_utf8(title) {
+        eprintln!("wasmer-ios: proton display title: {}", title);
+    }
+    0
+}
+
+fn proton_wasm_poll_input_event(
+    mut ctx: FunctionEnvMut<CudaBridge>,
+    event_ptr: i32,
+    event_size: i32,
+) -> i32 {
+    let event_size = match checked_positive_i32(event_size) {
+        Some(size) if size >= std::mem::size_of::<WasmerDisplayInputEvent>() => size,
+        _ => return -PROTON_WASM_DISPLAY_ERROR_INVALID_VALUE,
+    };
+
+    let event = match display_input_events().lock() {
+        Ok(mut queue) => queue.pop_front(),
+        Err(_) => return -PROTON_WASM_DISPLAY_ERROR_INVALID_VALUE,
+    };
+    let Some(event) = event else {
+        return 0;
+    };
+
+    let bytes = unsafe {
+        std::slice::from_raw_parts(
+            (&event as *const WasmerDisplayInputEvent).cast::<u8>(),
+            std::mem::size_of::<WasmerDisplayInputEvent>(),
+        )
+    };
+    if write_guest_memory(&mut ctx, event_ptr, bytes).is_none() {
+        return -PROTON_WASM_DISPLAY_ERROR_INVALID_VALUE;
+    }
+    let _ = event_size;
+    1
+}
+
 fn device_allocation_bytes(ctx: &FunctionEnvMut<CudaBridge>, ptr: i32) -> Option<Vec<u8>> {
     if ptr < 0 {
         return None;
@@ -996,21 +1208,18 @@ fn resolve_host_mem_free() -> Option<HostCuMemFreeFn> {
 }
 
 fn resolve_host_memcpy_hto_d() -> Option<HostCuMemcpyHtoDFn> {
-    resolve_symbol(b"cuMemcpyHtoD_v2\0").map(|resolved| unsafe {
-        std::mem::transmute::<*mut c_void, HostCuMemcpyHtoDFn>(resolved)
-    })
+    resolve_symbol(b"cuMemcpyHtoD_v2\0")
+        .map(|resolved| unsafe { std::mem::transmute::<*mut c_void, HostCuMemcpyHtoDFn>(resolved) })
 }
 
 fn resolve_host_memcpy_dto_h() -> Option<HostCuMemcpyDtoHFn> {
-    resolve_symbol(b"cuMemcpyDtoH_v2\0").map(|resolved| unsafe {
-        std::mem::transmute::<*mut c_void, HostCuMemcpyDtoHFn>(resolved)
-    })
+    resolve_symbol(b"cuMemcpyDtoH_v2\0")
+        .map(|resolved| unsafe { std::mem::transmute::<*mut c_void, HostCuMemcpyDtoHFn>(resolved) })
 }
 
 fn resolve_host_memcpy_dto_d() -> Option<HostCuMemcpyDtoDFn> {
-    resolve_symbol(b"cuMemcpyDtoD_v2\0").map(|resolved| unsafe {
-        std::mem::transmute::<*mut c_void, HostCuMemcpyDtoDFn>(resolved)
-    })
+    resolve_symbol(b"cuMemcpyDtoD_v2\0")
+        .map(|resolved| unsafe { std::mem::transmute::<*mut c_void, HostCuMemcpyDtoDFn>(resolved) })
 }
 
 fn try_host_mem_alloc(size: usize) -> Option<usize> {
@@ -1442,7 +1651,11 @@ fn cu_device_get_name(
     CUDA_SUCCESS
 }
 
-fn cu_device_total_mem_v2(mut ctx: FunctionEnvMut<CudaBridge>, bytes_ptr: i32, _device: i32) -> i32 {
+fn cu_device_total_mem_v2(
+    mut ctx: FunctionEnvMut<CudaBridge>,
+    bytes_ptr: i32,
+    _device: i32,
+) -> i32 {
     if write_guest_u32(&mut ctx, bytes_ptr, 512 * 1024 * 1024).is_none() {
         return CUDA_ERROR_INVALID_VALUE;
     }
@@ -1584,7 +1797,10 @@ fn cu_module_load_data(
         None
     };
 
-    let handle = match ctx.data_mut().allocate_module_handle(PtxModule { ptx, host_module }) {
+    let handle = match ctx
+        .data_mut()
+        .allocate_module_handle(PtxModule { ptx, host_module })
+    {
         Some(handle) => handle,
         None => return CUDA_ERROR_INVALID_VALUE,
     };
@@ -1743,14 +1959,11 @@ fn cu_launch_kernel(
         return CUDA_ERROR_NOT_SUPPORTED;
     };
 
-    let mut host_params = match build_host_kernel_params(
-        &mut ctx,
-        &function_data.params,
-        kernel_params,
-    ) {
-        Ok(params) => params,
-        Err(rc) => return rc,
-    };
+    let mut host_params =
+        match build_host_kernel_params(&mut ctx, &function_data.params, kernel_params) {
+            Ok(params) => params,
+            Err(rc) => return rc,
+        };
     let params_ptr = if host_params.pointers.is_empty() {
         ptr::null_mut()
     } else {
@@ -1894,9 +2107,8 @@ fn cuda_memcpy(
             allocation.bytes[..size].copy_from_slice(&bytes[..size]);
             if let (Some(dst_host), Some(src_host)) = (allocation.host_device_ptr, src_host) {
                 if let Some(copy) = resolve_host_memcpy_dto_d() {
-                    let rc = unsafe {
-                        copy(dst_host as *mut c_void, src_host as *const c_void, size)
-                    };
+                    let rc =
+                        unsafe { copy(dst_host as *mut c_void, src_host as *const c_void, size) };
                     if rc != CUDA_SUCCESS {
                         return rc;
                     }
@@ -2068,7 +2280,7 @@ fn create_store() -> (Store, bool) {
     #[cfg(feature = "cranelift")]
     {
         if jit_available() {
-            use wasmer::sys::{Cranelift, EngineBuilder};
+            use wasmer_wasix::wasmer::sys::{Cranelift, EngineBuilder};
             let engine = EngineBuilder::new(Cranelift::default()).engine();
             return (Store::new(engine), true);
         }
@@ -2129,7 +2341,7 @@ fn load_module(
     Ok(Module::new(store, wasm_bytes)?)
 }
 
-fn extract_exit_code(error: &wasmer::RuntimeError) -> Option<i32> {
+fn extract_exit_code(error: &wasmer_wasix::wasmer::RuntimeError) -> Option<i32> {
     // Try to extract WASI exit code from error
     // WASI programs exit by calling proc_exit, which causes a trap
     let error_msg = error.to_string();
@@ -2146,6 +2358,47 @@ fn extract_exit_code(error: &wasmer::RuntimeError) -> Option<i32> {
 pub extern "C" fn wasmer_version() -> *const c_char {
     static VERSION: &str = concat!("Wasmer iOS Runtime v", env!("CARGO_PKG_VERSION"), "\0");
     VERSION.as_ptr() as *const c_char
+}
+
+#[no_mangle]
+pub extern "C" fn wasmer_set_display_frame_callback(
+    callback: Option<WasmerDisplayFrameCallback>,
+    user_data: *mut c_void,
+) {
+    if let Ok(mut state) = DISPLAY_CALLBACK.lock() {
+        state.callback = callback;
+        state.user_data = user_data as usize;
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn wasmer_display_enqueue_input_event(
+    event_type: u32,
+    code: u32,
+    x: i32,
+    y: i32,
+    value: i32,
+    modifiers: u32,
+) -> i32 {
+    let event = WasmerDisplayInputEvent {
+        event_type,
+        code,
+        x,
+        y,
+        value,
+        modifiers,
+    };
+
+    match display_input_events().lock() {
+        Ok(mut queue) => {
+            if queue.len() >= 1024 {
+                queue.pop_front();
+            }
+            queue.push_back(event);
+            0
+        }
+        Err(_) => -1,
+    }
 }
 
 #[cfg(test)]

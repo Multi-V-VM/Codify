@@ -15,7 +15,8 @@ cranelift = ["wasmer/cranelift"]
 
 [dependencies]
 wasmer = { path = "./wasmer/lib/api", default-features = false, features = ["wasmi-default", "cranelift"] }
-wasmer-wasix = "0.701.0"
+wasmer7 = { package = "wasmer", version = "7.1.0", default-features = false, features = ["sys", "cranelift"] }
+wasmer-wasix = { version = "0.701.0", features = ["sys-default"] }
 tokio = { version = "1", features = ["rt", "sync"] }
 libc = "0.2.186"
 nix = { version = "0.27", features = ["fs"] }
@@ -29,6 +30,6 @@ wasmer-derive = { path = "./wasmer/lib/derive" }
 
 [profile.release]
 opt-level = "z"     # Optimize for size
-lto = true          # Enable Link Time Optimization
+lto = false         # Avoid iOS staticlib bitcode/LTO duplicate-symbol issues
 codegen-units = 1   # Better optimization
 strip = true        # Strip symbols

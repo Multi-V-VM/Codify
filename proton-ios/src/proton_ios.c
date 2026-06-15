@@ -18,6 +18,16 @@ extern int32_t wasmer_execute(
     int32_t stdin_fd,
     int32_t stdout_fd,
     int32_t stderr_fd);
+extern void wasmer_set_display_frame_callback(
+    proton_ios_display_frame_callback_t callback,
+    void *user_data);
+extern int32_t wasmer_display_enqueue_input_event(
+    uint32_t event_type,
+    uint32_t code,
+    int32_t x,
+    int32_t y,
+    int32_t value,
+    uint32_t modifiers);
 
 static int g_initialized;
 static char g_last_error[256];
@@ -408,6 +418,8 @@ static int configure_wasm_env(const char *module_path, const char *exe_path, cha
     setenv("PROTON_IOS_PREFIX_ROOT", g_prefix_root, 1);
     setenv("PROTON_WASM_RUNTIME_ROOT", g_runtime_root, 1);
     setenv("PROTON_WASM_PREFIX_ROOT", g_prefix_root, 1);
+    setenv("PROTON_WASM_DISPLAY", "webview", 1);
+    setenv("PROTON_WASM_DISPLAY_FORMAT", "rgba8", 1);
     setenv("WINEPREFIX", "/wineprefix", 1);
     setenv("WASM_GUEST_HOME", "/wineprefix", 1);
     setenv("HOME", g_prefix_root, 0);
@@ -476,6 +488,47 @@ int proton_ios_configure_gpu(proton_ios_gpu_backend_t backend, const char *devic
 
     g_gpu_backend = backend;
     copy_cstr(g_gpu_device_hint, sizeof(g_gpu_device_hint), device_hint);
+    g_last_error[0] = '\0';
+    return PROTON_IOS_OK;
+}
+
+int proton_ios_set_display_frame_callback(
+    proton_ios_display_frame_callback_t callback,
+    void *user_data)
+{
+    wasmer_set_display_frame_callback(callback, user_data);
+    g_last_error[0] = '\0';
+    return PROTON_IOS_OK;
+}
+
+int proton_ios_enqueue_input_event(
+    proton_ios_input_event_type_t event_type,
+    uint32_t code,
+    int32_t x,
+    int32_t y,
+    int32_t value,
+    uint32_t modifiers)
+{
+    int32_t result;
+
+    switch (event_type) {
+    case PROTON_IOS_INPUT_NONE:
+    case PROTON_IOS_INPUT_POINTER_DOWN:
+    case PROTON_IOS_INPUT_POINTER_UP:
+    case PROTON_IOS_INPUT_POINTER_MOVE:
+    case PROTON_IOS_INPUT_WHEEL:
+    case PROTON_IOS_INPUT_KEY_DOWN:
+    case PROTON_IOS_INPUT_KEY_UP:
+        break;
+    default:
+        return set_error(PROTON_IOS_ERROR_INVALID_ARGUMENT, "unsupported input event type");
+    }
+
+    result = wasmer_display_enqueue_input_event((uint32_t)event_type, code, x, y, value, modifiers);
+    if (result != 0) {
+        return set_error(PROTON_IOS_ERROR_RUNTIME, "failed to enqueue display input event");
+    }
+
     g_last_error[0] = '\0';
     return PROTON_IOS_OK;
 }

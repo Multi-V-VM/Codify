@@ -49,6 +49,7 @@ mkdir -p "$BUILD_DIR" "$(dirname "$OUT")"
   -I"$ROOT_DIR/include" \
   "$ROOT_DIR/src/proton_wasm.c" \
   -Wl,--no-entry \
+  -Wl,--allow-undefined \
   -Wl,--export=proton_wasm_abi_version \
   -Wl,--export=proton_wasm_initialize \
   -Wl,--export=proton_wasm_configure_gpu \

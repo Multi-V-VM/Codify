@@ -56,6 +56,35 @@ int32_t wasmer_execute(
  */
 const char* wasmer_version(void);
 
+typedef struct wasmer_display_frame {
+    uint32_t width;
+    uint32_t height;
+    uint32_t stride;
+    uint32_t format;
+    const uint8_t *data;
+    size_t data_len;
+    uint64_t frame_id;
+} wasmer_display_frame_t;
+
+typedef void (*wasmer_display_frame_callback_t)(
+    const wasmer_display_frame_t *frame,
+    void *user_data
+);
+
+void wasmer_set_display_frame_callback(
+    wasmer_display_frame_callback_t callback,
+    void *user_data
+);
+
+int32_t wasmer_display_enqueue_input_event(
+    uint32_t event_type,
+    uint32_t code,
+    int32_t x,
+    int32_t y,
+    int32_t value,
+    uint32_t modifiers
+);
+
 #ifdef __cplusplus
 }
 #endif

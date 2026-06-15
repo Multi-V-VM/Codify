@@ -184,6 +184,14 @@ private func wasmRuntimeCompatibilityIssue(_ summary: WASMModuleSummary) -> Stri
         return "module defines no linear memory"
     }
 
+    if summary.imports.contains(where: { $0.module == "wasi_snapshot_preview1" })
+        && summary.exports.contains("_start")
+        && summary.memories.allSatisfy({ $0.minimumPages < 16 })
+    {
+        return
+            "module initial memory is too small for WASI startup (\(summary.memories.map { String($0.minimumPages) }.joined(separator: ",")) pages); rebuild it with clang so --initial-memory is applied"
+    }
+
     return nil
 }
 
@@ -328,28 +336,35 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
 
     // Get file descriptors for stdin/stdout/stderr
     // Use safe defaults if thread_* are NULL
-    let stdinFd: Int32 = (thread_stdin != nil) ? fileno(thread_stdin) : STDIN_FILENO
+    // Avoid installing a custom stdin VirtualFile for non-interactive WASI runs.
+    // The bridge's FD wrapper is intentionally minimal; libc startup probes can
+    // fail on stdin metadata even when the program does not read input.
+    let stdinFd: Int32 = -1
     let stdoutFd: Int32 = (thread_stdout != nil) ? fileno(thread_stdout) : STDOUT_FILENO
     let stderrFd: Int32 = (thread_stderr != nil) ? fileno(thread_stderr) : STDERR_FILENO
+    fputs("wasm: fds stdin=\(stdinFd) stdout=\(stdoutFd) stderr=\(stderrFd)\n", stderr)
+    fflush(stderr)
 
     // Execute WASM with native Wasmer. The iOS bridge inherits process
     // environment into WASI, so keep it tiny while the module starts.
     let exitCode = withMinimalWASMProcessEnvironment(stderr: stderr) {
-        wasmData.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) -> Int32 in
-            guard let baseAddress = bytes.baseAddress else {
-                return -1
-            }
+        withProcessStderrRedirected(to: stderrFd) {
+            wasmData.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) -> Int32 in
+                guard let baseAddress = bytes.baseAddress else {
+                    return -1
+                }
 
-            return cStrings.withUnsafeBufferPointer { argsBuffer in
-                return wasmer_execute(
-                    baseAddress.assumingMemoryBound(to: UInt8.self),
-                    bytes.count,
-                    argsBuffer.baseAddress!,
-                    wasmArgs.count,
-                    stdinFd,
-                    stdoutFd,
-                    stderrFd
-                )
+                return cStrings.withUnsafeBufferPointer { argsBuffer in
+                    return wasmer_execute(
+                        baseAddress.assumingMemoryBound(to: UInt8.self),
+                        bytes.count,
+                        argsBuffer.baseAddress!,
+                        wasmArgs.count,
+                        stdinFd,
+                        stdoutFd,
+                        stderrFd
+                    )
+                }
             }
         }
     }
@@ -752,24 +767,34 @@ func setupWASMSysroot(currentDirectory: String, gpuBackend: String? = nil) {
         setenv("WASM_MAP_DIRS", mapDirs.joined(separator: ";"), 1)
     }
 
-    setenv("WASM_CWD", wasmCWD, 1)
+    if wasmCWD == "/" {
+        unsetenv("WASM_CWD")
+    } else {
+        setenv("WASM_CWD", wasmCWD, 1)
+    }
     setenv("PWD", wasmCWD, 1)
     // Guest-only HOME override, applied by the runtime so the host HOME
     // (used by node/npm and ios_system commands) is left untouched.
     setenv("WASM_GUEST_HOME", wasmCWD == "/" ? "/" : "/home", 1)
 
     // AOT artifact cache, used when the runtime selects a compiling engine.
-    // Keep it in the runtime root so Wasmer never receives an app-container path.
-    let aotCache = runtimeRootURL.appendingPathComponent("aot-cache", isDirectory: true)
+    // Keep the env value short: the iOS bridge copies env strings into guest
+    // memory during startup and long app-container paths can trap there.
+    let aotCacheName = "aot-cache"
+    let aotCache = runtimeHomeURL.appendingPathComponent(aotCacheName, isDirectory: true)
     try? fileManager.createDirectory(at: aotCache, withIntermediateDirectories: true)
-    setenv("WASM_AOT_CACHE", aotCache.path, 1)
+    if gpuBackend != nil {
+        setenv("WASM_AOT_CACHE", aotCacheName, 1)
+    } else {
+        unsetenv("WASM_AOT_CACHE")
+    }
 
     logWASMRuntimeEnvironment(
         wasmCWD: wasmCWD,
         runtimeRootPath: runtimeRootPath,
         preopens: preopens,
         mapDirs: mapDirs,
-        aotCachePath: aotCache.path)
+        aotCachePath: aotCacheName)
 }
 
 func logWASMRuntimeEnvironment(
@@ -813,12 +838,46 @@ private func setEnvironmentValue(_ name: String, _ value: String?) {
     }
 }
 
+private func withProcessStderrRedirected<T>(to stderrFd: Int32, _ body: () -> T) -> T {
+    guard stderrFd >= 0, stderrFd != STDERR_FILENO else {
+        return body()
+    }
+
+    let savedStderr = dup(STDERR_FILENO)
+    if savedStderr >= 0 {
+        fflush(stderr)
+        _ = dup2(stderrFd, STDERR_FILENO)
+    }
+
+    defer {
+        if savedStderr >= 0 {
+            fflush(stderr)
+            _ = dup2(savedStderr, STDERR_FILENO)
+            close(savedStderr)
+        }
+    }
+
+    return body()
+}
+
 private func withMinimalWASMProcessEnvironment<T>(
     stderr: UnsafeMutablePointer<FILE>?,
     _ body: () -> T
 ) -> T {
     let snapshot = snapshotProcessEnvironment()
     let retainedKeys = [
+        "CODIFYONE_HETGPU_ROOT",
+        "DYLD_FALLBACK_LIBRARY_PATH",
+        "DYLD_INSERT_LIBRARIES",
+        "DYLD_LIBRARY_PATH",
+        "HETGPU_APPLE_BACKEND",
+        "LD_LIBRARY_PATH",
+        "PROTON_WASM_DISPLAY",
+        "PROTON_WASM_DISPLAY_FORMAT",
+        "PROTON_WASM_PREFIX_ROOT",
+        "PROTON_WASM_RUNTIME_ROOT",
+        "WASM_CUDA_ACCEL",
+        "WASM_CUDA_BACKEND",
         "WASM_PREOPENS",
         "WASM_MAP_DIRS",
         "WASM_CWD",
@@ -843,8 +902,9 @@ private func withMinimalWASMProcessEnvironment<T>(
         partial + entry.key.utf8.count + entry.value.utf8.count + 2
     }
     if let stderr {
+        let retainedNames = retained.keys.sorted().joined(separator: ",")
         fputs(
-            "wasm: minimal env kept=\(retained.count)/\(retainedLength) original=\(snapshot.count)\n",
+            "wasm: minimal env kept=\(retained.count)/\(retainedLength) original=\(snapshot.count) keys=[\(retainedNames)]\n",
             stderr)
         fflush(stderr)
     }

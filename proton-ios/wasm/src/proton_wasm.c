@@ -1,5 +1,7 @@
 #include "proton_wasm.h"
+#include "proton_wasm_display_imports.h"
 
+#include <stdint.h>
 #include <stddef.h>
 
 #define PROTON_WASM_ABI_VERSION 1
@@ -66,7 +68,7 @@ static int set_run_unsupported_error(void)
     copy_cstr(
         g_last_error,
         sizeof(g_last_error),
-        "Wine execution is not wired into the WASM CPU bridge yet; CPU target=WASI GPU backend=");
+        "Wine execution is not wired into the WASM CPU bridge yet; display=webview CPU target=WASI GPU backend=");
     append_cstr(g_last_error, sizeof(g_last_error), gpu_backend_name(g_gpu_backend));
 
     if (g_gpu_device_hint[0] != '\0') {
@@ -75,6 +77,51 @@ static int set_run_unsupported_error(void)
     }
 
     return (int)PROTON_WASM_ERROR_UNSUPPORTED;
+}
+
+static size_t cstr_len(const char *value)
+{
+    size_t len = 0;
+
+    if (value == NULL) {
+        return 0;
+    }
+    while (value[len] != '\0') {
+        ++len;
+    }
+    return len;
+}
+
+static int present_boot_frame(const char *exe_path)
+{
+    enum {
+        width = 320,
+        height = 180,
+        stride = width * 4
+    };
+    static uint8_t frame[height * stride];
+    const char *title = "Proton WASM";
+    unsigned int x;
+    unsigned int y;
+
+    (void)exe_path;
+
+    for (y = 0; y < height; ++y) {
+        for (x = 0; x < width; ++x) {
+            size_t offset = ((size_t)y * stride) + ((size_t)x * 4u);
+            uint8_t grid = (uint8_t)(((x / 16u) ^ (y / 16u)) & 1u);
+            frame[offset + 0] = (uint8_t)(32u + (x * 160u / width));
+            frame[offset + 1] = (uint8_t)(24u + (y * 120u / height));
+            frame[offset + 2] = grid ? 220u : 96u;
+            frame[offset + 3] = 255u;
+        }
+    }
+
+    (void)proton_wasm_set_window_title(title, (uint32_t)cstr_len(title));
+    if (proton_wasm_display_configure(width, height, PROTON_WASM_DISPLAY_FORMAT_RGBA8) != 0) {
+        return 0;
+    }
+    return proton_wasm_present_rgba(frame, width, height, stride);
 }
 
 static const char *gpu_backend_name(proton_wasm_gpu_backend_t backend)
@@ -167,6 +214,8 @@ int proton_wasm_run(const char *exe_path, int argc, const char * const *argv)
     if (g_runtime_root[0] == '\0' || g_prefix_root[0] == '\0') {
         return set_error(PROTON_WASM_ERROR_NOT_INITIALIZED, "runtime roots are not initialized");
     }
+
+    (void)present_boot_frame(exe_path);
 
     return set_run_unsupported_error();
 }

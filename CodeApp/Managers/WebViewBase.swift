@@ -39,6 +39,7 @@ class WebViewBase: KBWebViewBase {
     var isMessageHandlerAdded = false
     private var schemeHandler = SchemeHandler()
     var contextMenuConfiguration: ((Bool) -> UIMenu)?
+    private var contextMenuSelectionStateScript = "editor.getSelection().isEmpty()"
 
     init() {
         let config = WKWebViewConfiguration()
@@ -146,7 +147,11 @@ class WebViewBase: KBWebViewBase {
         return nil
     }
 
-    func setupContextMenu(menuProvider: @escaping (Bool) -> UIMenu) {
+    func setupContextMenu(
+        selectionStateScript: String = "editor.getSelection().isEmpty()",
+        menuProvider: @escaping (Bool) -> UIMenu
+    ) {
+        self.contextMenuSelectionStateScript = selectionStateScript
         self.contextMenuConfiguration = menuProvider
 
         // Add long press gesture recognizer for context menu
@@ -163,16 +168,19 @@ class WebViewBase: KBWebViewBase {
         guard gesture.state == .began else { return }
 
         // Get selection state from JavaScript
-        evaluateJavaScript("editor.getSelection().isEmpty()") { [weak self] result, error in
+        evaluateJavaScript(contextMenuSelectionStateScript) { [weak self] result, error in
             guard let self = self else { return }
             let isEmpty = (result as? Bool) ?? true
             let hasSelection = !isEmpty
 
-            if let menu = self.contextMenuConfiguration?(hasSelection) {
-                // Show context menu using UIMenuController approach
-                self.showContextMenu(menu: menu, at: gesture.location(in: self))
-            }
+            self.showConfiguredContextMenu(
+                hasSelection: hasSelection, at: gesture.location(in: self))
         }
+    }
+
+    func showConfiguredContextMenu(hasSelection: Bool, at point: CGPoint) {
+        guard let menu = contextMenuConfiguration?(hasSelection) else { return }
+        showContextMenu(menu: menu, at: point)
     }
 
     private func showContextMenu(menu: UIMenu, at point: CGPoint) {

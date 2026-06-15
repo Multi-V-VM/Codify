@@ -83,15 +83,6 @@
         }
       },
       {
-        "package": "Runestone",
-        "repositoryURL": "https://github.com/simonbs/Runestone",
-        "state": {
-          "branch": null,
-          "revision": "1fad339aab99cf2136ce6bf8c32da3265b2e85e5",
-          "version": "0.5.1"
-        }
-      },
-      {
         "package": "swift-atomics",
         "repositoryURL": "https://github.com/apple/swift-atomics.git",
         "state": {

@@ -22,6 +22,13 @@ extern "C" {
  *   WASM_AOT_CACHE         directory for AOT-compiled module artifacts, used
  *                          when a JIT-capable compiling engine is selected
  *   WASM_FORCE_INTERPRETER force the interpreter even if JIT is available
+ *   WASM_CUDA_ACCEL        set to 1 to enable CUDA/cuBLAS and CUDA Driver PTX
+ *                          host imports
+ *   WASM_CUDA_BACKEND      hetGPU Apple backend hint: "metal", "ane", or
+ *                          "hetgpu"; CPU fallback remains available
+ *   HETGPU_ALLOW_FAKE_PTX  set to 1 only for legacy symbol probes that accept
+ *                          PTX no-op success; the default is explicit
+ *                          CUDA_ERROR_NOT_SUPPORTED when no PTX backend exists
  *
  * @param wasm_bytes_ptr Pointer to the WASM binary data
  * @param wasm_bytes_len Length of the WASM binary data
@@ -48,6 +55,35 @@ int32_t wasmer_execute(
  * @return A C string containing version information
  */
 const char* wasmer_version(void);
+
+typedef struct wasmer_display_frame {
+    uint32_t width;
+    uint32_t height;
+    uint32_t stride;
+    uint32_t format;
+    const uint8_t *data;
+    size_t data_len;
+    uint64_t frame_id;
+} wasmer_display_frame_t;
+
+typedef void (*wasmer_display_frame_callback_t)(
+    const wasmer_display_frame_t *frame,
+    void *user_data
+);
+
+void wasmer_set_display_frame_callback(
+    wasmer_display_frame_callback_t callback,
+    void *user_data
+);
+
+int32_t wasmer_display_enqueue_input_event(
+    uint32_t event_type,
+    uint32_t code,
+    int32_t x,
+    int32_t y,
+    int32_t value,
+    uint32_t modifiers
+);
 
 #ifdef __cplusplus
 }

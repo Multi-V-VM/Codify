@@ -77,8 +77,7 @@ class Executor {
                     }
                 } else {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        self.prompt =
-                            "\(FileManager().currentDirectoryPath.split(separator: "/").last?.removingPercentEncoding ?? "") $ "
+                        self.prompt = "\(self.currentWorkingDirectory.lastPathComponent) $ "
                         self.requestInput(self.prompt)
                     }
                 }
@@ -137,13 +136,17 @@ class Executor {
 
     private func onStdout(_ stdout: FileHandle) {
         if !stdout_active { return }
+        guard fcntl(stdout.fileDescriptor, F_GETFD) >= 0 else { return }
         let data = stdout.availableData
+        guard !data.isEmpty else { return }
         _onStdout(data: data)
     }
 
     // Called when the stderr file handle is written to
     private func onStderr(_ stderr: FileHandle) {
+        guard fcntl(stderr.fileDescriptor, F_GETFD) >= 0 else { return }
         let data = stderr.availableData
+        guard !data.isEmpty else { return }
         DispatchQueue.main.async {
             self.receivedStderr(data)
         }
@@ -172,6 +175,11 @@ class Executor {
 
         if ["wasm_cuda_ptx", "cuda_ptx", "cuda-ptx"].contains(cmdName) {
             handleWasmCudaPTXCommand(command: command, completionHandler: completionHandler)
+            return
+        }
+
+        if ["wasm_proton_display", "proton_display", "proton-display"].contains(cmdName) {
+            handleWasmProtonDisplayCommand(command: command, completionHandler: completionHandler)
             return
         }
 
@@ -423,6 +431,18 @@ class Executor {
             completionHandler: completionHandler)
     }
 
+    private func handleWasmProtonDisplayCommand(
+        command: String,
+        completionHandler: @escaping (Int32) -> Void
+    ) {
+        handleBundledWasmCudaProbeCommand(
+            command: command,
+            resourceName: "proton_display_probe",
+            commandName: "wasm_proton_display",
+            backendFlag: "",
+            completionHandler: completionHandler)
+    }
+
     private func handleBundledWasmCudaProbeCommand(
         command: String,
         resourceName: String,
@@ -446,11 +466,42 @@ class Executor {
 
         let tokens = command.split(separator: " ").map(String.init)
         let rest = tokens.dropFirst().joined(separator: " ")
-        let wasmCommand = "wasm \(backendFlag) \(wasmURL.path)" + (rest.isEmpty ? "" : " \(rest)")
+        let wasmCommand =
+            backendFlag.isEmpty
+            ? "wasm \(wasmURL.path)" + (rest.isEmpty ? "" : " \(rest)")
+            : "wasm \(backendFlag) \(wasmURL.path)" + (rest.isEmpty ? "" : " \(rest)")
         handleWasmCommand(command: wasmCommand, completionHandler: completionHandler)
     }
 
+    private func normalizedWasmCommand(_ command: String) -> String {
+        var components = command.split(separator: " ").map(String.init)
+        guard components.first == "wasm" else { return command }
+
+        var wasmIndex = 1
+        while wasmIndex < components.count {
+            let token = components[wasmIndex]
+            if token == "--gpu" || token == "--no-gpu" {
+                wasmIndex += 1
+                continue
+            }
+            if token == "--gpu-backend" {
+                wasmIndex += 2
+                continue
+            }
+            break
+        }
+
+        guard wasmIndex < components.count else { return command }
+        let wasmPath = components[wasmIndex]
+        if !wasmPath.hasPrefix("/") {
+            components[wasmIndex] = currentWorkingDirectory.appendingPathComponent(wasmPath).path
+        }
+        return components.joined(separator: " ")
+    }
+
     private func handleWasmCommand(command: String, completionHandler: @escaping (Int32) -> Void) {
+        let command = normalizedWasmCommand(command)
+
         // Set up stdin pipe
         var stdin_pipe = Pipe()
         stdin_file = fdopen(stdin_pipe.fileHandleForReading.fileDescriptor, "r")
@@ -467,8 +518,14 @@ class Executor {
             stdout_pipe = Pipe()
             stdout_file = fdopen(stdout_pipe.fileHandleForWriting.fileDescriptor, "w")
         }
+        let stderr_pipe = Pipe()
+        let stderr_file = fdopen(stderr_pipe.fileHandleForWriting.fileDescriptor, "w")
         setvbuf(stdout_file, nil, _IONBF, 0)
+        if stderr_file != nil {
+            setvbuf(stderr_file, nil, _IONBF, 0)
+        }
         stdout_pipe.fileHandleForReading.readabilityHandler = self.onStdout
+        stderr_pipe.fileHandleForReading.readabilityHandler = self.onStderr
         stdout_active = true
 
         let queue = DispatchQueue(label: "wasm-command", qos: .utility)
@@ -485,13 +542,13 @@ class Executor {
                 fileURLWithPath: safeWASMCurrentDirectory(self.currentWorkingDirectory.path))
             ios_setDirectoryURL(wasmHostCWD)
             ios_setContext(UnsafeMutableRawPointer(mutating: self.persistentIdentifier.toCString()))
-            ios_setStreams(self.stdin_file, self.stdout_file, self.stdout_file)
+            ios_setStreams(self.stdin_file, self.stdout_file, stderr_file ?? self.stdout_file)
             let previousStdin = thread_stdin
             let previousStdout = thread_stdout
             let previousStderr = thread_stderr
             thread_stdin = self.stdin_file
             thread_stdout = self.stdout_file
-            thread_stderr = self.stdout_file
+            thread_stderr = stderr_file ?? self.stdout_file
 
             fputs("wasm runner: \(command)\n", self.stdout_file)
             fflush(self.stdout_file)
@@ -502,6 +559,7 @@ class Executor {
             cStrings.append(nil)
 
             defer {
+                ios_setDirectoryURL(self.currentWorkingDirectory)
                 thread_stdin = previousStdin
                 thread_stdout = previousStdout
                 thread_stderr = previousStderr
@@ -528,6 +586,10 @@ class Executor {
             fflush(thread_stdout)
             fflush(thread_stderr)
 
+            if fcntl(stderr_pipe.fileHandleForWriting.fileDescriptor, F_GETFD) >= 0 {
+                try? stderr_pipe.fileHandleForWriting.close()
+            }
+
             let writeOpen = fcntl(stdout_pipe.fileHandleForWriting.fileDescriptor, F_GETFD)
             if writeOpen >= 0 {
                 stdout_pipe.fileHandleForWriting.write(self.END_OF_TRANSMISSION.data(using: .utf8)!)
@@ -537,7 +599,8 @@ class Executor {
                 }
             }
 
-            close(stdout_pipe.fileHandleForReading.fileDescriptor)
+            stdout_pipe.fileHandleForReading.readabilityHandler = nil
+            stderr_pipe.fileHandleForReading.readabilityHandler = nil
 
             DispatchQueue.main.async {
                 self.state = .idle

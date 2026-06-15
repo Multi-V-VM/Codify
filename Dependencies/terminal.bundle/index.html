@@ -21,6 +21,22 @@
         height: 0;
         position: absolute;
       }
+      #protonViewport {
+        background: #000;
+        display: none;
+        height: 100vh;
+        image-rendering: auto;
+        inset: 0;
+        outline: none;
+        position: absolute;
+        touch-action: none;
+        width: 100vw;
+        z-index: 5;
+      }
+      #terminal.proton-active {
+        opacity: 0.16;
+        pointer-events: none;
+      }
       /* body {background-color: #ECECEC} */
       @media (prefers-color-scheme: dark) {
         .xterm .composition-view {
@@ -42,6 +58,7 @@
   </head>
   <body>
     <div tabindex="0" id="overlay"></div>
+    <canvas tabindex="0" id="protonViewport"></canvas>
     <div id="terminal" style="width: 100%; height: 96vh"></div>
     <script>
       var defaultLightTheme = {
@@ -123,6 +140,146 @@
       const localEcho = new LocalEchoController(term, { historySize: 50 });
       term.loadAddon(fitAddon);
       term.open(document.getElementById("terminal"));
+
+      const protonCanvas = document.getElementById("protonViewport");
+      const protonContext = protonCanvas.getContext("2d", {
+        alpha: false,
+        willReadFrequently: false,
+      });
+      let protonFrameBuffer = null;
+      let protonFrameImageData = null;
+
+      function protonDecodeBase64Bytes(encoded) {
+        const binary = window.atob(encoded);
+        const bytes = new Uint8ClampedArray(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes;
+      }
+
+      function protonShowViewport() {
+        if (protonCanvas.style.display === "block") {
+          return;
+        }
+        protonCanvas.style.display = "block";
+        document.getElementById("terminal").classList.add("proton-active");
+        protonCanvas.focus();
+      }
+
+      function protonCanvasPoint(event) {
+        const rect = protonCanvas.getBoundingClientRect();
+        const scaleX = protonCanvas.width / Math.max(1, rect.width);
+        const scaleY = protonCanvas.height / Math.max(1, rect.height);
+        return {
+          x: Math.round((event.clientX - rect.left) * scaleX),
+          y: Math.round((event.clientY - rect.top) * scaleY),
+        };
+      }
+
+      function protonModifierMask(event) {
+        return (
+          (event.shiftKey ? 1 : 0) |
+          (event.ctrlKey ? 2 : 0) |
+          (event.altKey ? 4 : 0) |
+          (event.metaKey ? 8 : 0)
+        );
+      }
+
+      function protonPostInput(type, event, value) {
+        if (
+          !window.webkit ||
+          !window.webkit.messageHandlers ||
+          !window.webkit.messageHandlers.toggleMessageHandler2
+        ) {
+          return;
+        }
+        const point = protonCanvasPoint(event);
+        const key = event.key && event.key.length === 1 ? event.key.charCodeAt(0) : 0;
+        window.webkit.messageHandlers.toggleMessageHandler2.postMessage({
+          Event: "ProtonInput",
+          Type: type,
+          Code: event.button != null ? event.button : key,
+          X: point.x,
+          Y: point.y,
+          Value: value || 0,
+          Modifiers: protonModifierMask(event),
+        });
+      }
+
+      function protonPresentFrame(frame) {
+        if (!frame || !frame.width || !frame.height || !frame.data) {
+          return;
+        }
+        protonShowViewport();
+
+        const width = frame.width | 0;
+        const height = frame.height | 0;
+        const stride = Math.max(frame.stride | 0, width * 4);
+        const bytes = protonDecodeBase64Bytes(frame.data);
+        const packedLength = width * height * 4;
+
+        if (
+          protonCanvas.width !== width ||
+          protonCanvas.height !== height ||
+          !protonFrameImageData
+        ) {
+          protonCanvas.width = width;
+          protonCanvas.height = height;
+          protonFrameImageData = protonContext.createImageData(width, height);
+          protonFrameBuffer = protonFrameImageData.data;
+        }
+
+        if (stride === width * 4 && bytes.length >= packedLength) {
+          protonFrameBuffer.set(bytes.subarray(0, packedLength));
+        } else {
+          for (let row = 0; row < height; row++) {
+            const srcStart = row * stride;
+            const dstStart = row * width * 4;
+            protonFrameBuffer.set(
+              bytes.subarray(srcStart, srcStart + width * 4),
+              dstStart
+            );
+          }
+        }
+        protonContext.putImageData(protonFrameImageData, 0, 0);
+      }
+
+      protonCanvas.addEventListener("pointerdown", (event) => {
+        protonCanvas.setPointerCapture(event.pointerId);
+        protonPostInput(1, event, 0);
+        event.preventDefault();
+      });
+      protonCanvas.addEventListener("pointerup", (event) => {
+        protonPostInput(2, event, 0);
+        event.preventDefault();
+      });
+      protonCanvas.addEventListener("pointermove", (event) => {
+        protonPostInput(3, event, 0);
+        event.preventDefault();
+      });
+      protonCanvas.addEventListener("wheel", (event) => {
+        protonPostInput(4, event, Math.round(event.deltaY));
+        event.preventDefault();
+      });
+      protonCanvas.addEventListener("keydown", (event) => {
+        protonPostInput(5, event, 0);
+        event.preventDefault();
+      });
+      protonCanvas.addEventListener("keyup", (event) => {
+        protonPostInput(6, event, 0);
+        event.preventDefault();
+      });
+
+      document.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        window.webkit.messageHandlers.toggleMessageHandler2.postMessage({
+          Event: "ContextMenu",
+          X: event.clientX,
+          Y: event.clientY,
+          HasSelection: term.getSelection().length > 0,
+        });
+      });
 
       // Cancel wheel events from scrolling the page if the terminal has scrollback
       document.querySelector(".xterm").addEventListener("wheel", (e) => {
