@@ -19,7 +19,10 @@ The practical first milestone is:
    platform allows.
 3. Package the resulting static or dynamic pieces as an `XCFramework`.
 4. Provide a small C ABI that CodifyOne can call from Swift.
-5. Stub or replace Linux/Steam-only services behind narrow interfaces.
+5. Run the WASI Wine loader through the bundled Wasmer runtime, with CPU work
+   staying inside WASM and GPU work crossing the CUDA/cuBLAS-style hetGPU host
+   import boundary.
+6. Stub or replace Linux/Steam-only services behind narrow interfaces.
 
 ## Repository Layout
 
@@ -54,6 +57,16 @@ be packaged with:
 ./scripts/build_bridge_xcframework.sh
 ```
 
+At runtime, initialize the bridge with the directory containing the Wine WASM
+build and a writable prefix directory, then enable hetGPU when GPU imports
+should be routed to the Apple runtime:
+
+```c
+proton_ios_initialize(runtime_root, prefix_root);
+proton_ios_configure_gpu(PROTON_IOS_GPU_HETGPU, "metal");
+proton_ios_run("game.exe", argc, argv);
+```
+
 ## Porting Strategy
 
 The port is treated as three layers:
@@ -62,9 +75,9 @@ The port is treated as three layers:
   files, and Xcode packaging.
 - **Runtime layer**: filesystem, process, socket, signal, thread, and sandbox
   compatibility for Wine/Proton on Darwin/iOS.
-- **Graphics layer**: a Metal-backed path. DXVK/Vulkan pieces need either
-  MoltenVK-style translation or a different renderer; this is deliberately kept
-  separate from the first build milestone.
+- **Graphics layer**: GPU calls cross the WASM boundary as host imports and are
+  routed to hetGPU Apple Metal/ANE entry points. DXVK/Vulkan pieces still need
+  a narrower translation strategy before they become general-purpose.
 
 ## Known Hard Stops
 

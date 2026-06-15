@@ -22,6 +22,9 @@ extern "C" {
  *   WASM_AOT_CACHE         directory for AOT-compiled module artifacts, used
  *                          when a JIT-capable compiling engine is selected
  *   WASM_FORCE_INTERPRETER force the interpreter even if JIT is available
+ *   WASM_CUDA_ACCEL        set to 1 to enable CUDA/cuBLAS host imports
+ *   WASM_CUDA_BACKEND      hetGPU Apple backend hint: "metal", "ane", or
+ *                          "hetgpu"; CPU fallback remains available
  *
  * @param wasm_bytes_ptr Pointer to the WASM binary data
  * @param wasm_bytes_len Length of the WASM binary data

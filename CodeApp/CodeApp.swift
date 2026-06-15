@@ -96,48 +96,223 @@ private func arField(_ value: String, width: Int) -> Data {
     return Data(bytes)
 }
 
-private func appendArMember(to archive: inout Data, name: String, contents: Data) {
-    let nameBytes = Data(name.utf8)
-    let useExtendedName = nameBytes.count > 15 || nameBytes.contains(0x20)
-    let headerName = useExtendedName ? "#1/\(nameBytes.count)" : "\(name)/"
-    let payloadSize = contents.count + (useExtendedName ? nameBytes.count : 0)
-
+private func appendArRawMember(to archive: inout Data, headerName: String, contents: Data) {
     archive.append(arField(headerName, width: 16))
     archive.append(arField("0", width: 12))
     archive.append(arField("0", width: 6))
     archive.append(arField("0", width: 6))
     archive.append(arField("100644", width: 8))
-    archive.append(arField("\(payloadSize)", width: 10))
+    archive.append(arField("\(contents.count)", width: 10))
     archive.append(Data("`\n".utf8))
-    if useExtendedName {
-        archive.append(nameBytes)
-    }
     archive.append(contents)
-    if payloadSize % 2 != 0 {
+    if contents.count % 2 != 0 {
         archive.append(contentsOf: [0x0A])
     }
 }
 
-private func writeArMember(to handle: FileHandle, name: String, contents: Data) {
+private func appendArMember(to archive: inout Data, name: String, contents: Data) {
     let nameBytes = Data(name.utf8)
     let useExtendedName = nameBytes.count > 15 || nameBytes.contains(0x20)
     let headerName = useExtendedName ? "#1/\(nameBytes.count)" : "\(name)/"
-    let payloadSize = contents.count + (useExtendedName ? nameBytes.count : 0)
-
-    handle.write(arField(headerName, width: 16))
-    handle.write(arField("0", width: 12))
-    handle.write(arField("0", width: 6))
-    handle.write(arField("0", width: 6))
-    handle.write(arField("100644", width: 8))
-    handle.write(arField("\(payloadSize)", width: 10))
-    handle.write(Data("`\n".utf8))
+    var payload = Data()
     if useExtendedName {
-        handle.write(nameBytes)
+        payload.append(nameBytes)
     }
-    handle.write(contents)
-    if payloadSize % 2 != 0 {
-        handle.write(Data([0x0A]))
+    payload.append(contents)
+    appendArRawMember(to: &archive, headerName: headerName, contents: payload)
+}
+
+private func arMemberSize(name: String, contentsCount: Int) -> Int {
+    let nameBytes = Data(name.utf8)
+    let payloadSize =
+        contentsCount + (nameBytes.count > 15 || nameBytes.contains(0x20) ? nameBytes.count : 0)
+    return 60 + payloadSize + (payloadSize % 2)
+}
+
+private func appendBigEndianUInt32(_ value: UInt32, to data: inout Data) {
+    data.append(UInt8((value >> 24) & 0xff))
+    data.append(UInt8((value >> 16) & 0xff))
+    data.append(UInt8((value >> 8) & 0xff))
+    data.append(UInt8(value & 0xff))
+}
+
+private func readULEB128(_ bytes: [UInt8], _ offset: inout Int, end: Int) -> UInt32? {
+    var result: UInt32 = 0
+    var shift: UInt32 = 0
+    while offset < end && shift < 35 {
+        let byte = bytes[offset]
+        offset += 1
+        result |= UInt32(byte & 0x7f) << shift
+        if byte & 0x80 == 0 {
+            return result
+        }
+        shift += 7
     }
+    return nil
+}
+
+private func readWasmName(_ bytes: [UInt8], _ offset: inout Int, end: Int) -> String? {
+    guard let length = readULEB128(bytes, &offset, end: end) else { return nil }
+    let nameEnd = offset + Int(length)
+    guard nameEnd <= end else { return nil }
+    defer { offset = nameEnd }
+    return String(bytes: bytes[offset..<nameEnd], encoding: .utf8)
+}
+
+private func wasmDefinedSymbols(in data: Data) -> [String] {
+    let bytes = Array(data)
+    guard bytes.count >= 8, bytes[0] == 0x00, bytes[1] == 0x61, bytes[2] == 0x73,
+        bytes[3] == 0x6d
+    else { return [] }
+
+    let symbolTableSubsection: UInt8 = 8
+    let exportedFlag: UInt32 = 0x4
+    let undefinedFlag: UInt32 = 0x10
+    let explicitNameFlag: UInt32 = 0x40
+    var offset = 8
+    var symbols = [String]()
+
+    while offset < bytes.count {
+        let sectionID = bytes[offset]
+        offset += 1
+        guard let sectionSize = readULEB128(bytes, &offset, end: bytes.count) else { break }
+        let sectionEnd = offset + Int(sectionSize)
+        guard sectionEnd <= bytes.count else { break }
+
+        if sectionID == 0, let sectionName = readWasmName(bytes, &offset, end: sectionEnd),
+            sectionName == "linking"
+        {
+            _ = readULEB128(bytes, &offset, end: sectionEnd)
+            while offset < sectionEnd {
+                let subsectionID = bytes[offset]
+                offset += 1
+                guard let subsectionSize = readULEB128(bytes, &offset, end: sectionEnd) else {
+                    break
+                }
+                let subsectionEnd = offset + Int(subsectionSize)
+                guard subsectionEnd <= sectionEnd else { break }
+
+                if subsectionID == symbolTableSubsection,
+                    let count = readULEB128(bytes, &offset, end: subsectionEnd)
+                {
+                    for _ in 0..<count {
+                        guard let kind = readULEB128(bytes, &offset, end: subsectionEnd),
+                            let flags = readULEB128(bytes, &offset, end: subsectionEnd)
+                        else { break }
+                        let isUndefined = flags & undefinedFlag != 0
+                        let hasExplicitName = flags & explicitNameFlag != 0
+
+                        switch kind {
+                        case 0, 1, 4, 5:
+                            _ = readULEB128(bytes, &offset, end: subsectionEnd)
+                            if isUndefined || flags & exportedFlag != 0 || hasExplicitName,
+                                let name = readWasmName(bytes, &offset, end: subsectionEnd),
+                                !isUndefined
+                            {
+                                symbols.append(name)
+                            }
+                        case 2:
+                            if let name = readWasmName(bytes, &offset, end: subsectionEnd),
+                                !isUndefined
+                            {
+                                symbols.append(name)
+                                _ = readULEB128(bytes, &offset, end: subsectionEnd)
+                                _ = readULEB128(bytes, &offset, end: subsectionEnd)
+                                _ = readULEB128(bytes, &offset, end: subsectionEnd)
+                            }
+                        case 3:
+                            _ = readULEB128(bytes, &offset, end: subsectionEnd)
+                        default:
+                            offset = subsectionEnd
+                        }
+                    }
+                }
+                offset = subsectionEnd
+            }
+            return symbols
+        }
+
+        offset = sectionEnd
+    }
+
+    return symbols
+}
+
+private func arSymbolTable(for members: [(name: String, contents: Data, symbols: [String])]) -> Data
+{
+    let symbolCount = members.reduce(0) { $0 + $1.symbols.count }
+    var payloadSize = 4 + (symbolCount * 4)
+    for member in members {
+        payloadSize += member.symbols.reduce(0) { $0 + $1.utf8.count + 1 }
+    }
+
+    let symbolTableMemberSize = 60 + payloadSize + (payloadSize % 2)
+    var memberOffsets = [UInt32]()
+    var nextOffset = 8 + symbolTableMemberSize
+    for member in members {
+        memberOffsets.append(UInt32(nextOffset))
+        nextOffset += arMemberSize(name: member.name, contentsCount: member.contents.count)
+    }
+
+    var symbolTable = Data()
+    appendBigEndianUInt32(UInt32(symbolCount), to: &symbolTable)
+    for (index, member) in members.enumerated() {
+        for _ in member.symbols {
+            appendBigEndianUInt32(memberOffsets[index], to: &symbolTable)
+        }
+    }
+    for member in members {
+        for symbol in member.symbols {
+            symbolTable.append(Data(symbol.utf8))
+            symbolTable.append(0)
+        }
+    }
+    return symbolTable
+}
+
+private func arArchiveIndexStats(at url: URL) -> (symbolCount: Int, memberCount: Int)? {
+    guard let data = try? Data(contentsOf: url), data.count >= 68 else {
+        return nil
+    }
+    guard data.starts(with: Data("!<arch>\n".utf8)) else {
+        return nil
+    }
+
+    var offset = 8
+    var symbolCount: Int?
+    var memberCount = 0
+    while offset + 60 <= data.count {
+        let headerStart = offset
+        let rawName = String(bytes: data[offset..<(offset + 16)], encoding: .utf8) ?? ""
+        let name = rawName.trimmingCharacters(in: .whitespaces)
+        let rawSize = String(bytes: data[(offset + 48)..<(offset + 58)], encoding: .utf8) ?? ""
+        guard let size = Int(rawSize.trimmingCharacters(in: .whitespaces)) else { break }
+        let payloadStart = offset + 60
+        let payloadEnd = payloadStart + size
+        guard payloadEnd <= data.count else { break }
+
+        if headerStart == 8 && name == "/" {
+            guard size >= 4 else { return nil }
+            symbolCount = Int(data[payloadStart]) << 24
+                | Int(data[payloadStart + 1]) << 16
+                | Int(data[payloadStart + 2]) << 8
+                | Int(data[payloadStart + 3])
+        } else if !name.hasPrefix("/") && !name.hasPrefix("__.") {
+            memberCount += 1
+        }
+
+        offset = payloadEnd + (size % 2)
+    }
+
+    guard let symbolCount else { return nil }
+    return (symbolCount, memberCount)
+}
+
+private func arArchiveHasUsableSymbolTable(at url: URL) -> Bool {
+    guard let stats = arArchiveIndexStats(at: url), stats.symbolCount > 0 else {
+        return false
+    }
+    return stats.memberCount == 0 || stats.symbolCount >= max(1, stats.memberCount / 2)
 }
 
 private func fileExistsAndNonEmpty(at url: URL, fileManager: FileManager = FileManager()) -> Bool {
@@ -147,7 +322,13 @@ private func fileExistsAndNonEmpty(at url: URL, fileManager: FileManager = FileM
     else {
         return false
     }
-    return size.int64Value > 8
+    guard size.int64Value > 8 else {
+        return false
+    }
+    if url.pathExtension == "a" {
+        return arArchiveHasSymbolTable(at: url)
+    }
+    return true
 }
 
 private func writeEmptyArArchive(at archiveURL: URL, fileManager: FileManager = FileManager())
@@ -163,45 +344,38 @@ private func writeArArchive(
     objectDirectory: URL,
     fileManager: FileManager = FileManager()
 ) throws {
-    let members =
-        (try fileManager.contentsOfDirectory(
-            at: objectDirectory,
-            includingPropertiesForKeys: [.isRegularFileKey],
-            options: [.skipsHiddenFiles]))
-        .filter { url in
-            let values = try? url.resourceValues(forKeys: [.isRegularFileKey])
-            return values?.isRegularFile == true
-        }
-        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    let members = try fileManager.contentsOfDirectory(
+        at: objectDirectory,
+        includingPropertiesForKeys: [.isRegularFileKey],
+        options: [.skipsHiddenFiles]
+    )
+    .filter { url in
+        let values = try? url.resourceValues(forKeys: [.isRegularFileKey])
+        return values?.isRegularFile == true
+    }
+    .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    .map { member in
+        let contents = try Data(contentsOf: member)
+        return (
+            name: member.lastPathComponent,
+            contents: contents,
+            symbols: wasmDefinedSymbols(in: contents)
+        )
+    }
 
     try fileManager.createDirectory(
         at: archiveURL.deletingLastPathComponent(), withIntermediateDirectories: true)
 
+    var archive = Data("!<arch>\n".utf8)
+    appendArRawMember(to: &archive, headerName: "/", contents: arSymbolTable(for: members))
+    for member in members {
+        appendArMember(to: &archive, name: member.name, contents: member.contents)
+    }
+
     let tempURL = archiveURL.deletingLastPathComponent()
         .appendingPathComponent(".\(archiveURL.lastPathComponent).tmp")
     try? fileManager.removeItem(at: tempURL)
-    fileManager.createFile(atPath: tempURL.path, contents: nil)
-    guard let handle = FileHandle(forWritingAtPath: tempURL.path) else {
-        throw CocoaError(.fileWriteUnknown)
-    }
-    var didCloseHandle = false
-    defer {
-        if !didCloseHandle {
-            handle.closeFile()
-        }
-        try? fileManager.removeItem(at: tempURL)
-    }
-
-    handle.write(Data("!<arch>\n".utf8))
-    for member in members {
-        writeArMember(
-            to: handle,
-            name: member.lastPathComponent,
-            contents: try Data(contentsOf: member))
-    }
-
-    handle.closeFile()
-    didCloseHandle = true
+    try archive.write(to: tempURL, options: .atomic)
     try? fileManager.removeItem(at: archiveURL)
     try fileManager.moveItem(at: tempURL, to: archiveURL)
 }
@@ -364,8 +538,8 @@ private func needToUpdateWasixSysroot() -> Bool {
         let libraryURL = try? FileManager().url(
             for: .libraryDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
     else { return false }
-    return !FileManager().fileExists(
-        atPath: libraryURL.appendingPathComponent("wasix-usr/lib/wasm32-wasi/libc.a").path)
+    return !fileExistsAndNonEmpty(
+        at: libraryURL.appendingPathComponent("wasix-usr/lib/wasm32-wasi/libc.a"))
 }
 
 // Materialize the bundled WASIX sysroot (wasi-sdk 29) into $HOME/Library/wasix-usr.
