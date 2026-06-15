@@ -281,7 +281,13 @@ class DebuggerService: ObservableObject {
 
     private func launchWasminspect() {
         wasminspectAdapter.wasminspectWasmPath = gdbWasmPath
-        wasminspectAdapter.targetWasmPath = targetWasmPath
+        if let resolvedTarget = WasminspectService.resolveTargetWasmPath(targetWasmPath) {
+            targetWasmPath = resolvedTarget
+            wasminspectAdapter.targetWasmPath = resolvedTarget
+        } else {
+            wasminspectAdapter.targetWasmPath = WasminspectService.normalizedDebuggerPath(
+                targetWasmPath)
+        }
         wasminspectAdapter.targetArgs = targetArgs
 
         NSLog("🐛 Launching wasminspect backend via MI adapter")
@@ -356,8 +362,9 @@ class DebuggerService: ObservableObject {
     func execFinish() { sendMI("-exec-finish") }
 
     func fileExecAndSymbols(_ path: String) {
-        targetWasmPath = path
-        sendMI("-file-exec-and-symbols \"\(path)\"")
+        let normalizedPath = WasminspectService.normalizedDebuggerPath(path)
+        targetWasmPath = WasminspectService.resolveTargetWasmPath(normalizedPath) ?? normalizedPath
+        sendMI("-file-exec-and-symbols \"\(targetWasmPath)\"")
     }
 
     func breakInsert(file: String, line: Int) {

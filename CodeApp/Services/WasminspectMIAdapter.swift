@@ -102,6 +102,10 @@ class WasminspectMIAdapter: ObservableObject {
 
         logMI("→ \(token)\(cmd)")
 
+        if handleInternalMICommand(cmd, token: token) {
+            return
+        }
+
         // Parse and convert MI command to LLDB command
         if let lldbCmd = convertMIToLLDB(cmd, token: token) {
             wasminspect.sendCommand(lldbCmd)
@@ -113,8 +117,7 @@ class WasminspectMIAdapter: ObservableObject {
     // MARK: - MI Command Conversion (MI -> LLDB)
 
     private func convertMIToLLDB(_ miCmd: String, token: Int) -> String? {
-        // Remove token prefix if present
-        let cmd = miCmd.hasPrefix("-") ? miCmd : "-" + miCmd
+        let cmd = canonicalMICommand(miCmd)
 
         // MI command mappings to LLDB
         switch true {
@@ -162,12 +165,6 @@ class WasminspectMIAdapter: ObservableObject {
 
         case cmd.hasPrefix("-data-evaluate-expression"):
             return parseEvaluateExpression(cmd)
-
-        case cmd.hasPrefix("-file-exec-and-symbols"):
-            return parseFileExec(cmd)
-
-        case cmd.hasPrefix("-target-select"):
-            return nil  // Handled internally
 
         case cmd.hasPrefix("-gdb-exit"):
             return "quit"
@@ -245,15 +242,62 @@ class WasminspectMIAdapter: ObservableObject {
         return nil
     }
 
-    private func parseFileExec(_ cmd: String) -> String? {
-        // MI: -file-exec-and-symbols /path/to/file.wasm
-        let parts = cmd.split(separator: " ")
-        if parts.count >= 2 {
-            let path = String(parts[1])
-            targetWasmPath = path
-            return nil  // Will be handled by launch
+    private func handleInternalMICommand(_ miCmd: String, token: Int) -> Bool {
+        let cmd = canonicalMICommand(miCmd)
+
+        if cmd.hasPrefix("-file-exec-and-symbols") {
+            guard let path = firstArgument(after: "-file-exec-and-symbols", in: cmd) else {
+                logMI("\(token)^error,msg=\"Missing WASM target path\"")
+                return true
+            }
+            targetWasmPath = WasminspectService.normalizedDebuggerPath(path)
+            logMI("\(token)^done")
+            return true
         }
-        return nil
+
+        if cmd.hasPrefix("-target-select") {
+            logMI("\(token)^done")
+            return true
+        }
+
+        return false
+    }
+
+    private func canonicalMICommand(_ miCmd: String) -> String {
+        let trimmed = miCmd.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("-") { return trimmed }
+        if let dash = trimmed.firstIndex(of: "-") {
+            return String(trimmed[dash...])
+        }
+        return "-" + trimmed
+    }
+
+    private func firstArgument(after command: String, in line: String) -> String? {
+        guard let commandRange = line.range(of: command) else { return nil }
+        var remainder = line[commandRange.upperBound...].trimmingCharacters(
+            in: .whitespacesAndNewlines)
+        guard !remainder.isEmpty else { return nil }
+
+        if let quote = remainder.first, quote == "\"" || quote == "'" {
+            remainder.removeFirst()
+            var argument = ""
+            var isEscaped = false
+            for character in remainder {
+                if isEscaped {
+                    argument.append(character)
+                    isEscaped = false
+                } else if character == "\\" {
+                    isEscaped = true
+                } else if character == quote {
+                    return argument
+                } else {
+                    argument.append(character)
+                }
+            }
+            return argument
+        }
+
+        return remainder.split(whereSeparator: { $0.isWhitespace }).first.map(String.init)
     }
 
     // MARK: - LLDB Output Parsing (LLDB -> MI)
@@ -443,7 +487,7 @@ class WasminspectMIAdapter: ObservableObject {
 
     // File loading
     func fileExecAndSymbols(_ path: String) {
-        targetWasmPath = path
+        targetWasmPath = WasminspectService.normalizedDebuggerPath(path)
         logMI("^done")
     }
 }

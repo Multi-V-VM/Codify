@@ -82,7 +82,7 @@ class WasminspectService: ObservableObject {
     }
 
     /// Locate wasminspect.wasm: app bundle, Documents/Tools, the wasm sysroot
-    /// Tools directory, or an installed VISX package.
+    /// Tools directory, legacy VISX packages, or installed VSIX extensions.
     static func resolveDebuggerWasm() -> String? {
         if let url = Bundle.main.url(forResource: "wasminspect", withExtension: "wasm") {
             return url.path
@@ -92,9 +92,20 @@ class WasminspectService: ObservableObject {
         var candidates: [String] = []
         if let docs = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first {
             candidates.append(docs.appendingPathComponent("Tools/wasminspect.wasm").path)
+            candidates.append(docs.appendingPathComponent("wasminspect.wasm").path)
             candidates.append(
                 docs.appendingPathComponent("VISX/Packages/WASM/wasminspect/wasminspect.wasm")
                     .path)
+            appendWasminspectCandidates(
+                under: docs.appendingPathComponent("Extensions", isDirectory: true),
+                to: &candidates)
+        }
+        if let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+            .first
+        {
+            appendWasminspectCandidates(
+                under: appSupport.appendingPathComponent("Extensions", isDirectory: true),
+                to: &candidates)
         }
         candidates.append(
             wasmSysrootURL().appendingPathComponent("Tools/wasminspect.wasm").path)
@@ -102,27 +113,182 @@ class WasminspectService: ObservableObject {
         return candidates.first { fileManager.fileExists(atPath: $0) }
     }
 
+    static func normalizedDebuggerPath(_ rawPath: String) -> String {
+        var path = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        if path.hasPrefix("\"") && path.hasSuffix("\"") && path.count >= 2 {
+            path.removeFirst()
+            path.removeLast()
+        }
+        if path.hasPrefix("'") && path.hasSuffix("'") && path.count >= 2 {
+            path.removeFirst()
+            path.removeLast()
+        }
+        if let url = URL(string: path), url.isFileURL {
+            path = url.path
+        }
+        path = path.replacingOccurrences(of: "\\ ", with: " ")
+        return NSString(string: path).expandingTildeInPath
+    }
+
+    static func resolveTargetWasmPath(
+        _ rawPath: String,
+        currentDirectory: String = FileManager.default.currentDirectoryPath
+    ) -> String? {
+        let path = normalizedDebuggerPath(rawPath)
+        guard !path.isEmpty else { return nil }
+
+        let fileManager = FileManager.default
+        var candidates: [String] = []
+        if path.hasPrefix("/") {
+            candidates.append(path)
+        } else {
+            candidates.append(
+                URL(fileURLWithPath: currentDirectory).appendingPathComponent(path).path)
+            if let docs = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first {
+                candidates.append(docs.appendingPathComponent(path).path)
+            }
+        }
+
+        return candidates.first { fileManager.fileExists(atPath: $0) }
+    }
+
+    private static func appendWasminspectCandidates(under root: URL, to candidates: inout [String])
+    {
+        guard
+            let enumerator = FileManager.default.enumerator(
+                at: root,
+                includingPropertiesForKeys: [.isRegularFileKey],
+                options: [.skipsHiddenFiles]
+            )
+        else { return }
+
+        for case let fileURL as URL in enumerator
+        where fileURL.lastPathComponent == "wasminspect.wasm" {
+            candidates.append(fileURL.path)
+        }
+    }
+
+    static func debuggerWasmCompatibilityIssue(at path: String) -> String? {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)) else {
+            return "Failed to read wasminspect.wasm at \(path)"
+        }
+        guard data.count >= 8, Array(data.prefix(4)) == [0x00, 0x61, 0x73, 0x6D] else {
+            return "wasminspect.wasm is not a valid WebAssembly module"
+        }
+
+        let bytes = [UInt8](data)
+        var offset = 8
+        var importsWasix = false
+        var importsHostMemory = false
+
+        func readULEB(_ offset: inout Int) -> UInt64? {
+            var result: UInt64 = 0
+            var shift: UInt64 = 0
+            while offset < bytes.count {
+                let byte = bytes[offset]
+                offset += 1
+                result |= UInt64(byte & 0x7F) << shift
+                if byte < 0x80 { return result }
+                shift += 7
+                if shift > 63 { return nil }
+            }
+            return nil
+        }
+
+        func readName(_ offset: inout Int) -> String? {
+            guard let length = readULEB(&offset), offset + Int(length) <= bytes.count else {
+                return nil
+            }
+            let nameBytes = bytes[offset..<offset + Int(length)]
+            offset += Int(length)
+            return String(bytes: nameBytes, encoding: .utf8)
+        }
+
+        while offset < bytes.count {
+            let sectionID = bytes[offset]
+            offset += 1
+            guard let sectionSize = readULEB(&offset), offset + Int(sectionSize) <= bytes.count
+            else {
+                break
+            }
+            let sectionEnd = offset + Int(sectionSize)
+
+            if sectionID == 2 {
+                guard let importCount = readULEB(&offset) else { break }
+                for _ in 0..<importCount {
+                    guard let module = readName(&offset), readName(&offset) != nil,
+                        offset < sectionEnd
+                    else {
+                        break
+                    }
+                    let kind = bytes[offset]
+                    offset += 1
+
+                    if module.hasPrefix("wasix_") {
+                        importsWasix = true
+                    }
+                    if module == "env", kind == 2 {
+                        importsHostMemory = true
+                    }
+
+                    switch kind {
+                    case 0:
+                        _ = readULEB(&offset)
+                    case 1:
+                        offset += 1
+                        guard let flags = readULEB(&offset), readULEB(&offset) != nil else { break }
+                        if flags & 1 != 0 { _ = readULEB(&offset) }
+                    case 2:
+                        guard let flags = readULEB(&offset), readULEB(&offset) != nil else { break }
+                        if flags & 1 != 0 { _ = readULEB(&offset) }
+                    case 3:
+                        offset += 2
+                    default:
+                        offset = sectionEnd
+                    }
+                }
+                break
+            }
+
+            offset = sectionEnd
+        }
+
+        if importsWasix || importsHostMemory {
+            return
+                "This wasminspect.wasm imports \(importsWasix ? "WASIX" : "host") runtime features that CodifyOne's iOS Wasmer bridge cannot run safely. Install a WASI preview1 command build of wasminspect.wasm."
+        }
+
+        return nil
+    }
+
     func launch() {
         guard FileManager.default.fileExists(atPath: wasminspectWasmPath) else {
             state = .error("wasminspect.wasm not found at \(wasminspectWasmPath)")
             return
         }
-
-        guard FileManager.default.fileExists(atPath: targetWasmPath) else {
-            state = .error("Target WASM not found at \(targetWasmPath)")
+        if let issue = Self.debuggerWasmCompatibilityIssue(at: wasminspectWasmPath) {
+            state = .error(issue)
             return
         }
 
+        guard let resolvedTargetWasmPath = Self.resolveTargetWasmPath(targetWasmPath) else {
+            state = .error("Target WASM not found at \(targetWasmPath)")
+            return
+        }
+        targetWasmPath = resolvedTargetWasmPath
+
         state = .launching
-        log("Launching wasminspect for \(targetWasmPath)…")
+        log("Launching wasminspect for \(resolvedTargetWasmPath)…")
 
         // The debugger runs as a WASI guest and reads the target module (and
         // its DWARF sources) through the virtual filesystem — set up the
         // sysroot so those host paths are reachable.
-        setupWASMSysroot(currentDirectory: FileManager.default.currentDirectoryPath)
+        let targetDirectory = URL(fileURLWithPath: resolvedTargetWasmPath)
+            .deletingLastPathComponent().path
+        setupWASMSysroot(currentDirectory: targetDirectory)
 
         // Build argv
-        var argv: [String] = ["wasminspect", targetWasmPath]
+        var argv: [String] = ["wasminspect", resolvedTargetWasmPath]
         if !targetArgs.isEmpty {
             argv.append(contentsOf: targetArgs.split(separator: " ").map(String.init))
         }

@@ -39,6 +39,7 @@
       useCustomWorkingDirectory = "NO"
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
+      customLLDBInitFile = "$(SRCROOT)/CodifyOne-Wasmer.lldbinit"
       debugServiceExtension = "internal"
       allowLocationSimulation = "YES">
       <BuildableProductRunnable

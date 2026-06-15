@@ -9,59 +9,6 @@ import Darwin
 import SwiftUI
 import ios_system
 
-private var executorCrashSignalOutputFD: Int32 = STDERR_FILENO
-
-private func executorWriteCrashSignalMessage(_ message: StaticString) {
-    message.withUTF8Buffer { buffer in
-        guard let baseAddress = buffer.baseAddress else { return }
-        _ = write(executorCrashSignalOutputFD, baseAddress, buffer.count)
-    }
-}
-
-private func executorCrashSignalHandler(_ signalNumber: Int32) {
-    switch signalNumber {
-    case SIGSEGV:
-        executorWriteCrashSignalMessage(
-            "\r\nwasm: runtime crashed with SIGSEGV (segmentation fault)\r\n")
-    case SIGBUS:
-        executorWriteCrashSignalMessage("\r\nwasm: runtime crashed with SIGBUS (bus error)\r\n")
-    case SIGILL:
-        executorWriteCrashSignalMessage(
-            "\r\nwasm: runtime crashed with SIGILL (illegal instruction)\r\n")
-    case SIGABRT:
-        executorWriteCrashSignalMessage("\r\nwasm: runtime aborted with SIGABRT\r\n")
-    default:
-        executorWriteCrashSignalMessage("\r\nwasm: runtime crashed with a fatal signal\r\n")
-    }
-
-    signal(signalNumber, SIG_DFL)
-    raise(signalNumber)
-}
-
-private struct ExecutorCrashSignalHandlers {
-    let segv: sig_t?
-    let bus: sig_t?
-    let ill: sig_t?
-    let abrt: sig_t?
-}
-
-@discardableResult
-private func installExecutorCrashSignalHandlers(outputFD: Int32) -> ExecutorCrashSignalHandlers {
-    executorCrashSignalOutputFD = outputFD
-    return ExecutorCrashSignalHandlers(
-        segv: signal(SIGSEGV, executorCrashSignalHandler),
-        bus: signal(SIGBUS, executorCrashSignalHandler),
-        ill: signal(SIGILL, executorCrashSignalHandler),
-        abrt: signal(SIGABRT, executorCrashSignalHandler))
-}
-
-private func restoreExecutorCrashSignalHandlers(_ handlers: ExecutorCrashSignalHandlers) {
-    signal(SIGSEGV, handlers.segv)
-    signal(SIGBUS, handlers.bus)
-    signal(SIGILL, handlers.ill)
-    signal(SIGABRT, handlers.abrt)
-}
-
 class Executor {
 
     enum State {
@@ -436,6 +383,10 @@ class Executor {
                     + "or install the wasminspect extension.")
             return
         }
+        if let issue = WasminspectService.debuggerWasmCompatibilityIssue(at: inspectorPath) {
+            fail(issue)
+            return
+        }
 
         // Drop the command name and common gdb flags (-q, --quiet, -nx, --args);
         // what remains is the target wasm binary and its arguments.
@@ -536,14 +487,12 @@ class Executor {
             }
 
             let argc = Int32(components.count)
-            let outputFD = stdout_pipe.fileHandleForWriting.fileDescriptor
-            let crashHandlers = installExecutorCrashSignalHandlers(outputFD: outputFD)
 
-            // Call wasm function
+            // Wasmer installs its own SIGBUS/SIGSEGV trap handlers. Do not wrap this
+            // call with process-wide handlers, or WASM memory traps become app crashes.
             let exitCode = cStrings.withUnsafeMutableBufferPointer { buffer in
                 wasm(argc: argc, argv: buffer.baseAddress)
             }
-            restoreExecutorCrashSignalHandlers(crashHandlers)
 
             // Close stdin pipe
             close(stdin_pipe.fileHandleForReading.fileDescriptor)
@@ -620,9 +569,9 @@ class Executor {
             let argc = Int32(components.count)
             self.stdin_file_input = nil
             try? stdin_pipe.fileHandleForWriting.close()
-            let outputFD = stdout_pipe.fileHandleForWriting.fileDescriptor
-            let crashHandlers = installExecutorCrashSignalHandlers(outputFD: outputFD)
 
+            // Wasmer installs its own SIGBUS/SIGSEGV trap handlers. Do not wrap this
+            // call with process-wide handlers, or WASM memory traps become app crashes.
             let exitCode: Int32 = cStrings.withUnsafeMutableBufferPointer { buffer in
                 switch cmdName {
                 case "node":
@@ -637,7 +586,6 @@ class Executor {
                     return 1
                 }
             }
-            restoreExecutorCrashSignalHandlers(crashHandlers)
 
             close(stdin_pipe.fileHandleForReading.fileDescriptor)
             self.stdin_file_input = nil

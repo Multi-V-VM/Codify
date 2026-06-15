@@ -1,0 +1,3 @@
+# Wasmer uses SIGBUS for internal WebAssembly trap handling on Apple platforms.
+# Let the signal pass through to Wasmer instead of stopping Xcode/LLDB first.
+process handle SIGBUS -p true -s false -n false
