@@ -157,13 +157,21 @@ class DebuggerService: ObservableObject {
                         paths.append(docs.appendingPathComponent("wasminspect.wasm").path)
                     }
 
-                    // 3. Check VISX extensions directory
-                    if let docs = FileManager.default.urls(
-                        for: .documentDirectory, in: .userDomainMask
-                    ).first {
-                        let extDir = docs.appendingPathComponent("Extensions")
+                    // 3. Check extension install directories. Legacy VISX packages install to
+                    // Documents/Extensions; standard VSIX packages install to Application Support/Extensions.
+                    let extensionRoots = [
+                        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+                            .first?
+                            .appendingPathComponent("Extensions", isDirectory: true),
+                        FileManager.default.urls(
+                            for: .applicationSupportDirectory, in: .userDomainMask
+                        ).first?
+                        .appendingPathComponent("Extensions", isDirectory: true),
+                    ].compactMap { $0 }
+
+                    for extDir in extensionRoots {
                         if let enumerator = FileManager.default.enumerator(
-                            at: extDir, includingPropertiesForKeys: [.isDirectoryKey])
+                            at: extDir, includingPropertiesForKeys: [.isRegularFileKey])
                         {
                             for case let fileURL as URL in enumerator {
                                 if fileURL.lastPathComponent == "wasminspect.wasm" {

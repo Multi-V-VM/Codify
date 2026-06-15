@@ -65,6 +65,7 @@ class AgentService: ObservableObject {
     private var llmService: CoreMLLLMService
     private var aneLLMService: ANELLMService
     private var currentTask: Task<Void, Never>?
+    private let codeFence = "```"
 
     /// Returns whichever LLM backend currently has a model loaded (ANE preferred)
     var activeLLMService: CoreMLLLMService {
@@ -122,6 +123,13 @@ class AgentService: ObservableObject {
             session.status = .thinking
         }
 
+        guard await ensureLocalModelLoaded(session: session) else {
+            await MainActor.run {
+                isProcessing = false
+            }
+            return
+        }
+
         // Step 1: Analyze the instruction and plan actions
         await analyzeAndPlan(session: session)
 
@@ -139,6 +147,39 @@ class AgentService: ObservableObject {
         }
     }
 
+    /// Ensure edit mode has a real local model before asking for code changes.
+    private func ensureLocalModelLoaded(session: AgentSession) async -> Bool {
+        if aneLLMService.modelLoaded || llmService.modelLoaded {
+            return true
+        }
+
+        if aneLLMService.isLoading {
+            while aneLLMService.isLoading {
+                try? await Task.sleep(nanoseconds: 200_000_000)
+            }
+        } else {
+            do {
+                try await aneLLMService.loadBundledModel()
+            } catch {
+                await MainActor.run {
+                    session.status = .failed
+                    session.error = "Failed to load local ANE model: \(error.localizedDescription)"
+                }
+                return false
+            }
+        }
+
+        if aneLLMService.modelLoaded || llmService.modelLoaded {
+            return true
+        }
+
+        await MainActor.run {
+            session.status = .failed
+            session.error = "No local AI model is loaded for Edit Code"
+        }
+        return false
+    }
+
     /// Send a message via whichever LLM backend is active (ANE preferred)
     private func sendMessageViaActiveLLM(_ prompt: String) async -> String {
         if aneLLMService.modelLoaded {
@@ -147,34 +188,14 @@ class AgentService: ObservableObject {
         return await llmService.sendMessage(prompt)
     }
 
-    /// Analyze instruction and create a plan
+    /// Create local planning steps without consuming model context.
     private func analyzeAndPlan(session: AgentSession) async {
-        let prompt = """
-            You are a code modification agent. Analyze the following instruction and create a step-by-step plan.
-
-            File: \(session.filePath)
-            Current content:
-            ```
-            \(session.fileContent)
-            ```
-
-            Instruction: \(session.instruction)
-
-            Provide a numbered list of specific steps you would take to implement this change. Be concrete and specific.
-            """
-
-        let plan = await sendMessageViaActiveLLM(prompt)
-
-        // Parse thinking steps from the plan
-        let steps = plan.components(separatedBy: .newlines)
-            .filter {
-                $0.trimmingCharacters(in: .whitespaces).hasPrefix("1")
-                    || $0.trimmingCharacters(in: .whitespaces).hasPrefix("2")
-                    || $0.trimmingCharacters(in: .whitespaces).hasPrefix("3")
-            }
-
         await MainActor.run {
-            session.thinkingSteps = steps.isEmpty ? [plan] : steps
+            session.thinkingSteps = [
+                "1. Read \(session.filePath) and identify the requested edit",
+                "2. Ask the local ANE model for one complete updated file",
+                "3. Convert the model output into a reviewable replacement action",
+            ]
         }
     }
 
@@ -185,37 +206,28 @@ class AgentService: ObservableObject {
         }
 
         let prompt = """
-            You are a code modification agent. Generate the exact code changes needed.
+            You are a code editing engine. Apply the user's requested change to the file.
 
             File: \(session.filePath)
             Current content:
-            ```
+            \(codeFence)
             \(session.fileContent)
-            ```
+            \(codeFence)
 
             Instruction: \(session.instruction)
 
-            Provide the changes in this EXACT format:
-
-            ACTION: <REPLACE|INSERT|DELETE>
-            LINES: <start_line>-<end_line>
-            DESCRIPTION: <what this change does>
-            OLD:
-            ```
-            <exact old content>
-            ```
-            NEW:
-            ```
-            <exact new content>
-            ```
-
-            You can specify multiple actions. Be precise with line numbers (1-indexed).
+            Return only the complete updated file in one fenced code block. Do not include explanations, markdown outside the code block, diffs, or line numbers.
             """
 
         let response = await sendMessageViaActiveLLM(prompt)
 
-        // Parse actions from response
-        let actions = parseActions(from: response, fileContent: session.fileContent)
+        // Prefer a full-file replacement because small local models are much more reliable
+        // with one concrete output contract than with line-number patch formats.
+        let actions = parseActions(
+            from: response,
+            filePath: session.filePath,
+            fileContent: session.fileContent
+        )
 
         await MainActor.run {
             if actions.isEmpty {
@@ -229,72 +241,112 @@ class AgentService: ObservableObject {
     }
 
     /// Parse code actions from LLM response
-    private func parseActions(from response: String, fileContent: String) -> [CodeAction] {
+    private func parseActions(from response: String, filePath: String, fileContent: String)
+        -> [CodeAction]
+    {
+        let originalLineCount = max(1, fileContent.components(separatedBy: .newlines).count)
+
+        if let updatedFile = extractFirstFencedCodeBlock(from: response), !updatedFile.isEmpty,
+            updatedFile != fileContent
+        {
+            return [
+                CodeAction(
+                    type: .replace,
+                    description: "Apply requested edit",
+                    filePath: filePath,
+                    lineStart: 1,
+                    lineEnd: originalLineCount,
+                    oldContent: fileContent,
+                    newContent: updatedFile
+                )
+            ]
+        }
+
+        return parseLegacyActions(from: response, filePath: filePath, fileContent: fileContent)
+    }
+
+    private func parseLegacyActions(from response: String, filePath: String, fileContent: String)
+        -> [CodeAction]
+    {
         var actions: [CodeAction] = []
         let lines = fileContent.components(separatedBy: .newlines)
 
-        // Simple parsing - in production, you'd want more robust parsing
-        let actionBlocks = response.components(separatedBy: "ACTION:")
-            .dropFirst()  // Skip text before first ACTION
-
+        let actionBlocks = response.components(separatedBy: "ACTION:").dropFirst()
         for block in actionBlocks {
             let blockLines = block.components(separatedBy: .newlines)
 
-            guard let actionType = blockLines.first?.trimmingCharacters(in: .whitespaces),
-                let type = CodeAction.ActionType(rawValue: actionType.uppercased())
+            guard
+                let actionType = blockLines.first?.trimmingCharacters(in: .whitespacesAndNewlines),
+                let type = actionTypeFromLLMLabel(actionType)
             else {
                 continue
             }
 
-            // Extract description
             let descriptionLine = blockLines.first { $0.contains("DESCRIPTION:") }
             let description =
                 descriptionLine?
                 .replacingOccurrences(of: "DESCRIPTION:", with: "")
-                .trimmingCharacters(in: .whitespaces) ?? "Code modification"
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? "Code modification"
 
-            // Extract line range
             let linesLine = blockLines.first { $0.contains("LINES:") }
             var lineStart = 1
             var lineEnd = 1
 
             if let linesContent = linesLine?.replacingOccurrences(of: "LINES:", with: "")
-                .trimmingCharacters(in: .whitespaces)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             {
                 let rangeParts = linesContent.components(separatedBy: "-")
                 if rangeParts.count == 2,
                     let start = Int(rangeParts[0].trimmingCharacters(in: .whitespaces)),
                     let end = Int(rangeParts[1].trimmingCharacters(in: .whitespaces))
                 {
-                    lineStart = start
-                    lineEnd = end
+                    lineStart = max(1, start)
+                    lineEnd = max(lineStart, end)
                 }
             }
 
-            // Extract old and new content
             let oldContent = extractCodeBlock(from: block, marker: "OLD:")
             let newContent = extractCodeBlock(from: block, marker: "NEW:")
 
-            // Get actual old content from file
             let actualOldContent =
                 lines.indices.contains(lineStart - 1) && lines.indices.contains(lineEnd - 1)
                 ? lines[(lineStart - 1)...(lineEnd - 1)].joined(separator: "\n")
                 : oldContent
 
-            let action = CodeAction(
-                type: type,
-                description: description,
-                filePath: "",
-                lineStart: lineStart,
-                lineEnd: lineEnd,
-                oldContent: actualOldContent,
-                newContent: newContent
+            actions.append(
+                CodeAction(
+                    type: type,
+                    description: description,
+                    filePath: filePath,
+                    lineStart: lineStart,
+                    lineEnd: lineEnd,
+                    oldContent: actualOldContent,
+                    newContent: newContent
+                )
             )
-
-            actions.append(action)
         }
 
         return actions
+    }
+
+    private func actionTypeFromLLMLabel(_ label: String) -> CodeAction.ActionType? {
+        switch label.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "replace": return .replace
+        case "insert": return .insert
+        case "delete": return .delete
+        default: return nil
+        }
+    }
+
+    private func extractFirstFencedCodeBlock(from text: String) -> String? {
+        guard let startBlock = text.range(of: codeFence),
+            let endBlock = text[startBlock.upperBound...].range(of: codeFence)
+        else {
+            return nil
+        }
+
+        let code = String(text[startBlock.upperBound..<endBlock.lowerBound])
+        return stripOptionalFenceLanguage(from: code)
     }
 
     private func extractCodeBlock(from text: String, marker: String) -> String {
@@ -303,18 +355,25 @@ class AgentService: ObservableObject {
         }
 
         let afterMarker = String(text[markerRange.upperBound...])
-
-        // Find the code block
-        if let startBlock = afterMarker.range(of: "```"),
-            let endBlock = afterMarker[startBlock.upperBound...].range(of: "```")
-        {
-            let code = afterMarker[startBlock.upperBound..<endBlock.lowerBound]
-            // Remove the language identifier if present
-            let lines = code.components(separatedBy: .newlines).dropFirst()
-            return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let startBlock = afterMarker.range(of: codeFence),
+            let endBlock = afterMarker[startBlock.upperBound...].range(of: codeFence)
+        else {
+            return ""
         }
 
-        return ""
+        let code = String(afterMarker[startBlock.upperBound..<endBlock.lowerBound])
+        return stripOptionalFenceLanguage(from: code)
+    }
+
+    private func stripOptionalFenceLanguage(from code: String) -> String {
+        var lines = code.components(separatedBy: .newlines)
+        if let first = lines.first?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !first.isEmpty,
+            first.range(of: "^[A-Za-z0-9_+#.-]+$", options: .regularExpression) != nil
+        {
+            lines.removeFirst()
+        }
+        return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     // MARK: - Action Application

@@ -52,17 +52,6 @@ func launchCommandInExtension(args: [String]?) -> Int32 {
 
 // MARK: - Wasmer node.wasm support
 
-@_silgen_name("wasmer_execute")
-func wasmer_node_run(
-    _ wasmBytes: UnsafePointer<UInt8>,
-    _ wasmBytesLen: Int,
-    _ args: UnsafePointer<UnsafePointer<Int8>?>?,
-    _ argsLen: Int,
-    _ stdinFd: Int32,
-    _ stdoutFd: Int32,
-    _ stderrFd: Int32
-) -> Int32
-
 private func loadNodeWasm() -> Data? {
     // Load from app bundle (added via "Copy Bundle Resources" build phase)
     if let url = Resources.nodeWasm,
@@ -77,7 +66,10 @@ private func loadNodeWasm() -> Data? {
 private func runNodeWasm(args: [String]) -> Int32 {
     guard let nodeData = loadNodeWasm() else { return -1 }
 
-    setupWASMSysroot(currentDirectory: FileManager.default.currentDirectoryPath)
+    let hostCurrentDirectory = resolvedWASMCurrentDirectory(
+        FileManager.default.currentDirectoryPath)
+    let wasmCurrentDirectory = safeWASMCurrentDirectory(hostCurrentDirectory)
+    setupWASMSysroot(currentDirectory: wasmCurrentDirectory)
 
     var cStrings: [UnsafePointer<Int8>?] = args.map { strdup($0) }.map { UnsafePointer($0) }
     cStrings.append(nil)

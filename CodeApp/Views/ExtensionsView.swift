@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ExtensionsView: View {
     @StateObject private var extractor = VisxExtractor.shared
@@ -133,7 +134,7 @@ struct ExtensionsView: View {
     }
 
     private func installRustAnalyzer() {
-        guard let url = URL(string: "\(serverURL)/api/extensions/rust-analyzer.visx") else {
+        guard let url = URL(string: "\(serverURL)/api/extensions/rust-analyzer.vsix") else {
             return
         }
 
@@ -221,8 +222,10 @@ struct ExtensionFilePicker: UIViewControllerRepresentable {
     let onFileSelected: (URL) -> Void
 
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let vsixType = UTType(filenameExtension: "vsix")!
+        let visxType = UTType(filenameExtension: "visx")!
         let picker = UIDocumentPickerViewController(
-            forOpeningContentTypes: [.init(filenameExtension: "visx")!],
+            forOpeningContentTypes: [vsixType, visxType],
             asCopy: true
         )
         picker.delegate = context.coordinator

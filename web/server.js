@@ -170,7 +170,13 @@ app.get('/api/marketplace/publishers/:publisher/vsextensions/:extension/:version
     }
 });
 
-// API: Serve local .visx files
+const LOCAL_EXTENSION_EXTENSIONS = ['.vsix', '.visx'];
+
+function isLocalExtensionPackage(filename) {
+    return LOCAL_EXTENSION_EXTENSIONS.some(extension => filename.endsWith(extension));
+}
+
+// API: Serve local .vsix/.visx files
 app.get('/api/extensions/:filename', async (req, res) => {
     try {
         const { filename } = req.params;
@@ -182,9 +188,9 @@ app.get('/api/extensions/:filename', async (req, res) => {
             return res.status(400).json({ error: 'Invalid filename' });
         }
 
-        // Only allow .visx files
-        if (!filename.endsWith('.visx')) {
-            return res.status(400).json({ error: 'Only .visx files are supported' });
+        // Only allow extension packages
+        if (!isLocalExtensionPackage(filename)) {
+            return res.status(400).json({ error: 'Only .vsix and .visx files are supported' });
         }
 
         const filePath = path.join(__dirname, filename);
@@ -235,7 +241,7 @@ app.get('/api/extensions', (req, res) => {
         const path = require('path');
 
         const files = fs.readdirSync(__dirname)
-            .filter(file => file.endsWith('.visx'))
+            .filter(isLocalExtensionPackage)
             .map(file => {
                 const stats = fs.statSync(path.join(__dirname, file));
                 return {

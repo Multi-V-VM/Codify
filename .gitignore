@@ -11,6 +11,8 @@ LanguageResources/python-lsp/
 
 Pods/
 
+proton-wasm/
+
 # fastlane secrets
 **/fastlane/.env
 

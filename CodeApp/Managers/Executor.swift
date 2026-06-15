@@ -618,6 +618,8 @@ class Executor {
             }
 
             let argc = Int32(components.count)
+            self.stdin_file_input = nil
+            try? stdin_pipe.fileHandleForWriting.close()
             let outputFD = stdout_pipe.fileHandleForWriting.fileDescriptor
             let crashHandlers = installExecutorCrashSignalHandlers(outputFD: outputFD)
 

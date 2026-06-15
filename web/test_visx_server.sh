@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# VISX Server Test Script
+# VSIX Server Test Script
 # Tests all the extension server endpoints
 
-echo "🧪 VISX Server Test Script"
+echo "🧪 VSIX Server Test Script"
 echo "=========================="
 echo ""
 
@@ -43,11 +43,11 @@ test_list_extensions() {
 }
 
 test_download_extension() {
-    echo -n "Testing download rust-analyzer.visx... "
+    echo -n "Testing download rust-analyzer.vsix... "
 
     # Download to temp file
-    temp_file="/tmp/rust-analyzer-test.visx"
-    http_code=$(curl -s -w "%{http_code}" -o "$temp_file" "${SERVER_URL}/api/extensions/rust-analyzer.visx")
+    temp_file="/tmp/rust-analyzer-test.vsix"
+    http_code=$(curl -s -w "%{http_code}" -o "$temp_file" "${SERVER_URL}/api/extensions/rust-analyzer.vsix")
 
     if [ "$http_code" = "200" ] && [ -f "$temp_file" ]; then
         file_size=$(ls -lh "$temp_file" | awk '{print $5}')
@@ -70,13 +70,13 @@ test_download_extension() {
 }
 
 test_visx_structure() {
-    echo "Testing VISX file structure..."
+    echo "Testing VSIX file structure..."
 
-    temp_file="/tmp/rust-analyzer-test.visx"
+    temp_file="/tmp/rust-analyzer-test.vsix"
     temp_dir="/tmp/rust-analyzer-test-extracted"
 
     # Download
-    curl -s -o "$temp_file" "${SERVER_URL}/api/extensions/rust-analyzer.visx"
+    curl -s -o "$temp_file" "${SERVER_URL}/api/extensions/rust-analyzer.vsix"
 
     # Extract
     mkdir -p "$temp_dir"
@@ -116,7 +116,7 @@ test_visx_structure() {
 
 test_cors() {
     echo -n "Testing CORS headers... "
-    response=$(curl -s -I "${SERVER_URL}/api/extensions/rust-analyzer.visx")
+    response=$(curl -s -I "${SERVER_URL}/api/extensions/rust-analyzer.vsix")
     if echo "$response" | grep -q "Access-Control-Allow-Origin"; then
         echo -e "${GREEN}✓ PASS${NC}"
         echo "$response" | grep "Access-Control"
@@ -166,7 +166,7 @@ echo -e "${GREEN}✓ All tests completed${NC}"
 echo ""
 echo "Next steps:"
 echo "1. Keep server running: npm start"
-echo "2. Add VisxExtractor.swift to Xcode"
+echo "2. Add VSIXExtractor.swift to Xcode"
 echo "3. Add ExtensionsView.swift to Xcode"
 echo "4. Add ZipArchive dependency"
 echo "5. Test in iOS app"
