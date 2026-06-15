@@ -22,9 +22,10 @@
   `cuModuleLoadData`, resolves functions with `cuModuleGetFunction`, translates
   wasm32 `kernelParams` into host argument slots, and forwards launches through
   the linked hetGPU/ZLUDA PTX backend when available.
-- The Apple CUDA C stub no longer reports fake PTX launch success by default.
-  Without a linked PTX backend it returns `CUDA_ERROR_NOT_SUPPORTED`; set
-  `HETGPU_ALLOW_FAKE_PTX=1` only for legacy symbol-presence probes.
+- `HetGPUAppleRuntime.xcframework` now links a narrow Rust PTX bridge exporting
+  `hetgpu_apple_ptx_*`. The Apple CUDA C stub routes `cuModuleLoadData`,
+  `cuModuleGetFunction`, and `cuLaunchKernel` into that bridge, and registers
+  `cuMemAlloc_v2` allocations so Metal launches know buffer sizes.
 - Resource-bearing DLLs no longer fail on PE RVA subtraction in wasm assembly.
 - The AMD AGS Unix side is stubbed for `PROTON_WASM`; native DRM/AMDGPU is not
   part of the WASM CPU module.

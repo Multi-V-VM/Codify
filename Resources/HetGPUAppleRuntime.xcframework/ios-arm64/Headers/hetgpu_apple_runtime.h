@@ -89,6 +89,26 @@ CUresult cuLaunchKernel(CUfunction function,
                         void **kernel_params,
                         void **extra);
 
+CUresult hetgpu_apple_ptx_register_allocation(void *ptr, size_t size);
+CUresult hetgpu_apple_ptx_unregister_allocation(void *ptr);
+CUresult hetgpu_apple_ptx_module_load_data(CUmodule *module, const void *image);
+CUresult hetgpu_apple_ptx_module_unload(CUmodule module);
+CUresult hetgpu_apple_ptx_module_get_function(CUfunction *function,
+                                              CUmodule module,
+                                              const char *name);
+CUresult hetgpu_apple_ptx_function_release(CUfunction function);
+CUresult hetgpu_apple_ptx_launch_kernel(CUfunction function,
+                                        unsigned int grid_dim_x,
+                                        unsigned int grid_dim_y,
+                                        unsigned int grid_dim_z,
+                                        unsigned int block_dim_x,
+                                        unsigned int block_dim_y,
+                                        unsigned int block_dim_z,
+                                        unsigned int shared_mem_bytes,
+                                        CUstream stream,
+                                        void **kernel_params,
+                                        void **extra);
+
 int hetgpu_apple_metal_compile_msl(const char *source,
                                    const char *label,
                                    void **out_module,

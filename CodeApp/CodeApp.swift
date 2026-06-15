@@ -439,8 +439,7 @@ private func createCSDK() {
     // This operation copies the C SDK from $APPDIR to $HOME/Library and creates the *.a libraries
     // (we can't ship with .a libraries because of the AppStore rules, but we can ship with *.o
     // object files, provided they are in WASM format.
-    installQueue.async {
-        // Use a queue so it does not take time at startup:
+    installQueue.sync {
         NSLog("Starting creating C SDK")
         let libraryURL = try! FileManager().url(
             for: .libraryDirectory,

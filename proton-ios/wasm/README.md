@@ -105,7 +105,6 @@ cuBLAS GEMM probe:
 - `cublasSgemm_v2`
 
 CodifyOne's Wasmer bridge routes those imports to the bundled
-`HetGPUAppleRuntime.xcframework` entry points. GEMM can use Metal/ANE directly;
-PTX modules are forwarded to the real hetGPU/ZLUDA PTX backend when it is
-linked, otherwise the bridge returns `CUDA_ERROR_NOT_SUPPORTED` instead of
-silently accepting a no-op launch.
+`HetGPUAppleRuntime.xcframework` entry points. GEMM can use Metal/ANE directly.
+PTX modules are forwarded through `hetgpu_apple_ptx_*`, a narrow Rust bridge
+that lowers PTX to MSL through ZLUDA/comgr and launches it on Metal.
