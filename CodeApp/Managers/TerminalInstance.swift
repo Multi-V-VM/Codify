@@ -95,6 +95,9 @@ class TerminalInstance: NSObject, WKScriptMessageHandler, WKNavigationDelegate, 
     public var executor: Executor? = nil
     private var terminalMessageHandlerAdded = false
     public var openEditor: ((URL) -> Void)? = nil
+    public var onShowCommandPalette: (() -> Void)? = nil
+    public var onCreateTerminal: (() -> Void)? = nil
+    public var onCloseTerminal: (() -> Void)? = nil
 
     var isInteractive = false
 
@@ -245,45 +248,69 @@ class TerminalInstance: NSObject, WKScriptMessageHandler, WKNavigationDelegate, 
     }
 
     private func buildContextMenu(hasSelection: Bool) -> UIMenu {
-        var actions: [UIMenuElement] = []
-
-        actions.append(
+        let commandActions: [UIAction] = [
             UIAction(
-                title: NSLocalizedString("Copy", comment: ""),
-                image: UIImage(systemName: "doc.on.doc")
+                title: NSLocalizedString("Command Palette...", comment: ""),
+                image: UIImage(systemName: "command")
             ) { [weak self] _ in
-                self?.copySelectionToPasteboard()
-            })
+                self?.onShowCommandPalette?()
+            },
 
-        actions.append(
             UIAction(
-                title: NSLocalizedString("Paste", comment: ""),
-                image: UIImage(systemName: "doc.on.clipboard")
+                title: NSLocalizedString("New Terminal", comment: ""),
+                image: UIImage(systemName: "plus.rectangle.on.rectangle")
             ) { [weak self] _ in
-                guard let text = UIPasteboard.general.string else { return }
-                self?.type(text: text)
-            })
+                self?.onCreateTerminal?()
+            },
 
-        actions.append(
             UIAction(
-                title: NSLocalizedString("Select All", comment: ""),
-                image: UIImage(systemName: "selection.pin.in.out")
+                title: NSLocalizedString("Close Terminal", comment: ""),
+                image: UIImage(systemName: "xmark.rectangle"),
+                attributes: .destructive
             ) { [weak self] _ in
-                self?.executeScript("term.selectAll()")
-            })
+                self?.onCloseTerminal?()
+            },
+        ]
 
-        actions.append(
+        let terminalActions: [UIAction] = [
             UIAction(
-                title: NSLocalizedString("Clear", comment: ""),
+                title: NSLocalizedString("Clear Terminal", comment: ""),
                 image: UIImage(systemName: "trash")
             ) { [weak self] _ in
                 self?.executeScript("term.clear()")
-            })
+            },
+
+            UIAction(
+                title: NSLocalizedString("Reset Terminal", comment: ""),
+                image: UIImage(systemName: "arrow.clockwise")
+            ) { [weak self] _ in
+                self?.reset()
+            },
+
+            UIAction(
+                title: NSLocalizedString("Send Interrupt", comment: ""),
+                image: UIImage(systemName: "stop.circle")
+            ) { [weak self] _ in
+                self?.sendInterrupt()
+            },
+
+            UIAction(
+                title: NSLocalizedString("Show in Files App", comment: ""),
+                image: UIImage(systemName: "folder")
+            ) { [weak self] _ in
+                guard let currentDirectory = self?.executor?.currentWorkingDirectory else {
+                    return
+                }
+                self?.openSharedFilesApp(urlString: currentDirectory.absoluteString)
+            },
+        ]
 
         return UIMenu(
             title: "",
-            options: .displayInline,
-            children: actions
+            children: [
+                UIMenu(title: "", options: .displayInline, children: commandActions),
+                UIMenu(title: "", options: .displayInline, children: terminalActions),
+            ]
         )
     }
 

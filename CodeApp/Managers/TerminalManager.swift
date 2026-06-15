@@ -92,6 +92,23 @@ class TerminalManager: ObservableObject {
 
     private func createTerminalInstance(name: String) -> TerminalInstance {
         let terminal = TerminalInstance(root: rootURL, options: options, name: name)
+        terminal.onShowCommandPalette = {
+            NotificationCenter.default.post(
+                name: Notification.Name("editor.commandPalette"),
+                object: nil
+            )
+        }
+        terminal.onCreateTerminal = { [weak self] in
+            DispatchQueue.main.async {
+                _ = self?.createTerminal()
+            }
+        }
+        terminal.onCloseTerminal = { [weak self, weak terminal] in
+            guard let terminal else { return }
+            DispatchQueue.main.async {
+                self?.closeTerminal(id: terminal.id)
+            }
+        }
         // We do not support creating remote terminal instances for now
         return terminal
     }

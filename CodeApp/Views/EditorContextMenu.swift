@@ -22,15 +22,14 @@ class EditorContextMenu {
     func buildContextMenu(hasSelection: Bool) -> UIMenu {
         var menuItems: [UIMenuElement] = []
 
+        let commandSection = buildCommandSection()
+        menuItems.append(commandSection)
+
         // AI Features Section (if has selection)
         if hasSelection {
             let aiSection = buildAISection()
             menuItems.append(aiSection)
         }
-
-        // Basic Editing Section
-        let editingSection = buildEditingSection(hasSelection: hasSelection)
-        menuItems.append(editingSection)
 
         // Code Actions Section
         if hasSelection {
@@ -93,62 +92,38 @@ class EditorContextMenu {
         )
     }
 
-    private func buildEditingSection(hasSelection: Bool) -> UIMenu {
-        var actions: [UIAction] = []
-
-        if hasSelection {
-            let cutAction = UIAction(
-                title: NSLocalizedString("Cut", comment: ""),
-                image: UIImage(systemName: "scissors")
-            ) { [weak self] _ in
-                Task {
-                    await self?.editorImplementation?.cutSelection()
-                }
-            }
-            actions.append(cutAction)
-
-            let copyAction = UIAction(
-                title: NSLocalizedString("Copy", comment: ""),
-                image: UIImage(systemName: "doc.on.doc")
-            ) { [weak self] _ in
-                Task {
-                    if let text = await self?.editorImplementation?.copySelection() {
-                        UIPasteboard.general.string = text
-                    }
-                }
-            }
-            actions.append(copyAction)
-        }
-
-        let pasteAction = UIAction(
-            title: NSLocalizedString("Paste", comment: ""),
-            image: UIImage(systemName: "doc.on.clipboard")
+    private func buildCommandSection() -> UIMenu {
+        let commandPaletteAction = UIAction(
+            title: NSLocalizedString("Command Palette...", comment: ""),
+            image: UIImage(systemName: "command")
         ) { [weak self] _ in
-            if let text = UIPasteboard.general.string {
-                Task {
-                    await self?.editorImplementation?.pasteText(text: text)
-                }
+            Task {
+                await self?.editorImplementation?._toggleCommandPalatte()
             }
         }
-        actions.append(pasteAction)
 
-        if hasSelection {
-            let deleteAction = UIAction(
-                title: NSLocalizedString("Delete", comment: ""),
-                image: UIImage(systemName: "trash"),
-                attributes: .destructive
-            ) { [weak self] _ in
-                Task {
-                    await self?.editorImplementation?.deleteSelection()
-                }
+        let goToLineAction = UIAction(
+            title: NSLocalizedString("Go to Line...", comment: ""),
+            image: UIImage(systemName: "number")
+        ) { [weak self] _ in
+            Task {
+                await self?.editorImplementation?._toggleGoToLineWidget()
             }
-            actions.append(deleteAction)
+        }
+
+        let formatDocumentAction = UIAction(
+            title: NSLocalizedString("Format Document", comment: ""),
+            image: UIImage(systemName: "doc.text")
+        ) { [weak self] _ in
+            Task {
+                await self?.editorImplementation?.formatDocument()
+            }
         }
 
         return UIMenu(
             title: "",
             options: .displayInline,
-            children: actions
+            children: [commandPaletteAction, goToLineAction, formatDocumentAction]
         )
     }
 
@@ -193,26 +168,6 @@ class EditorContextMenu {
             }
         }
         actions.append(renameAction)
-
-        let formatDocumentAction = UIAction(
-            title: NSLocalizedString("Format Document", comment: ""),
-            image: UIImage(systemName: "doc.text")
-        ) { [weak self] _ in
-            Task {
-                await self?.editorImplementation?.formatDocument()
-            }
-        }
-        actions.append(formatDocumentAction)
-
-        let commandPaletteAction = UIAction(
-            title: NSLocalizedString("Command Palette...", comment: ""),
-            image: UIImage(systemName: "command")
-        ) { [weak self] _ in
-            Task {
-                await self?.editorImplementation?._toggleCommandPalatte()
-            }
-        }
-        actions.append(commandPaletteAction)
 
         return UIMenu(
             title: "",

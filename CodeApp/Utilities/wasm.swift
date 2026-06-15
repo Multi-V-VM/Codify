@@ -534,9 +534,9 @@ func safeWASMCurrentDirectory(_ currentDirectory: String) -> String {
     let fileManager = FileManager.default
     let runtimeRootURL = wasmTemporaryRuntimeURL(fileManager: fileManager)
     let runtimeRootPath = runtimeRootURL.path
-    let runtimeHomeURL = runtimeRootURL.appendingPathComponent("home", isDirectory: true)
+    let runtimeTempURL = runtimeRootURL.appendingPathComponent("tmp", isDirectory: true)
     let runtimeFallbackPath =
-        wasmEnsureHostDirectory(runtimeHomeURL.path) ? runtimeHomeURL.path : runtimeRootPath
+        wasmEnsureHostDirectory(runtimeTempURL.path) ? runtimeTempURL.path : runtimeRootPath
 
     if wasmHostDirectoryExists(currentDirectory), wasmHostPathIsWasmRuntime(currentDirectory) {
         return currentDirectory
@@ -723,16 +723,19 @@ func setupWASMSysroot(currentDirectory: String, gpuBackend: String? = nil) {
     }
 
     let wasmCWD: String
-    if let guestPath = wasmGuestPath(
-        forHostPath: wasmCWDHost, hostRoot: runtimeHomePath, guestRoot: "/home")
+    if wasmHostPathIsUsableByWasmer(runtimeHomePath),
+        let guestPath = wasmGuestPath(
+            forHostPath: wasmCWDHost, hostRoot: runtimeHomePath, guestRoot: "/home")
     {
         wasmCWD = guestPath
-    } else if let guestPath = wasmGuestPath(
-        forHostPath: wasmCWDHost, hostRoot: tempURL.path, guestRoot: "/tmp")
+    } else if wasmHostPathIsUsableByWasmer(tempURL.path),
+        let guestPath = wasmGuestPath(
+            forHostPath: wasmCWDHost, hostRoot: tempURL.path, guestRoot: "/tmp")
     {
         wasmCWD = guestPath
-    } else if let guestPath = wasmGuestPath(
-        forHostPath: wasmCWDHost, hostRoot: runtimeRootPath, guestRoot: "/")
+    } else if wasmHostPathIsUsableByWasmer(runtimeRootPath),
+        let guestPath = wasmGuestPath(
+            forHostPath: wasmCWDHost, hostRoot: runtimeRootPath, guestRoot: "/")
     {
         wasmCWD = guestPath
     } else if wasmHostPathIsUsableByWasmer(wasmCWDHost) {

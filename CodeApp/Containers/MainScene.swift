@@ -123,6 +123,16 @@ struct MainScene: View {
                     App.terminalManager.applyThemeToAll(rawTheme: theme.dictionary)
                 }
             )
+            .onReceive(
+                NotificationCenter.default.publisher(
+                    for: Notification.Name("editor.commandPalette"),
+                    object: nil
+                )
+            ) { _ in
+                Task {
+                    await App.monacoInstance._toggleCommandPalatte()
+                }
+            }
     }
 }
 
