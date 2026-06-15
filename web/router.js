@@ -479,8 +479,7 @@ router.get('/api/marketplace/stats', (req, res) => {
     });
 });
 
-module.exports = {
-    router,
-    CACHE_DURATION,
-    MARKETPLACE_API
-};
+module.exports = router;
+module.exports.router = router;
+module.exports.CACHE_DURATION = CACHE_DURATION;
+module.exports.MARKETPLACE_API = MARKETPLACE_API;

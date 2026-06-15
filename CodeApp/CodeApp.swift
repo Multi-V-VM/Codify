@@ -72,6 +72,7 @@ private func needToUpdateCFiles() -> Bool {
     let requiredFiles = [
         "usr/include/stdio.h",
         "usr/lib/wasm32-wasi/crt1.o",
+        "usr/lib/wasm32-wasi/libc.imports",
         "usr/lib/wasm32-wasi/libc.a",
         "usr/lib/wasm32-wasi/libc-printscan-long-double.a",
         "usr/lib/wasm32-wasi/libwasi-emulated-mman.a",
@@ -721,12 +722,12 @@ private func setupEnvironment() {
     setenv("YARL_NO_EXTENSIONS", "1", 1)
     setenv("MULTIDICT_NO_EXTENSIONS", "1", 1)
     setenv("SYSROOT", libraryURL.path + "/usr", 1)
-    let wasiDefinedSymbols = libraryURL.appendingPathComponent(
-        "usr/share/wasm32-wasi/defined-symbols.txt"
+    let wasiImports = libraryURL.appendingPathComponent(
+        "usr/lib/wasm32-wasi/libc.imports"
     ).path
     setenv(
         "CCC_OVERRIDE_OPTIONS",
-        "#^--target=wasm32-wasi +-fno-exceptions +-lc-printscan-long-double +-Wl,--allow-undefined-file=\(wasiDefinedSymbols)",
+        "#^--target=wasm32-wasi +-fno-exceptions +-lc-printscan-long-double +-Wl,--allow-undefined-file=\(wasiImports)",
         1)
     setenv("MAKESYSPATH", Bundle.main.resourcePath! + "ClangLib/usr/share/mk", 1)
     setenv("PHPRC", bundleUrl.path.toCString(), 1)
