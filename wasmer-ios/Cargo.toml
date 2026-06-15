@@ -32,4 +32,7 @@ wasmer-derive = { path = "./wasmer/lib/derive" }
 opt-level = "z"     # Optimize for size
 lto = false         # Avoid iOS staticlib bitcode/LTO duplicate-symbol issues
 codegen-units = 1   # Better optimization
-strip = true        # Strip symbols
+debug = 0           # Do not emit debug info into archive members
+incremental = false # Keep release builds deterministic and compact
+panic = "abort"     # Remove unwinding tables from the iOS static library
+strip = "symbols"   # Strip symbols where rustc can do so directly

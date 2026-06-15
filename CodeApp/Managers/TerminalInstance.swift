@@ -15,13 +15,13 @@ private struct WasmerDisplayFrame {
     let stride: UInt32
     let format: UInt32
     let data: UnsafePointer<UInt8>?
-    let dataLen: Int
+    let dataLen: UInt
     let frameID: UInt64
 }
 
 private typealias WasmerDisplayFrameCallback =
     @convention(c) (
-        UnsafePointer<WasmerDisplayFrame>?,
+        UnsafeRawPointer?,
         UnsafeMutableRawPointer?
     ) -> Void
 
@@ -43,11 +43,11 @@ private func wasmer_display_enqueue_input_event(
 
 private let protonDisplayFrameCallback: WasmerDisplayFrameCallback = { framePointer, userData in
     guard let framePointer, let userData else { return }
-    let frame = framePointer.pointee
+    let frame = framePointer.bindMemory(to: WasmerDisplayFrame.self, capacity: 1).pointee
     guard frame.format == 1, let data = frame.data, frame.dataLen > 0 else { return }
 
     let terminal = Unmanaged<TerminalInstance>.fromOpaque(userData).takeUnretainedValue()
-    let copiedFrame = Data(bytes: data, count: frame.dataLen)
+    let copiedFrame = Data(bytes: data, count: Int(frame.dataLen))
     terminal.presentProtonFrame(
         width: Int(frame.width),
         height: Int(frame.height),
@@ -318,7 +318,7 @@ class TerminalInstance: NSObject, WKScriptMessageHandler, WKNavigationDelegate, 
         _ = wasmer_display_enqueue_input_event(eventType, code, x, y, value, modifiers)
     }
 
-    private func presentProtonFrame(
+    fileprivate func presentProtonFrame(
         width: Int,
         height: Int,
         stride: Int,
