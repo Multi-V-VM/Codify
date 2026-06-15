@@ -18,6 +18,13 @@
 - The Wasmer CUDA/cuBLAS import path resolves the bundled hetGPU Apple symbols:
   `hetgpu_ane_gemm`, `hetgpu_apple_metal_gemm`, and
   `hetgpu_apple_ane_gemm`.
+- The Wasmer CUDA Driver import path now accepts PTX modules through
+  `cuModuleLoadData`, resolves functions with `cuModuleGetFunction`, translates
+  wasm32 `kernelParams` into host argument slots, and forwards launches through
+  the linked hetGPU/ZLUDA PTX backend when available.
+- The Apple CUDA C stub no longer reports fake PTX launch success by default.
+  Without a linked PTX backend it returns `CUDA_ERROR_NOT_SUPPORTED`; set
+  `HETGPU_ALLOW_FAKE_PTX=1` only for legacy symbol-presence probes.
 - Resource-bearing DLLs no longer fail on PE RVA subtraction in wasm assembly.
 - The AMD AGS Unix side is stubbed for `PROTON_WASM`; native DRM/AMDGPU is not
   part of the WASM CPU module.

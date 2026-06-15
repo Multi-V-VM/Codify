@@ -118,25 +118,20 @@ class Executor {
     private func _onStdout(data: Data) {
         let str = String(decoding: data, as: UTF8.self)
 
-        if str.contains(END_OF_TRANSMISSION) {
+        let output: String
+        if let markerRange = str.range(of: END_OF_TRANSMISSION) {
+            output = String(str[..<markerRange.lowerBound])
             stdout_active = false
+        } else {
+            output = str
+        }
+
+        guard !output.isEmpty, let outputData = output.data(using: .utf8) else {
             return
         }
 
         DispatchQueue.main.async {
-            if self.state == .running {
-                // Interactive Commands /with control characters
-                if str.contains("\u{8}") || str.contains("\u{13}") || str.contains("\r") {
-                    self.receivedStdout(data)
-                    return
-                }
-                self.requestInput(str)
-                if let prom = str.components(separatedBy: "\n").last {
-                    self.prompt = prom
-                }
-            } else {
-                self.receivedStdout(data)
-            }
+            self.receivedStdout(outputData)
         }
     }
 
@@ -150,15 +145,7 @@ class Executor {
     private func onStderr(_ stderr: FileHandle) {
         let data = stderr.availableData
         DispatchQueue.main.async {
-            if self.state == .running {
-                let str = String(decoding: data, as: UTF8.self)
-                self.requestInput(str)
-                if let prom = str.components(separatedBy: "\n").last {
-                    self.prompt = prom
-                }
-            } else {
-                self.receivedStdout(data)
-            }
+            self.receivedStderr(data)
         }
     }
 

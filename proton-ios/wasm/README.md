@@ -77,16 +77,35 @@ This overlay targets a WASI/WASIX host first. The bridge should return status
 codes instead of calling `exit`, and it should not assume that arbitrary
 process spawning, host dynamic libraries, or writable executable memory exist.
 
-GPU runtime calls are intentionally host imports. The initial import contract
-matches the existing CUDA/cuBLAS probe:
+GPU runtime calls are intentionally host imports. The import contract covers
+CUDA runtime memory calls, CUDA Driver PTX module calls, and the current
+cuBLAS GEMM probe:
 
 - `cudaMalloc`
 - `cudaFree`
 - `cudaMemcpy`
 - `cudaDeviceSynchronize`
+- `cuInit`
+- `cuDeviceGetCount`
+- `cuDeviceGet`
+- `cuCtxCreate_v2`
+- `cuCtxSetCurrent`
+- `cuMemAlloc_v2`
+- `cuMemFree_v2`
+- `cuMemcpyHtoD_v2`
+- `cuMemcpyDtoH_v2`
+- `cuMemcpyDtoD_v2`
+- `cuModuleLoadData`
+- `cuModuleLoadDataEx`
+- `cuModuleGetFunction`
+- `cuLaunchKernel`
+- `cuCtxSynchronize`
 - `cublasCreate_v2`
 - `cublasDestroy_v2`
 - `cublasSgemm_v2`
 
-CodifyOne's Wasmer bridge can then route those imports to the bundled
-`HetGPUAppleRuntime.xcframework` Metal/ANE GEMM entry points.
+CodifyOne's Wasmer bridge routes those imports to the bundled
+`HetGPUAppleRuntime.xcframework` entry points. GEMM can use Metal/ANE directly;
+PTX modules are forwarded to the real hetGPU/ZLUDA PTX backend when it is
+linked, otherwise the bridge returns `CUDA_ERROR_NOT_SUPPORTED` instead of
+silently accepting a no-op launch.

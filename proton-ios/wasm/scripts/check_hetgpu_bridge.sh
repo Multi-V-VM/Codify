@@ -2,12 +2,15 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PROJECT_DIR="$(cd "$ROOT_DIR/.." && pwd)"
+PROJECT_DIR="$(cd "$ROOT_DIR/../.." && pwd)"
 
 HETGPU_HEADER="$PROJECT_DIR/Resources/HetGPUAppleRuntime.xcframework/ios-arm64/Headers/hetgpu_apple_runtime.h"
+HETGPU_STUB="$PROJECT_DIR/hetgpu-ios/zluda/src/apple_cuda_stub.m"
 WASMER_GPU_RS="$PROJECT_DIR/wasmer-ios/wasmer/lib/cli/src/commands/run/gpu.rs"
 WASMER_IOS_RS="$PROJECT_DIR/wasmer-ios/src/lib.rs"
+WASM_HETGPU_IMPORTS="$PROJECT_DIR/proton-ios/wasm/include/proton_wasm_hetgpu_imports.h"
 CUDA_PROBE="$PROJECT_DIR/examples/wasm-cuda-oxide/cuda_oxide_probe.c"
+CUDA_PTX_PROBE="$PROJECT_DIR/examples/wasm-cuda-ptx/cuda_ptx_probe.c"
 PROTON_IOS_BRIDGE="$PROJECT_DIR/proton-ios/src/proton_ios.c"
 
 missing=0
@@ -40,18 +43,35 @@ check_text() {
 }
 
 check_file "$HETGPU_HEADER"
+check_file "$HETGPU_STUB"
 check_file "$WASMER_GPU_RS"
 check_file "$WASMER_IOS_RS"
+check_file "$WASM_HETGPU_IMPORTS"
 check_file "$CUDA_PROBE"
+check_file "$CUDA_PTX_PROBE"
 check_file "$PROTON_IOS_BRIDGE"
 
 check_text "$HETGPU_HEADER" "hetgpu_apple_metal_gemm"
 check_text "$HETGPU_HEADER" "hetgpu_apple_ane_gemm"
+check_text "$HETGPU_STUB" "hetgpu_apple_ptx_module_load_data"
+check_text "$HETGPU_STUB" "CUDA_ERROR_NOT_SUPPORTED"
 check_text "$WASMER_GPU_RS" "cublasSgemm_v2"
 check_text "$WASMER_GPU_RS" "hetgpu_apple_metal_gemm"
+check_text "$WASMER_GPU_RS" "cuModuleLoadData"
+check_text "$WASMER_GPU_RS" "cuModuleGetFunction"
+check_text "$WASMER_GPU_RS" "cuLaunchKernel"
 check_text "$WASMER_IOS_RS" "hetgpu_apple_metal_gemm"
+check_text "$WASMER_IOS_RS" "cuModuleLoadData"
+check_text "$WASMER_IOS_RS" "cuModuleGetFunction"
+check_text "$WASMER_IOS_RS" "cuLaunchKernel"
+check_text "$WASM_HETGPU_IMPORTS" "cuModuleLoadData"
+check_text "$WASM_HETGPU_IMPORTS" "cuModuleGetFunction"
+check_text "$WASM_HETGPU_IMPORTS" "cuLaunchKernel"
 check_text "$CUDA_PROBE" "cudaMalloc"
 check_text "$CUDA_PROBE" "cublasSgemm_v2"
+check_text "$CUDA_PTX_PROBE" "cuModuleLoadData"
+check_text "$CUDA_PTX_PROBE" "cuModuleGetFunction"
+check_text "$CUDA_PTX_PROBE" "cuLaunchKernel"
 check_text "$PROTON_IOS_BRIDGE" "wasmer_execute"
 check_text "$PROTON_IOS_BRIDGE" "WASM_CUDA_ACCEL"
 

@@ -575,7 +575,30 @@ fn module_has_cuda_imports(module: &Module) -> bool {
         import.module() == "env"
             && matches!(
                 import.name(),
-                "cudaMalloc"
+                "cuInit"
+                    | "cuDriverGetVersion"
+                    | "cuDeviceGetCount"
+                    | "cuDeviceGet"
+                    | "cuDeviceGetName"
+                    | "cuDeviceTotalMem_v2"
+                    | "cuDeviceGetAttribute"
+                    | "cuCtxCreate_v2"
+                    | "cuCtxDestroy_v2"
+                    | "cuCtxSetCurrent"
+                    | "cuCtxGetCurrent"
+                    | "cuCtxSynchronize"
+                    | "cuMemAlloc_v2"
+                    | "cuMemFree_v2"
+                    | "cuMemcpyHtoD_v2"
+                    | "cuMemcpyDtoH_v2"
+                    | "cuMemcpyDtoD_v2"
+                    | "cuModuleLoadData"
+                    | "cuModuleLoadDataEx"
+                    | "cuModuleUnload"
+                    | "cuModuleGetFunction"
+                    | "cuLaunchKernel"
+                    | "cuLaunchKernel_ptsz"
+                    | "cudaMalloc"
                     | "cudaFree"
                     | "cudaMemcpy"
                     | "cudaDeviceSynchronize"
@@ -630,6 +653,121 @@ fn instantiate_wasi_with_cuda(
 }
 
 fn define_cuda_imports(store: &mut Store, imports: &mut Imports, env: &FunctionEnv<CudaBridge>) {
+    imports.define(
+        "env",
+        "cuInit",
+        Function::new_typed_with_env(store, env, cu_init),
+    );
+    imports.define(
+        "env",
+        "cuDriverGetVersion",
+        Function::new_typed_with_env(store, env, cu_driver_get_version),
+    );
+    imports.define(
+        "env",
+        "cuDeviceGetCount",
+        Function::new_typed_with_env(store, env, cu_device_get_count),
+    );
+    imports.define(
+        "env",
+        "cuDeviceGet",
+        Function::new_typed_with_env(store, env, cu_device_get),
+    );
+    imports.define(
+        "env",
+        "cuDeviceGetName",
+        Function::new_typed_with_env(store, env, cu_device_get_name),
+    );
+    imports.define(
+        "env",
+        "cuDeviceTotalMem_v2",
+        Function::new_typed_with_env(store, env, cu_device_total_mem_v2),
+    );
+    imports.define(
+        "env",
+        "cuDeviceGetAttribute",
+        Function::new_typed_with_env(store, env, cu_device_get_attribute),
+    );
+    imports.define(
+        "env",
+        "cuCtxCreate_v2",
+        Function::new_typed_with_env(store, env, cu_ctx_create_v2),
+    );
+    imports.define(
+        "env",
+        "cuCtxDestroy_v2",
+        Function::new_typed_with_env(store, env, cu_ctx_destroy_v2),
+    );
+    imports.define(
+        "env",
+        "cuCtxSetCurrent",
+        Function::new_typed_with_env(store, env, cu_ctx_set_current),
+    );
+    imports.define(
+        "env",
+        "cuCtxGetCurrent",
+        Function::new_typed_with_env(store, env, cu_ctx_get_current),
+    );
+    imports.define(
+        "env",
+        "cuCtxSynchronize",
+        Function::new_typed_with_env(store, env, cu_ctx_synchronize),
+    );
+    imports.define(
+        "env",
+        "cuMemAlloc_v2",
+        Function::new_typed_with_env(store, env, cu_mem_alloc_v2),
+    );
+    imports.define(
+        "env",
+        "cuMemFree_v2",
+        Function::new_typed_with_env(store, env, cu_mem_free_v2),
+    );
+    imports.define(
+        "env",
+        "cuMemcpyHtoD_v2",
+        Function::new_typed_with_env(store, env, cu_memcpy_hto_d_v2),
+    );
+    imports.define(
+        "env",
+        "cuMemcpyDtoH_v2",
+        Function::new_typed_with_env(store, env, cu_memcpy_dto_h_v2),
+    );
+    imports.define(
+        "env",
+        "cuMemcpyDtoD_v2",
+        Function::new_typed_with_env(store, env, cu_memcpy_dto_d_v2),
+    );
+    imports.define(
+        "env",
+        "cuModuleLoadData",
+        Function::new_typed_with_env(store, env, cu_module_load_data),
+    );
+    imports.define(
+        "env",
+        "cuModuleLoadDataEx",
+        Function::new_typed_with_env(store, env, cu_module_load_data_ex),
+    );
+    imports.define(
+        "env",
+        "cuModuleUnload",
+        Function::new_typed_with_env(store, env, cu_module_unload),
+    );
+    imports.define(
+        "env",
+        "cuModuleGetFunction",
+        Function::new_typed_with_env(store, env, cu_module_get_function),
+    );
+    imports.define(
+        "env",
+        "cuLaunchKernel",
+        Function::new_typed_with_env(store, env, cu_launch_kernel),
+    );
+    imports.define(
+        "env",
+        "cuLaunchKernel_ptsz",
+        Function::new_typed_with_env(store, env, cu_launch_kernel),
+    );
     imports.define(
         "env",
         "cudaMalloc",
@@ -696,6 +834,34 @@ fn write_guest_u32(ctx: &mut FunctionEnvMut<CudaBridge>, ptr: i32, value: u32) -
     write_guest_memory(ctx, ptr, &value.to_le_bytes())
 }
 
+fn read_guest_u32(ctx: &mut FunctionEnvMut<CudaBridge>, ptr: i32) -> Option<u32> {
+    let bytes = read_guest_memory(ctx, ptr, 4)?;
+    Some(u32::from_le_bytes(bytes.try_into().ok()?))
+}
+
+fn read_guest_c_string(
+    ctx: &mut FunctionEnvMut<CudaBridge>,
+    ptr: i32,
+    max_len: usize,
+) -> Option<Vec<u8>> {
+    if ptr < 0 {
+        return None;
+    }
+    let memory = ctx.data().memory.clone()?;
+    let view = memory.view(&*ctx);
+    let mut bytes = Vec::new();
+    for offset in 0..max_len {
+        let mut byte = [0u8; 1];
+        view.read((ptr as u64).checked_add(offset as u64)?, &mut byte)
+            .ok()?;
+        if byte[0] == 0 {
+            return Some(bytes);
+        }
+        bytes.push(byte[0]);
+    }
+    None
+}
+
 fn read_guest_f32(ctx: &mut FunctionEnvMut<CudaBridge>, ptr: i32) -> Option<f32> {
     let bytes = read_guest_memory(ctx, ptr, 4)?;
     Some(f32::from_le_bytes(bytes.try_into().ok()?))
@@ -705,7 +871,10 @@ fn device_allocation_bytes(ctx: &FunctionEnvMut<CudaBridge>, ptr: i32) -> Option
     if ptr < 0 {
         return None;
     }
-    ctx.data().allocations.get(&(ptr as u32)).cloned()
+    ctx.data()
+        .allocations
+        .get(&(ptr as u32))
+        .map(|allocation| allocation.bytes.clone())
 }
 
 fn device_allocation_f32s(ctx: &FunctionEnvMut<CudaBridge>, ptr: i32) -> Option<Vec<f32>> {
@@ -745,6 +914,162 @@ fn resolve_hetgpu_gemm(symbol: &[u8]) -> Option<HetgpuGemmFn> {
     }
 
     Some(unsafe { std::mem::transmute::<*mut c_void, HetgpuGemmFn>(resolved) })
+}
+
+fn resolve_symbol(symbol: &[u8]) -> Option<*mut c_void> {
+    let resolved = unsafe { libc::dlsym(libc::RTLD_DEFAULT, symbol.as_ptr() as *const c_char) };
+    if resolved.is_null() {
+        None
+    } else {
+        Some(resolved)
+    }
+}
+
+fn ptx_host_enabled() -> bool {
+    std::env::var("WASM_CUDA_ACCEL").ok().as_deref() == Some("1")
+}
+
+fn resolve_host_module_load_data() -> Option<HostCuModuleLoadDataFn> {
+    for symbol in [
+        b"hetgpu_apple_ptx_module_load_data\0".as_slice(),
+        b"cuModuleLoadData\0".as_slice(),
+    ] {
+        if let Some(resolved) = resolve_symbol(symbol) {
+            return Some(unsafe {
+                std::mem::transmute::<*mut c_void, HostCuModuleLoadDataFn>(resolved)
+            });
+        }
+    }
+    None
+}
+
+fn resolve_host_module_get_function() -> Option<HostCuModuleGetFunctionFn> {
+    for symbol in [
+        b"hetgpu_apple_ptx_module_get_function\0".as_slice(),
+        b"cuModuleGetFunction\0".as_slice(),
+    ] {
+        if let Some(resolved) = resolve_symbol(symbol) {
+            return Some(unsafe {
+                std::mem::transmute::<*mut c_void, HostCuModuleGetFunctionFn>(resolved)
+            });
+        }
+    }
+    None
+}
+
+fn resolve_host_module_unload() -> Option<HostCuModuleUnloadFn> {
+    for symbol in [
+        b"hetgpu_apple_ptx_module_unload\0".as_slice(),
+        b"cuModuleUnload\0".as_slice(),
+    ] {
+        if let Some(resolved) = resolve_symbol(symbol) {
+            return Some(unsafe {
+                std::mem::transmute::<*mut c_void, HostCuModuleUnloadFn>(resolved)
+            });
+        }
+    }
+    None
+}
+
+fn resolve_host_launch_kernel() -> Option<HostCuLaunchKernelFn> {
+    for symbol in [
+        b"hetgpu_apple_ptx_launch_kernel\0".as_slice(),
+        b"cuLaunchKernel\0".as_slice(),
+    ] {
+        if let Some(resolved) = resolve_symbol(symbol) {
+            return Some(unsafe {
+                std::mem::transmute::<*mut c_void, HostCuLaunchKernelFn>(resolved)
+            });
+        }
+    }
+    None
+}
+
+fn resolve_host_mem_alloc() -> Option<HostCuMemAllocFn> {
+    resolve_symbol(b"cuMemAlloc_v2\0")
+        .map(|resolved| unsafe { std::mem::transmute::<*mut c_void, HostCuMemAllocFn>(resolved) })
+}
+
+fn resolve_host_mem_free() -> Option<HostCuMemFreeFn> {
+    resolve_symbol(b"cuMemFree_v2\0")
+        .map(|resolved| unsafe { std::mem::transmute::<*mut c_void, HostCuMemFreeFn>(resolved) })
+}
+
+fn resolve_host_memcpy_hto_d() -> Option<HostCuMemcpyHtoDFn> {
+    resolve_symbol(b"cuMemcpyHtoD_v2\0").map(|resolved| unsafe {
+        std::mem::transmute::<*mut c_void, HostCuMemcpyHtoDFn>(resolved)
+    })
+}
+
+fn resolve_host_memcpy_dto_h() -> Option<HostCuMemcpyDtoHFn> {
+    resolve_symbol(b"cuMemcpyDtoH_v2\0").map(|resolved| unsafe {
+        std::mem::transmute::<*mut c_void, HostCuMemcpyDtoHFn>(resolved)
+    })
+}
+
+fn resolve_host_memcpy_dto_d() -> Option<HostCuMemcpyDtoDFn> {
+    resolve_symbol(b"cuMemcpyDtoD_v2\0").map(|resolved| unsafe {
+        std::mem::transmute::<*mut c_void, HostCuMemcpyDtoDFn>(resolved)
+    })
+}
+
+fn try_host_mem_alloc(size: usize) -> Option<usize> {
+    if !ptx_host_enabled() {
+        return None;
+    }
+    let alloc = resolve_host_mem_alloc()?;
+    let mut host_ptr = ptr::null_mut();
+    let rc = unsafe { alloc(&mut host_ptr, size) };
+    if rc == CUDA_SUCCESS && !host_ptr.is_null() {
+        Some(host_ptr as usize)
+    } else {
+        None
+    }
+}
+
+fn try_host_mem_free(ptr_value: usize) {
+    if ptr_value == 0 {
+        return;
+    }
+    if let Some(free) = resolve_host_mem_free() {
+        unsafe {
+            let _ = free(ptr_value as *mut c_void);
+        }
+    }
+}
+
+fn sync_bytes_to_host(allocation: &DeviceAllocation) -> bool {
+    let Some(host_device_ptr) = allocation.host_device_ptr else {
+        return true;
+    };
+    let Some(copy) = resolve_host_memcpy_hto_d() else {
+        return false;
+    };
+    let rc = unsafe {
+        copy(
+            host_device_ptr as *mut c_void,
+            allocation.bytes.as_ptr().cast::<c_void>(),
+            allocation.bytes.len(),
+        )
+    };
+    rc == CUDA_SUCCESS
+}
+
+fn sync_host_to_bytes(allocation: &mut DeviceAllocation) -> bool {
+    let Some(host_device_ptr) = allocation.host_device_ptr else {
+        return true;
+    };
+    let Some(copy) = resolve_host_memcpy_dto_h() else {
+        return false;
+    };
+    let rc = unsafe {
+        copy(
+            allocation.bytes.as_mut_ptr().cast::<c_void>(),
+            host_device_ptr as *const c_void,
+            allocation.bytes.len(),
+        )
+    };
+    rc == CUDA_SUCCESS
 }
 
 fn try_hetgpu_sgemm(
@@ -904,6 +1229,561 @@ fn checked_positive_i32(value: i32) -> Option<usize> {
     usize::try_from(value).ok()
 }
 
+fn ptx_param_decl_size(decl: &str) -> Option<usize> {
+    let scalar_size = [
+        (".pred", 1usize),
+        (".b8", 1),
+        (".u8", 1),
+        (".s8", 1),
+        (".b16", 2),
+        (".u16", 2),
+        (".s16", 2),
+        (".f16", 2),
+        (".b32", 4),
+        (".u32", 4),
+        (".s32", 4),
+        (".f32", 4),
+        (".b64", 8),
+        (".u64", 8),
+        (".s64", 8),
+        (".f64", 8),
+    ]
+    .iter()
+    .find_map(|(needle, size)| decl.contains(needle).then_some(*size))?;
+
+    let array_len = decl
+        .split_once('[')
+        .and_then(|(_, tail)| tail.split_once(']'))
+        .and_then(|(len, _)| len.trim().parse::<usize>().ok())
+        .unwrap_or(1);
+    scalar_size.checked_mul(array_len)
+}
+
+fn matching_paren_index(text: &str, open_index: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (offset, byte) in text.as_bytes().get(open_index..)?.iter().enumerate() {
+        match *byte {
+            b'(' => depth = depth.checked_add(1)?,
+            b')' => {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    return Some(open_index + offset);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn parse_ptx_kernel_params(ptx: &str, kernel_name: &str) -> Vec<PtxKernelParam> {
+    let mut search_from = 0usize;
+    while let Some(entry_rel) = ptx[search_from..].find(".entry") {
+        let entry_index = search_from + entry_rel;
+        let after_entry = &ptx[entry_index + ".entry".len()..];
+        let trimmed = after_entry.trim_start();
+        let name_end = trimmed
+            .find(|ch: char| ch.is_whitespace() || ch == '(')
+            .unwrap_or(trimmed.len());
+        let name = &trimmed[..name_end];
+        if name == kernel_name {
+            let open_rel = trimmed[name_end..].find('(');
+            let Some(open_rel) = open_rel else {
+                return Vec::new();
+            };
+            let open_index = entry_index
+                + ".entry".len()
+                + (after_entry.len() - trimmed.len())
+                + name_end
+                + open_rel;
+            let Some(close_index) = matching_paren_index(ptx, open_index) else {
+                return Vec::new();
+            };
+            return ptx[open_index + 1..close_index]
+                .split(',')
+                .filter_map(|decl| ptx_param_decl_size(decl).map(|size| PtxKernelParam { size }))
+                .collect();
+        }
+        search_from = entry_index + ".entry".len();
+    }
+    Vec::new()
+}
+
+struct HostKernelParams {
+    storage: Vec<Vec<u8>>,
+    pointers: Vec<*mut c_void>,
+}
+
+impl HostKernelParams {
+    fn new() -> Self {
+        Self {
+            storage: Vec::new(),
+            pointers: Vec::new(),
+        }
+    }
+
+    fn push(&mut self, mut bytes: Vec<u8>) {
+        if bytes.is_empty() {
+            bytes.push(0);
+        }
+        self.storage.push(bytes);
+        let ptr = self
+            .storage
+            .last_mut()
+            .expect("just pushed kernel parameter")
+            .as_mut_ptr()
+            .cast::<c_void>();
+        self.pointers.push(ptr);
+    }
+}
+
+fn build_host_kernel_params(
+    ctx: &mut FunctionEnvMut<CudaBridge>,
+    params: &[PtxKernelParam],
+    kernel_params: i32,
+) -> Result<HostKernelParams, i32> {
+    if params.is_empty() {
+        if kernel_params == 0 {
+            return Ok(HostKernelParams::new());
+        }
+        return Err(CUDA_ERROR_NOT_SUPPORTED);
+    }
+    if kernel_params == 0 {
+        return Err(CUDA_ERROR_INVALID_VALUE);
+    }
+
+    let mut host_params = HostKernelParams::new();
+    for (idx, param) in params.iter().enumerate() {
+        let offset = i32::try_from(idx.checked_mul(4).ok_or(CUDA_ERROR_INVALID_VALUE)?)
+            .map_err(|_| CUDA_ERROR_INVALID_VALUE)?;
+        let slot_ptr_addr = kernel_params
+            .checked_add(offset)
+            .ok_or(CUDA_ERROR_INVALID_VALUE)?;
+        let slot_ptr = read_guest_u32(ctx, slot_ptr_addr).ok_or(CUDA_ERROR_INVALID_VALUE)? as i32;
+        if slot_ptr == 0 {
+            return Err(CUDA_ERROR_INVALID_VALUE);
+        }
+
+        let raw4 = read_guest_memory(ctx, slot_ptr, 4).ok_or(CUDA_ERROR_INVALID_VALUE)?;
+        let possible_device_handle = u32::from_le_bytes(
+            raw4.as_slice()
+                .try_into()
+                .map_err(|_| CUDA_ERROR_INVALID_VALUE)?,
+        );
+
+        if let Some(allocation) = ctx.data_mut().allocations.get_mut(&possible_device_handle) {
+            if !sync_bytes_to_host(allocation) {
+                return Err(CUDA_ERROR_NOT_SUPPORTED);
+            }
+            let host_ptr = allocation
+                .host_device_ptr
+                .unwrap_or_else(|| allocation.bytes.as_mut_ptr() as usize);
+            host_params.push(host_ptr.to_ne_bytes().to_vec());
+            continue;
+        }
+
+        let size = param.size.clamp(1, 256);
+        let mut bytes = read_guest_memory(ctx, slot_ptr, size).ok_or(CUDA_ERROR_INVALID_VALUE)?;
+        if bytes.len() < size {
+            bytes.resize(size, 0);
+        }
+        host_params.push(bytes);
+    }
+
+    Ok(host_params)
+}
+
+fn cu_init(_ctx: FunctionEnvMut<CudaBridge>, _flags: i32) -> i32 {
+    CUDA_SUCCESS
+}
+
+fn cu_driver_get_version(mut ctx: FunctionEnvMut<CudaBridge>, version_ptr: i32) -> i32 {
+    if write_guest_u32(&mut ctx, version_ptr, 12000).is_none() {
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+    CUDA_SUCCESS
+}
+
+fn cu_device_get_count(mut ctx: FunctionEnvMut<CudaBridge>, count_ptr: i32) -> i32 {
+    if write_guest_u32(&mut ctx, count_ptr, 1).is_none() {
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+    CUDA_SUCCESS
+}
+
+fn cu_device_get(mut ctx: FunctionEnvMut<CudaBridge>, device_ptr: i32, ordinal: i32) -> i32 {
+    if ordinal != 0 {
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+    if write_guest_u32(&mut ctx, device_ptr, 0).is_none() {
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+    CUDA_SUCCESS
+}
+
+fn cu_device_get_name(
+    mut ctx: FunctionEnvMut<CudaBridge>,
+    name_ptr: i32,
+    len: i32,
+    _device: i32,
+) -> i32 {
+    let len = match checked_positive_i32(len) {
+        Some(len) if len > 0 => len,
+        _ => return CUDA_ERROR_INVALID_VALUE,
+    };
+    let mut name = b"hetGPU Apple PTX".to_vec();
+    if name.len() >= len {
+        name.truncate(len.saturating_sub(1));
+    }
+    name.push(0);
+    if write_guest_memory(&mut ctx, name_ptr, &name).is_none() {
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+    CUDA_SUCCESS
+}
+
+fn cu_device_total_mem_v2(mut ctx: FunctionEnvMut<CudaBridge>, bytes_ptr: i32, _device: i32) -> i32 {
+    if write_guest_u32(&mut ctx, bytes_ptr, 512 * 1024 * 1024).is_none() {
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+    CUDA_SUCCESS
+}
+
+fn cu_device_get_attribute(
+    mut ctx: FunctionEnvMut<CudaBridge>,
+    value_ptr: i32,
+    _attribute: i32,
+    _device: i32,
+) -> i32 {
+    if write_guest_u32(&mut ctx, value_ptr, 1).is_none() {
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+    CUDA_SUCCESS
+}
+
+fn cu_ctx_create_v2(
+    mut ctx: FunctionEnvMut<CudaBridge>,
+    context_ptr: i32,
+    _flags: i32,
+    device: i32,
+) -> i32 {
+    if device != 0 {
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+    let handle = match ctx.data_mut().allocate_context_handle() {
+        Some(handle) => handle,
+        None => return CUDA_ERROR_INVALID_VALUE,
+    };
+    if write_guest_u32(&mut ctx, context_ptr, handle).is_none() {
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+    CUDA_SUCCESS
+}
+
+fn cu_ctx_destroy_v2(_ctx: FunctionEnvMut<CudaBridge>, _context: i32) -> i32 {
+    CUDA_SUCCESS
+}
+
+fn cu_ctx_set_current(_ctx: FunctionEnvMut<CudaBridge>, _context: i32) -> i32 {
+    CUDA_SUCCESS
+}
+
+fn cu_ctx_get_current(mut ctx: FunctionEnvMut<CudaBridge>, context_ptr: i32) -> i32 {
+    if write_guest_u32(&mut ctx, context_ptr, 1).is_none() {
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+    CUDA_SUCCESS
+}
+
+fn cu_ctx_synchronize(_ctx: FunctionEnvMut<CudaBridge>) -> i32 {
+    CUDA_SUCCESS
+}
+
+fn cu_mem_alloc_v2(ctx: FunctionEnvMut<CudaBridge>, device_ptr: i32, bytesize: i32) -> i32 {
+    cuda_malloc(ctx, device_ptr, bytesize)
+}
+
+fn cu_mem_free_v2(ctx: FunctionEnvMut<CudaBridge>, device_ptr: i32) -> i32 {
+    cuda_free(ctx, device_ptr)
+}
+
+fn cu_memcpy_hto_d_v2(
+    ctx: FunctionEnvMut<CudaBridge>,
+    dst_device: i32,
+    src_host: i32,
+    byte_count: i32,
+) -> i32 {
+    cuda_memcpy(
+        ctx,
+        dst_device,
+        src_host,
+        byte_count,
+        CUDA_MEMCPY_HOST_TO_DEVICE,
+    )
+}
+
+fn cu_memcpy_dto_h_v2(
+    ctx: FunctionEnvMut<CudaBridge>,
+    dst_host: i32,
+    src_device: i32,
+    byte_count: i32,
+) -> i32 {
+    cuda_memcpy(
+        ctx,
+        dst_host,
+        src_device,
+        byte_count,
+        CUDA_MEMCPY_DEVICE_TO_HOST,
+    )
+}
+
+fn cu_memcpy_dto_d_v2(
+    ctx: FunctionEnvMut<CudaBridge>,
+    dst_device: i32,
+    src_device: i32,
+    byte_count: i32,
+) -> i32 {
+    cuda_memcpy(
+        ctx,
+        dst_device,
+        src_device,
+        byte_count,
+        CUDA_MEMCPY_DEVICE_TO_DEVICE,
+    )
+}
+
+fn cu_module_load_data(
+    mut ctx: FunctionEnvMut<CudaBridge>,
+    module_ptr: i32,
+    image_ptr: i32,
+) -> i32 {
+    let ptx_bytes = match read_guest_c_string(&mut ctx, image_ptr, 16 * 1024 * 1024) {
+        Some(bytes) if !bytes.is_empty() => bytes,
+        _ => return CUDA_ERROR_INVALID_VALUE,
+    };
+    let ptx = String::from_utf8_lossy(&ptx_bytes).into_owned();
+    let ptx_c_string = match CString::new(ptx_bytes) {
+        Ok(value) => value,
+        Err(_) => return CUDA_ERROR_INVALID_VALUE,
+    };
+
+    let host_module = if ptx_host_enabled() {
+        let Some(load_data) = resolve_host_module_load_data() else {
+            return CUDA_ERROR_NOT_SUPPORTED;
+        };
+        let mut host_module = ptr::null_mut();
+        let rc = unsafe { load_data(&mut host_module, ptx_c_string.as_ptr().cast::<c_void>()) };
+        if rc != CUDA_SUCCESS {
+            return rc;
+        }
+        if host_module.is_null() {
+            return CUDA_ERROR_INVALID_VALUE;
+        }
+        Some(host_module as usize)
+    } else {
+        None
+    };
+
+    let handle = match ctx.data_mut().allocate_module_handle(PtxModule { ptx, host_module }) {
+        Some(handle) => handle,
+        None => return CUDA_ERROR_INVALID_VALUE,
+    };
+    if write_guest_u32(&mut ctx, module_ptr, handle).is_none() {
+        if let Some(module) = ctx.data_mut().modules.remove(&handle) {
+            if let Some(host_module) = module.host_module {
+                if let Some(unload) = resolve_host_module_unload() {
+                    unsafe {
+                        let _ = unload(host_module as *mut c_void);
+                    }
+                }
+            }
+        }
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+    CUDA_SUCCESS
+}
+
+fn cu_module_load_data_ex(
+    ctx: FunctionEnvMut<CudaBridge>,
+    module_ptr: i32,
+    image_ptr: i32,
+    _num_options: i32,
+    _options: i32,
+    _option_values: i32,
+) -> i32 {
+    cu_module_load_data(ctx, module_ptr, image_ptr)
+}
+
+fn cu_module_unload(mut ctx: FunctionEnvMut<CudaBridge>, module: i32) -> i32 {
+    if module == 0 {
+        return CUDA_SUCCESS;
+    }
+    let module_handle = module as u32;
+    let Some(removed) = ctx.data_mut().modules.remove(&module_handle) else {
+        return CUDA_ERROR_INVALID_VALUE;
+    };
+    ctx.data_mut()
+        .functions
+        .retain(|_, function| function.module != module_handle);
+
+    if let Some(host_module) = removed.host_module {
+        if let Some(unload) = resolve_host_module_unload() {
+            let rc = unsafe { unload(host_module as *mut c_void) };
+            if rc != CUDA_SUCCESS {
+                return rc;
+            }
+        }
+    }
+    CUDA_SUCCESS
+}
+
+fn cu_module_get_function(
+    mut ctx: FunctionEnvMut<CudaBridge>,
+    function_ptr: i32,
+    module: i32,
+    name_ptr: i32,
+) -> i32 {
+    let name_bytes = match read_guest_c_string(&mut ctx, name_ptr, 4096) {
+        Some(bytes) if !bytes.is_empty() => bytes,
+        _ => return CUDA_ERROR_INVALID_VALUE,
+    };
+    let name = String::from_utf8_lossy(&name_bytes).into_owned();
+    let module_handle = module as u32;
+    let Some(module_data) = ctx.data().modules.get(&module_handle).cloned() else {
+        return CUDA_ERROR_INVALID_VALUE;
+    };
+
+    let host_function = if let Some(host_module) = module_data.host_module {
+        let Some(get_function) = resolve_host_module_get_function() else {
+            return CUDA_ERROR_NOT_SUPPORTED;
+        };
+        let c_name = match CString::new(name.as_str()) {
+            Ok(value) => value,
+            Err(_) => return CUDA_ERROR_INVALID_VALUE,
+        };
+        let mut host_function = ptr::null_mut();
+        let rc = unsafe {
+            get_function(
+                &mut host_function,
+                host_module as *mut c_void,
+                c_name.as_ptr(),
+            )
+        };
+        if rc != CUDA_SUCCESS {
+            return rc;
+        }
+        if host_function.is_null() {
+            return CUDA_ERROR_INVALID_VALUE;
+        }
+        Some(host_function as usize)
+    } else {
+        None
+    };
+
+    let params = parse_ptx_kernel_params(&module_data.ptx, &name);
+    let handle = match ctx.data_mut().allocate_function_handle(PtxFunction {
+        module: module_handle,
+        name,
+        params,
+        host_function,
+    }) {
+        Some(handle) => handle,
+        None => return CUDA_ERROR_INVALID_VALUE,
+    };
+    if write_guest_u32(&mut ctx, function_ptr, handle).is_none() {
+        ctx.data_mut().functions.remove(&handle);
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+    CUDA_SUCCESS
+}
+
+fn cu_launch_kernel(
+    mut ctx: FunctionEnvMut<CudaBridge>,
+    function: i32,
+    grid_dim_x: i32,
+    grid_dim_y: i32,
+    grid_dim_z: i32,
+    block_dim_x: i32,
+    block_dim_y: i32,
+    block_dim_z: i32,
+    shared_mem_bytes: i32,
+    _stream: i32,
+    kernel_params: i32,
+    extra: i32,
+) -> i32 {
+    if function == 0 || extra != 0 {
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+
+    let dims = match (
+        checked_positive_i32(grid_dim_x),
+        checked_positive_i32(grid_dim_y),
+        checked_positive_i32(grid_dim_z),
+        checked_positive_i32(block_dim_x),
+        checked_positive_i32(block_dim_y),
+        checked_positive_i32(block_dim_z),
+        checked_positive_i32(shared_mem_bytes),
+    ) {
+        (Some(gx), Some(gy), Some(gz), Some(bx), Some(by), Some(bz), Some(shared)) => {
+            (gx, gy, gz, bx, by, bz, shared)
+        }
+        _ => return CUDA_ERROR_INVALID_VALUE,
+    };
+    if dims.0 == 0 || dims.1 == 0 || dims.2 == 0 || dims.3 == 0 || dims.4 == 0 || dims.5 == 0 {
+        return CUDA_ERROR_INVALID_VALUE;
+    }
+
+    let Some(function_data) = ctx.data().functions.get(&(function as u32)).cloned() else {
+        return CUDA_ERROR_INVALID_VALUE;
+    };
+    let Some(host_function) = function_data.host_function else {
+        return CUDA_ERROR_NOT_SUPPORTED;
+    };
+    let Some(launch) = resolve_host_launch_kernel() else {
+        return CUDA_ERROR_NOT_SUPPORTED;
+    };
+
+    let mut host_params = match build_host_kernel_params(
+        &mut ctx,
+        &function_data.params,
+        kernel_params,
+    ) {
+        Ok(params) => params,
+        Err(rc) => return rc,
+    };
+    let params_ptr = if host_params.pointers.is_empty() {
+        ptr::null_mut()
+    } else {
+        host_params.pointers.as_mut_ptr()
+    };
+
+    let rc = unsafe {
+        launch(
+            host_function as *mut c_void,
+            dims.0 as u32,
+            dims.1 as u32,
+            dims.2 as u32,
+            dims.3 as u32,
+            dims.4 as u32,
+            dims.5 as u32,
+            dims.6 as u32,
+            ptr::null_mut(),
+            params_ptr,
+            ptr::null_mut(),
+        )
+    };
+    if rc != CUDA_SUCCESS {
+        return rc;
+    }
+
+    for allocation in ctx.data_mut().allocations.values_mut() {
+        if !sync_host_to_bytes(allocation) {
+            return CUDA_ERROR_NOT_SUPPORTED;
+        }
+    }
+    CUDA_SUCCESS
+}
+
 fn cuda_malloc(mut ctx: FunctionEnvMut<CudaBridge>, dev_ptr: i32, size: i32) -> i32 {
     let size = match checked_positive_i32(size) {
         Some(size) => size,
@@ -916,7 +1796,11 @@ fn cuda_malloc(mut ctx: FunctionEnvMut<CudaBridge>, dev_ptr: i32, size: i32) -> 
     };
 
     if write_guest_u32(&mut ctx, dev_ptr, ptr).is_none() {
-        ctx.data_mut().allocations.remove(&ptr);
+        if let Some(allocation) = ctx.data_mut().allocations.remove(&ptr) {
+            if let Some(host_device_ptr) = allocation.host_device_ptr {
+                try_host_mem_free(host_device_ptr);
+            }
+        }
         return CUDA_ERROR_INVALID_VALUE;
     }
 
@@ -931,7 +1815,11 @@ fn cuda_free(mut ctx: FunctionEnvMut<CudaBridge>, dev_ptr: i32) -> i32 {
         return CUDA_ERROR_INVALID_VALUE;
     }
 
-    ctx.data_mut().allocations.remove(&(dev_ptr as u32));
+    if let Some(allocation) = ctx.data_mut().allocations.remove(&(dev_ptr as u32)) {
+        if let Some(host_device_ptr) = allocation.host_device_ptr {
+            try_host_mem_free(host_device_ptr);
+        }
+    }
     CUDA_SUCCESS
 }
 
@@ -965,19 +1853,26 @@ fn cuda_memcpy(
             let Some(allocation) = ctx.data_mut().allocations.get_mut(&(dst as u32)) else {
                 return CUDA_ERROR_INVALID_VALUE;
             };
-            if allocation.len() < size {
+            if allocation.bytes.len() < size {
                 return CUDA_ERROR_INVALID_VALUE;
             }
-            allocation[..size].copy_from_slice(&bytes);
+            allocation.bytes[..size].copy_from_slice(&bytes);
+            if !sync_bytes_to_host(allocation) {
+                return CUDA_ERROR_NOT_SUPPORTED;
+            }
         }
         CUDA_MEMCPY_DEVICE_TO_HOST => {
-            let Some(bytes) = device_allocation_bytes(&ctx, src) else {
+            let Some(allocation) = ctx.data_mut().allocations.get_mut(&(src as u32)) else {
                 return CUDA_ERROR_INVALID_VALUE;
             };
-            if bytes.len() < size {
+            if !sync_host_to_bytes(allocation) {
+                return CUDA_ERROR_NOT_SUPPORTED;
+            }
+            if allocation.bytes.len() < size {
                 return CUDA_ERROR_INVALID_VALUE;
             }
-            if write_guest_memory(&mut ctx, dst, &bytes[..size]).is_none() {
+            let bytes = allocation.bytes[..size].to_vec();
+            if write_guest_memory(&mut ctx, dst, &bytes).is_none() {
                 return CUDA_ERROR_INVALID_VALUE;
             }
         }
@@ -985,13 +1880,32 @@ fn cuda_memcpy(
             let Some(bytes) = device_allocation_bytes(&ctx, src) else {
                 return CUDA_ERROR_INVALID_VALUE;
             };
+            let src_host = ctx
+                .data()
+                .allocations
+                .get(&(src as u32))
+                .and_then(|allocation| allocation.host_device_ptr);
             let Some(allocation) = ctx.data_mut().allocations.get_mut(&(dst as u32)) else {
                 return CUDA_ERROR_INVALID_VALUE;
             };
-            if bytes.len() < size || allocation.len() < size {
+            if bytes.len() < size || allocation.bytes.len() < size {
                 return CUDA_ERROR_INVALID_VALUE;
             }
-            allocation[..size].copy_from_slice(&bytes[..size]);
+            allocation.bytes[..size].copy_from_slice(&bytes[..size]);
+            if let (Some(dst_host), Some(src_host)) = (allocation.host_device_ptr, src_host) {
+                if let Some(copy) = resolve_host_memcpy_dto_d() {
+                    let rc = unsafe {
+                        copy(dst_host as *mut c_void, src_host as *const c_void, size)
+                    };
+                    if rc != CUDA_SUCCESS {
+                        return rc;
+                    }
+                } else if !sync_bytes_to_host(allocation) {
+                    return CUDA_ERROR_NOT_SUPPORTED;
+                }
+            } else if !sync_bytes_to_host(allocation) {
+                return CUDA_ERROR_NOT_SUPPORTED;
+            }
         }
         _ => return CUDA_ERROR_INVALID_VALUE,
     }
@@ -1112,10 +2026,13 @@ fn cublas_sgemm_v2(
     let Some(allocation) = ctx.data_mut().allocations.get_mut(&(c_ptr as u32)) else {
         return CUDA_ERROR_INVALID_VALUE;
     };
-    if allocation.len() < bytes.len() {
+    if allocation.bytes.len() < bytes.len() {
         return CUDA_ERROR_INVALID_VALUE;
     }
-    allocation[..bytes.len()].copy_from_slice(&bytes);
+    allocation.bytes[..bytes.len()].copy_from_slice(&bytes);
+    if !sync_bytes_to_host(allocation) {
+        return CUDA_ERROR_NOT_SUPPORTED;
+    }
 
     CUDA_SUCCESS
 }

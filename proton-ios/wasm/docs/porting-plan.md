@@ -62,24 +62,37 @@ x64 code by itself. Choose one of these tracks before attempting real programs:
 
 ## Milestone 5: GPU Through hetGPU
 
-GPU execution is not part of the WASM CPU port. The initial GPU contract is a
+GPU execution is not part of the WASM CPU port. The GPU contract is a
 host-provided hetGPU backend, selected with `PROTON_WASM_GPU_HETGPU`, and a
-small import surface compatible with the existing Wasmer CUDA/cuBLAS bridge:
+small CUDA-compatible import surface handled by the Wasmer bridge:
 
 - `cudaMalloc`
 - `cudaFree`
 - `cudaMemcpy`
 - `cudaDeviceSynchronize`
+- `cuMemAlloc_v2`
+- `cuMemFree_v2`
+- `cuMemcpyHtoD_v2`
+- `cuMemcpyDtoH_v2`
+- `cuMemcpyDtoD_v2`
+- `cuModuleLoadData`
+- `cuModuleLoadDataEx`
+- `cuModuleGetFunction`
+- `cuLaunchKernel`
+- `cuCtxSynchronize`
 - `cublasCreate_v2`
 - `cublasDestroy_v2`
 - `cublasSgemm_v2`
 
 That import surface lets the host route GPU work to
-`HetGPUAppleRuntime.xcframework`, currently through Metal or ANE GEMM entry
-points. Larger graphics work should be staged behind this boundary:
+`HetGPUAppleRuntime.xcframework`. GEMM currently goes through Metal or ANE
+entry points; general kernels should arrive as CUDA PTX and be translated by
+the linked hetGPU/ZLUDA backend. Larger graphics work should be staged behind
+this boundary:
 
 - Keep software rendering available for CPU-only smoke tests.
-- Lower narrow compute-heavy paths to the CUDA/cuBLAS import surface first.
+- Lower narrow compute-heavy paths to the CUDA Driver PTX and cuBLAS import
+  surfaces first.
 - Add D3D/Vulkan translation only after the host exposes a matching hetGPU
   bridge. Do not compile Proton's native Linux GPU stack into the WASM module
   and expect it to run unchanged.

@@ -76,9 +76,10 @@ private func needToUpdateCFiles() -> Bool {
         "usr/lib/wasm32-wasi/libc-printscan-long-double.a",
         "usr/lib/wasm32-wasi/libwasi-emulated-mman.a",
         "usr/lib/clang/14.0.0/lib/wasi/libclang_rt.builtins-wasm32.a",
+        "usr/share/wasm32-wasi/defined-symbols.txt",
     ]
     return !requiredFiles.allSatisfy {
-        FileManager().fileExists(atPath: libraryURL.appendingPathComponent($0).path)
+        fileExistsAndNonEmpty(at: libraryURL.appendingPathComponent($0))
     }
 }
 
@@ -166,7 +167,6 @@ private func wasmDefinedSymbols(in data: Data) -> [String] {
     else { return [] }
 
     let symbolTableSubsection: UInt8 = 8
-    let exportedFlag: UInt32 = 0x4
     let undefinedFlag: UInt32 = 0x10
     let explicitNameFlag: UInt32 = 0x40
     var offset = 8
@@ -200,18 +200,18 @@ private func wasmDefinedSymbols(in data: Data) -> [String] {
                             let flags = readULEB128(bytes, &offset, end: subsectionEnd)
                         else { break }
                         let isUndefined = flags & undefinedFlag != 0
-                        let hasExplicitName = flags & explicitNameFlag != 0
 
                         switch kind {
-                        case 0, 1, 4, 5:
+                        case 0, 2, 4, 5:
                             _ = readULEB128(bytes, &offset, end: subsectionEnd)
-                            if isUndefined || flags & exportedFlag != 0 || hasExplicitName,
-                                let name = readWasmName(bytes, &offset, end: subsectionEnd),
-                                !isUndefined
-                            {
+                            if isUndefined {
+                                if flags & explicitNameFlag != 0 {
+                                    _ = readWasmName(bytes, &offset, end: subsectionEnd)
+                                }
+                            } else if let name = readWasmName(bytes, &offset, end: subsectionEnd) {
                                 symbols.append(name)
                             }
-                        case 2:
+                        case 1:
                             if let name = readWasmName(bytes, &offset, end: subsectionEnd),
                                 !isUndefined
                             {
@@ -293,7 +293,8 @@ private func arArchiveIndexStats(at url: URL) -> (symbolCount: Int, memberCount:
 
         if headerStart == 8 && name == "/" {
             guard size >= 4 else { return nil }
-            symbolCount = Int(data[payloadStart]) << 24
+            symbolCount =
+                Int(data[payloadStart]) << 24
                 | Int(data[payloadStart + 1]) << 16
                 | Int(data[payloadStart + 2]) << 8
                 | Int(data[payloadStart + 3])
@@ -308,11 +309,62 @@ private func arArchiveIndexStats(at url: URL) -> (symbolCount: Int, memberCount:
     return (symbolCount, memberCount)
 }
 
+private func arArchiveIndexedSymbols(at url: URL) -> Set<String>? {
+    guard let data = try? Data(contentsOf: url), data.count >= 72 else {
+        return nil
+    }
+    guard data.starts(with: Data("!<arch>\n".utf8)) else {
+        return nil
+    }
+
+    let rawName = String(bytes: data[8..<24], encoding: .utf8) ?? ""
+    guard rawName.trimmingCharacters(in: .whitespaces) == "/" else {
+        return nil
+    }
+    let rawSize = String(bytes: data[56..<66], encoding: .utf8) ?? ""
+    guard let size = Int(rawSize.trimmingCharacters(in: .whitespaces)), size >= 4 else {
+        return nil
+    }
+    let payloadStart = 68
+    let payloadEnd = payloadStart + size
+    guard payloadEnd <= data.count else {
+        return nil
+    }
+
+    let symbolCount =
+        Int(data[payloadStart]) << 24
+        | Int(data[payloadStart + 1]) << 16
+        | Int(data[payloadStart + 2]) << 8
+        | Int(data[payloadStart + 3])
+    var offset = payloadStart + 4 + (symbolCount * 4)
+    var symbols = Set<String>()
+    while offset < payloadEnd {
+        let start = offset
+        while offset < payloadEnd && data[offset] != 0 {
+            offset += 1
+        }
+        if offset > start, let symbol = String(bytes: data[start..<offset], encoding: .utf8) {
+            symbols.insert(symbol)
+        }
+        offset += 1
+    }
+    return symbols
+}
+
 private func arArchiveHasUsableSymbolTable(at url: URL) -> Bool {
     guard let stats = arArchiveIndexStats(at: url), stats.symbolCount > 0 else {
         return false
     }
-    return stats.memberCount == 0 || stats.symbolCount >= max(1, stats.memberCount / 2)
+    guard stats.memberCount == 0 || stats.symbolCount >= max(1, stats.memberCount / 2) else {
+        return false
+    }
+    if url.lastPathComponent == "libc.a" {
+        guard let symbols = arArchiveIndexedSymbols(at: url) else {
+            return false
+        }
+        return symbols.contains("__wasi_proc_exit") && symbols.contains("__wasi_fd_write")
+    }
+    return true
 }
 
 private func fileExistsAndNonEmpty(at url: URL, fileManager: FileManager = FileManager()) -> Bool {
@@ -326,7 +378,7 @@ private func fileExistsAndNonEmpty(at url: URL, fileManager: FileManager = FileM
         return false
     }
     if url.pathExtension == "a" {
-        return arArchiveHasSymbolTable(at: url)
+        return arArchiveHasUsableSymbolTable(at: url)
     }
     return true
 }
@@ -669,9 +721,13 @@ private func setupEnvironment() {
     setenv("YARL_NO_EXTENSIONS", "1", 1)
     setenv("MULTIDICT_NO_EXTENSIONS", "1", 1)
     setenv("SYSROOT", libraryURL.path + "/usr", 1)
+    let wasiDefinedSymbols = libraryURL.appendingPathComponent(
+        "usr/share/wasm32-wasi/defined-symbols.txt"
+    ).path
     setenv(
         "CCC_OVERRIDE_OPTIONS",
-        "#^--target=wasm32-wasi +-fno-exceptions +-lc-printscan-long-double", 1)
+        "#^--target=wasm32-wasi +-fno-exceptions +-lc-printscan-long-double +-Wl,--allow-undefined-file=\(wasiDefinedSymbols)",
+        1)
     setenv("MAKESYSPATH", Bundle.main.resourcePath! + "ClangLib/usr/share/mk", 1)
     setenv("PHPRC", bundleUrl.path.toCString(), 1)
     setenv("GIT_EXEC_PATH", bundleUrl.appendingPathComponent("bin").path.toCString(), 1)
