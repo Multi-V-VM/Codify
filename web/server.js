@@ -118,7 +118,8 @@ function getLocalExtensions(req) {
     return localExtensionFiles().map(filename => {
         const filePath = path.join(__dirname, filename);
         const stats = fs.statSync(filePath);
-        const packageJSON = readJSONFromZip(filePath, 'package.json');
+        const packageJSON = readJSONFromZip(filePath, 'package.json')
+            || readJSONFromZip(filePath, 'extension/package.json');
         const manifest = readJSONFromZip(filePath, 'manifest.json');
 
         const packageInfo = manifest?.package || {};
