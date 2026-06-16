@@ -152,6 +152,169 @@ class WasminspectService: ObservableObject {
         return candidates.first { fileManager.fileExists(atPath: $0) }
     }
 
+    private static func prepareDebuggerEnvironment(guestTargetPath: String, hostTargetPath: String)
+        -> [String: String?]
+    {
+        let keys = [
+            "WASM_PREOPENS", "WASM_MAP_DIRS", "WASM_CWD", "PWD", "HOME", "WASM_GUEST_HOME",
+            "WASM_EMBED_FILES",
+        ]
+        let previous = keys.reduce(into: [String: String?]()) { result, key in
+            result[key] = getenv(key).map { String(cString: $0) }
+        }
+
+        unsetenv("WASM_PREOPENS")
+        unsetenv("WASM_MAP_DIRS")
+        setenv("WASM_EMBED_FILES", "\(guestTargetPath)::\(hostTargetPath)", 1)
+        setenv("WASM_CWD", "/workspace", 1)
+        setenv("PWD", "/workspace", 1)
+        setenv("HOME", "/", 1)
+        setenv("WASM_GUEST_HOME", "/", 1)
+        return previous
+    }
+
+    private static func restoreDebuggerEnvironment(_ previous: [String: String?]) {
+        for (key, value) in previous {
+            if let value {
+                setenv(key, value, 1)
+            } else {
+                unsetenv(key)
+            }
+        }
+    }
+
+    private static func debuggerWorkspaceURL(fileManager: FileManager) throws -> URL {
+        let uid = getuid()
+        let candidates = [
+            URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+                .appendingPathComponent("CodifyOne-wasm-debugger-\(uid)", isDirectory: true),
+            fileManager.temporaryDirectory
+                .appendingPathComponent("CodifyOne-wasm-debugger-\(uid)", isDirectory: true),
+            URL(fileURLWithPath: "/private/tmp", isDirectory: true)
+                .appendingPathComponent("CodifyOne-wasm-debugger-\(uid)", isDirectory: true),
+            URL(fileURLWithPath: "/tmp", isDirectory: true)
+                .appendingPathComponent("CodifyOne-wasm-debugger-\(uid)", isDirectory: true),
+            wasmTemporaryRuntimeURL(fileManager: fileManager)
+                .appendingPathComponent("debugger-workspace", isDirectory: true),
+        ]
+
+        for candidate in candidates {
+            let canonicalURL = candidate.standardizedFileURL.resolvingSymlinksInPath()
+            do {
+                try fileManager.createDirectory(at: canonicalURL, withIntermediateDirectories: true)
+                if wasmHostPathIsUsableByWasmer(canonicalURL.path) {
+                    return canonicalURL
+                }
+            } catch {
+                continue
+            }
+        }
+
+        throw CocoaError(.fileNoSuchFile)
+    }
+
+    private static func prepareDebuggerTarget(_ targetURL: URL) throws -> (
+        hostDirectory: String, guestPath: String, staged: Bool
+    ) {
+        let fileManager = FileManager.default
+        let targetDirectory = targetURL.deletingLastPathComponent().path
+        let guestPath = "/workspace/\(targetURL.lastPathComponent)"
+        if wasmHostPathIsUsableByWasmer(targetDirectory) {
+            return (targetDirectory, guestPath, false)
+        }
+
+        let workspaceURL = try debuggerWorkspaceURL(fileManager: fileManager)
+        let stagedURL = workspaceURL.appendingPathComponent(targetURL.lastPathComponent)
+        if fileManager.fileExists(atPath: stagedURL.path) {
+            try fileManager.removeItem(at: stagedURL)
+        }
+        try fileManager.copyItem(at: targetURL, to: stagedURL)
+        return (workspaceURL.path, guestPath, true)
+    }
+
+    private static func snapshotProcessEnvironment() -> [String: String] {
+        var snapshot = [String: String]()
+        guard let environment = codifyNSGetEnviron().pointee else { return snapshot }
+
+        var index = 0
+        while let entry = environment[index] {
+            let pair = String(cString: entry)
+            if let separator = pair.firstIndex(of: "=") {
+                let key = String(pair[..<separator])
+                let value = String(pair[pair.index(after: separator)...])
+                snapshot[key] = value
+            }
+            index += 1
+        }
+        return snapshot
+    }
+
+    private static func withMinimalDebuggerEnvironment<T>(stderrFd: Int32, _ body: () -> T) -> T {
+        let snapshot = snapshotProcessEnvironment()
+        let retainedKeys = [
+            "PROTON_WASM_DISPLAY",
+            "PROTON_WASM_DISPLAY_FORMAT",
+            "PROTON_WASM_PREFIX_ROOT",
+            "PROTON_WASM_RUNTIME_ROOT",
+            "WASM_PREOPENS",
+            "WASM_MAP_DIRS",
+            "WASM_EMBED_FILES",
+            "WASM_CWD",
+            "WASM_GUEST_HOME",
+            "WASM_AOT_CACHE",
+            "WASM_FORCE_INTERPRETER",
+            "HOME",
+            "PWD",
+        ]
+        let retained = retainedKeys.reduce(into: [String: String]()) { result, key in
+            if let value = snapshot[key], !value.isEmpty {
+                result[key] = value
+            }
+        }
+
+        for key in snapshot.keys { unsetenv(key) }
+        for (key, value) in retained { setenv(key, value, 1) }
+
+        let retainedLength = retained.reduce(0) { partial, entry in
+            partial + entry.key.utf8.count + entry.value.utf8.count + 2
+        }
+        let retainedNames = retained.keys.sorted().joined(separator: ",")
+        let message =
+            "wasminspect: minimal env kept=\(retained.count)/\(retainedLength) original=\(snapshot.count) keys=[\(retainedNames)]\n"
+        message.withCString { bytes in
+            _ = write(stderrFd, bytes, strlen(bytes))
+        }
+
+        defer {
+            for key in snapshot.keys { unsetenv(key) }
+            for (key, value) in snapshot { setenv(key, value, 1) }
+        }
+
+        return body()
+    }
+
+    private static func withProcessStderrRedirected<T>(to stderrFd: Int32, _ body: () -> T) -> T {
+        guard stderrFd >= 0, stderrFd != STDERR_FILENO else {
+            return body()
+        }
+
+        let savedStderr = dup(STDERR_FILENO)
+        if savedStderr >= 0 {
+            fflush(stderr)
+            _ = dup2(stderrFd, STDERR_FILENO)
+        }
+
+        defer {
+            if savedStderr >= 0 {
+                fflush(stderr)
+                _ = dup2(savedStderr, STDERR_FILENO)
+                close(savedStderr)
+            }
+        }
+
+        return body()
+    }
+
     private static func appendWasminspectCandidates(under root: URL, to candidates: inout [String])
     {
         guard
@@ -179,7 +342,10 @@ class WasminspectService: ObservableObject {
         let bytes = [UInt8](data)
         var offset = 8
         var importsWasix = false
+        var importsMemory = false
         var importsHostMemory = false
+        var definesMemory = false
+        var exportsMemory = false
 
         func readULEB(_ offset: inout Int) -> UInt64? {
             var result: UInt64 = 0
@@ -213,7 +379,8 @@ class WasminspectService: ObservableObject {
             }
             let sectionEnd = offset + Int(sectionSize)
 
-            if sectionID == 2 {
+            switch sectionID {
+            case 2:
                 guard let importCount = readULEB(&offset) else { break }
                 for _ in 0..<importCount {
                     guard let module = readName(&offset), readName(&offset) != nil,
@@ -227,8 +394,11 @@ class WasminspectService: ObservableObject {
                     if module.hasPrefix("wasix_") {
                         importsWasix = true
                     }
-                    if module == "env", kind == 2 {
-                        importsHostMemory = true
+                    if kind == 2 {
+                        importsMemory = true
+                        if module == "env" {
+                            importsHostMemory = true
+                        }
                     }
 
                     switch kind {
@@ -247,6 +417,22 @@ class WasminspectService: ObservableObject {
                         offset = sectionEnd
                     }
                 }
+            case 5:
+                if let memoryCount = readULEB(&offset), memoryCount > 0 {
+                    definesMemory = true
+                }
+            case 7:
+                guard let exportCount = readULEB(&offset) else { break }
+                for _ in 0..<exportCount {
+                    guard readName(&offset) != nil, offset < sectionEnd else { break }
+                    let kind = bytes[offset]
+                    offset += 1
+                    _ = readULEB(&offset)
+                    if kind == 2 {
+                        exportsMemory = true
+                    }
+                }
+            default:
                 break
             }
 
@@ -256,6 +442,14 @@ class WasminspectService: ObservableObject {
         if importsWasix || importsHostMemory {
             return
                 "This wasminspect.wasm imports \(importsWasix ? "WASIX" : "host") runtime features that CodifyOne's iOS Wasmer bridge cannot run safely. Install a WASI preview1 command build of wasminspect.wasm."
+        }
+
+        if !importsMemory && !exportsMemory {
+            let memoryDetail =
+                definesMemory
+                ? "defines private memory but does not export it" : "defines no linear memory"
+            return
+                "This wasminspect.wasm \(memoryDetail). CodifyOne's Wasmer-WASI bridge requires a command-style WASI module with imported or exported memory. Install a WASI preview1 command build of wasminspect.wasm."
         }
 
         return nil
@@ -280,15 +474,16 @@ class WasminspectService: ObservableObject {
         state = .launching
         log("Launching wasminspect for \(resolvedTargetWasmPath)…")
 
-        // The debugger runs as a WASI guest and reads the target module (and
-        // its DWARF sources) through the virtual filesystem — set up the
-        // sysroot so those host paths are reachable.
-        let targetDirectory = URL(fileURLWithPath: resolvedTargetWasmPath)
-            .deletingLastPathComponent().path
-        setupWASMSysroot(currentDirectory: targetDirectory)
+        // The debugger runs as a WASI guest. The Wasmer bridge embeds the target
+        // module into an in-memory /workspace, avoiding host directory preopens
+        // that fail for Catalyst and iOS app-container paths.
+        let targetURL = URL(fileURLWithPath: resolvedTargetWasmPath)
+        let guestTargetPath = "/workspace/\(targetURL.lastPathComponent)"
+        setupWASMSysroot(currentDirectory: "/")
+        log("Embedding target module at \(guestTargetPath)")
 
         // Build argv
-        var argv: [String] = ["wasminspect", resolvedTargetWasmPath]
+        var argv: [String] = ["wasminspect", guestTargetPath]
         if !targetArgs.isEmpty {
             argv.append(contentsOf: targetArgs.split(separator: " ").map(String.init))
         }
@@ -317,30 +512,41 @@ class WasminspectService: ObservableObject {
             return
         }
 
-        // Convert argv -> C argv
-        var cStrings: [UnsafePointer<Int8>?] = argv.map { UnsafePointer(strdup($0)) }
-        cStrings.append(nil)
+        let debuggerEnvironment = Self.prepareDebuggerEnvironment(
+            guestTargetPath: guestTargetPath,
+            hostTargetPath: resolvedTargetWasmPath)
+        log("Embedded target module into /workspace")
 
-        workerTask = Task.detached { [weak self] in
+        // Convert argv -> C argv
+        let cStrings: [UnsafePointer<Int8>?] = argv.map { UnsafePointer(strdup($0)) } + [nil]
+
+        workerTask = Task.detached { [weak self, debuggerEnvironment] in
+            defer {
+                Self.restoreDebuggerEnvironment(debuggerEnvironment)
+                for s in cStrings where s != nil { free(UnsafeMutablePointer(mutating: s)) }
+            }
+
             guard let self = self else { return }
-            let exitCode: Int32 = data.withUnsafeBytes { buf in
-                guard let base = buf.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
-                    return -1
-                }
-                return cStrings.withUnsafeBufferPointer { ptr in
-                    wasmer_execute(
-                        base,
-                        buf.count,
-                        ptr.baseAddress!,
-                        argv.count,
-                        inPipe[0],  // stdin read end
-                        outPipe[1],  // stdout write end
-                        errPipe[1]  // stderr write end
-                    )
+            let exitCode: Int32 = Self.withMinimalDebuggerEnvironment(stderrFd: errPipe[1]) {
+                Self.withProcessStderrRedirected(to: errPipe[1]) {
+                    data.withUnsafeBytes { buf in
+                        guard let base = buf.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
+                            return -1
+                        }
+                        return cStrings.withUnsafeBufferPointer { ptr in
+                            wasmer_execute(
+                                base,
+                                buf.count,
+                                ptr.baseAddress!,
+                                argv.count,
+                                inPipe[0],  // stdin read end
+                                outPipe[1],  // stdout write end
+                                errPipe[1]  // stderr write end
+                            )
+                        }
+                    }
                 }
             }
-            // Cleanup C strings
-            for s in cStrings where s != nil { free(UnsafeMutablePointer(mutating: s)) }
             DispatchQueue.main.async {
                 self.log("wasminspect exited with code \(exitCode)")
                 self.state = .disconnected

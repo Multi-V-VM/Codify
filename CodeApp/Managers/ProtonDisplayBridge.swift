@@ -53,6 +53,33 @@ extension Notification.Name {
     static let protonDisplayEditorRequested = Notification.Name("proton.display.editor.requested")
 }
 
+private func protonNumber(_ value: Any?) -> Int64 {
+    if let value = value as? NSNumber {
+        return value.int64Value
+    }
+    if let value = value as? Int {
+        return Int64(value)
+    }
+    if let value = value as? Double {
+        return Int64(value.rounded())
+    }
+    if let value = value as? String, let parsed = Int64(value) {
+        return parsed
+    }
+    return 0
+}
+
+private func protonUInt32(_ value: Any?) -> UInt32 {
+    let number = protonNumber(value)
+    guard number > 0 else { return 0 }
+    return UInt32(min(number, Int64(UInt32.max)))
+}
+
+private func protonInt32(_ value: Any?) -> Int32 {
+    let number = protonNumber(value)
+    return Int32(max(Int64(Int32.min), min(number, Int64(Int32.max))))
+}
+
 private let protonDisplayFrameCallback: WasmerDisplayFrameCallback = { framePointer, userData in
     guard let framePointer, let userData else { return }
     let frame = framePointer.bindMemory(to: WasmerDisplayFrame.self, capacity: 1).pointee
@@ -108,12 +135,12 @@ final class ProtonDisplayBridge {
     }
 
     func enqueueInput(from message: [String: Any]) {
-        let eventType = UInt32(message["Type"] as? Int ?? 0)
-        let code = UInt32(message["Code"] as? Int ?? 0)
-        let x = Int32(message["X"] as? Int ?? 0)
-        let y = Int32(message["Y"] as? Int ?? 0)
-        let value = Int32(message["Value"] as? Int ?? 0)
-        let modifiers = UInt32(message["Modifiers"] as? Int ?? 0)
+        let eventType = protonUInt32(message["Type"])
+        let code = protonUInt32(message["Code"])
+        let x = protonInt32(message["X"])
+        let y = protonInt32(message["Y"])
+        let value = protonInt32(message["Value"])
+        let modifiers = protonUInt32(message["Modifiers"])
         _ = wasmer_display_enqueue_input_event(eventType, code, x, y, value, modifiers)
     }
 
@@ -281,9 +308,10 @@ final class ProtonDisplaySurface: NSObject, WKNavigationDelegate, WKScriptMessag
               }
               const point = canvasPoint(event);
               const key = event.key && event.key.length === 1 ? event.key.charCodeAt(0) : 0;
+              const button = typeof event.button === "number" && event.button >= 0 ? event.button : 0;
               handlers.protonDisplayInput.postMessage({
                 Type: type,
-                Code: event.button != null ? event.button : key,
+                Code: type === 5 || type === 6 ? key : button,
                 X: point.x,
                 Y: point.y,
                 Value: value || 0,

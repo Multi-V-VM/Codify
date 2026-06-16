@@ -3,15 +3,15 @@ use std::ffi::{CStr, CString};
 use std::io::SeekFrom;
 use std::os::raw::{c_char, c_void};
 use std::os::unix::io::{FromRawFd, RawFd};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::ptr;
 use std::slice;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::task::{Context, Poll};
-use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
+use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, AsyncWriteExt, ReadBuf};
 use wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager;
-use wasmer_wasix::virtual_fs::{FsError, VirtualFile};
+use wasmer_wasix::virtual_fs::{FileSystem, FsError, TmpFileSystem, VirtualFile};
 use wasmer_wasix::wasmer::{
     ExternType, Function, FunctionEnv, FunctionEnvMut, Imports, Instance, Memory, Module, Store,
     Type, Value,
@@ -295,6 +295,48 @@ impl VirtualFile for FdFile {
     }
 }
 
+async fn write_embedded_file(
+    fs: &TmpFileSystem,
+    guest_path: &Path,
+    host_path: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let bytes = std::fs::read(host_path)
+        .map_err(|e| format!("failed to read embedded file '{}': {}", host_path.display(), e))?;
+
+    if let Some(parent) = guest_path.parent() {
+        create_vfs_dir_all(fs, parent)?;
+    }
+
+    let mut file = fs
+        .new_open_options()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(guest_path)
+        .map_err(|e| format!("failed to create embedded guest file '{}': {}", guest_path.display(), e))?;
+    file.write_all(&bytes).await?;
+    file.flush().await?;
+    Ok(())
+}
+
+fn create_vfs_dir_all(fs: &TmpFileSystem, path: &Path) -> Result<(), FsError> {
+    let mut current = PathBuf::from("/");
+    for component in path.components() {
+        match component {
+            std::path::Component::RootDir => continue,
+            std::path::Component::Normal(part) => {
+                current.push(part);
+                match fs.create_dir(&current) {
+                    Ok(()) | Err(FsError::AlreadyExists) => {}
+                    Err(err) => return Err(err),
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 impl AsyncRead for FdFile {
     fn poll_read(
         mut self: Pin<&mut Self>,
@@ -495,14 +537,33 @@ async fn execute_wasm_async(
     }
 
     // --- Sysroot ---
+    let uses_embedded_files = std::env::var("WASM_EMBED_FILES")
+        .map(|value| !value.is_empty())
+        .unwrap_or(false);
+
+    if uses_embedded_files {
+        let fs = TmpFileSystem::new();
+        let embed_files = std::env::var("WASM_EMBED_FILES")?;
+        for pair in embed_files.split(';') {
+            if let Some((guest, host)) = pair.split_once("::") {
+                if !guest.is_empty() && !host.is_empty() {
+                    write_embedded_file(&fs, Path::new(guest), Path::new(host)).await?;
+                }
+            }
+        }
+        wasi_env_builder = wasi_env_builder.sandbox_fs(fs);
+        wasi_env_builder.preopen_vfs_dirs(vec!["/workspace".to_string()])?;
+    }
 
     // Preopen host directories listed in WASM_PREOPENS (colon-separated);
     // the guest sees them under their host paths, so absolute paths into the
     // app sandbox resolve.
-    if let Ok(preopens) = std::env::var("WASM_PREOPENS") {
-        for dir in preopens.split(':') {
-            if !dir.is_empty() && Path::new(dir).is_dir() {
-                wasi_env_builder = wasi_env_builder.preopen_dir(dir)?;
+    if !uses_embedded_files {
+        if let Ok(preopens) = std::env::var("WASM_PREOPENS") {
+            for dir in preopens.split(':') {
+                if !dir.is_empty() && Path::new(dir).is_dir() {
+                    wasi_env_builder = wasi_env_builder.preopen_dir(dir)?;
+                }
             }
         }
     }
@@ -511,11 +572,13 @@ async fn execute_wasm_async(
     // WASM_MAP_DIRS is ;-separated "guest::host" pairs. The host must not
     // request guest paths the wasix root fs pre-creates (/etc, /home): the
     // mount fails with "file exists" and aborts the run.
-    if let Ok(map_dirs) = std::env::var("WASM_MAP_DIRS") {
-        for pair in map_dirs.split(';') {
-            if let Some((guest, host)) = pair.split_once("::") {
-                if !guest.is_empty() && Path::new(host).is_dir() {
-                    wasi_env_builder = wasi_env_builder.map_dir(guest, host)?;
+    if !uses_embedded_files {
+        if let Ok(map_dirs) = std::env::var("WASM_MAP_DIRS") {
+            for pair in map_dirs.split(';') {
+                if let Some((guest, host)) = pair.split_once("::") {
+                    if !guest.is_empty() && Path::new(host).is_dir() {
+                        wasi_env_builder = wasi_env_builder.map_dir(guest, host)?;
+                    }
                 }
             }
         }
