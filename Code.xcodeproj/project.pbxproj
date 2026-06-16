@@ -201,6 +201,7 @@
 		94196964280316C7008AAEB2 /* CloudCodeExecutionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A77818257BC332008FE7B2 /* CloudCodeExecutionManager.swift */; };
 		94196965280316C7008AAEB2 /* String+toCString.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949B3CC425DEA89A00BC83B5 /* String+toCString.swift */; };
 		94196967280316C7008AAEB2 /* Executor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 948D12212583F2A5008F877A /* Executor.swift */; };
+		AACE00022F5F000100000001 /* ProtonDisplayBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AACE00012F5F000100000001 /* ProtonDisplayBridge.swift */; };
 		94196969280316C7008AAEB2 /* CodeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944EEBF32563C381009D77FE /* CodeApp.swift */; };
 		9419696A280316C7008AAEB2 /* openFilesApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A777DB257B8C99008FE7B2 /* openFilesApp.swift */; };
 		9419696B280316C7008AAEB2 /* View+If.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B3DDF9260526D200C4F2B1 /* View+If.swift */; };
@@ -755,6 +756,7 @@
 		947BBCF82C12F5AA00FFD0C5 /* TreeSitterYAMLRunestone in Frameworks */ = {isa = PBXBuildFile; productRef = 947BBCF72C12F5AA00FFD0C5 /* TreeSitterYAMLRunestone */; };
 		947BF349262453040015DAEB /* SearchManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 947BF348262453040015DAEB /* SearchManager.swift */; };
 		94801F93266FB5E400B29D80 /* TerminalInstance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94801F92266FB5E400B29D80 /* TerminalInstance.swift */; };
+		AACE00032F5F000100000001 /* ProtonDisplayBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = AACE00012F5F000100000001 /* ProtonDisplayBridge.swift */; };
 		94801F97266FB5E500B29D80 /* TerminalManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94801F96266FB5E500B29D80 /* TerminalManager.swift */; };
 		94801F98266FB5E500B29D80 /* TerminalManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94801F96266FB5E500B29D80 /* TerminalManager.swift */; };
 		9484BDD12B46FAEE003BCB8A /* injection.js in Resources */ = {isa = PBXBuildFile; fileRef = 9484BDD02B46FAEE003BCB8A /* injection.js */; };
@@ -2004,6 +2006,7 @@
 		947A9D8827D3C562007680C3 /* UIApplication+getSafeArea.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIApplication+getSafeArea.swift"; sourceTree = "<group>"; };
 		947BF348262453040015DAEB /* SearchManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchManager.swift; sourceTree = "<group>"; };
 		94801F92266FB5E400B29D80 /* TerminalInstance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalInstance.swift; sourceTree = "<group>"; };
+		AACE00012F5F000100000001 /* ProtonDisplayBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtonDisplayBridge.swift; sourceTree = "<group>"; };
 		94801F96266FB5E500B29D80 /* TerminalManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalManager.swift; sourceTree = "<group>"; };
 		9484BDD02B46FAEE003BCB8A /* injection.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = injection.js; sourceTree = "<group>"; };
 		948A5FE82A87B09500303C12 /* NSError+init.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSError+init.swift"; sourceTree = "<group>"; };
@@ -3370,6 +3373,7 @@
 				94A777BD257B74EE008FE7B2 /* NotificationManager.swift */,
 				942ACB9C281312900067114D /* SpellChecker.swift */,
 				94801F92266FB5E400B29D80 /* TerminalInstance.swift */,
+				AACE00012F5F000100000001 /* ProtonDisplayBridge.swift */,
 				94801F96266FB5E500B29D80 /* TerminalManager.swift */,
 				9F046C312922203E00BDE4E9 /* ToolbarManager.swift */,
 				9F046C3429222D8E00BDE4E9 /* ExtensionManager.swift */,
@@ -4019,6 +4023,7 @@
 				F9FE0DA22F5948E0008DFB0E /* ANELLMService.swift in Sources */,
 				F9FE0DA32F5948E0008DFB0E /* ANEModelCompiler.swift in Sources */,
 				94196967280316C7008AAEB2 /* Executor.swift in Sources */,
+				AACE00022F5F000100000001 /* ProtonDisplayBridge.swift in Sources */,
 				94196969280316C7008AAEB2 /* CodeApp.swift in Sources */,
 				9FC673852AA068EE00346FD7 /* PortForwardServiceProvider.swift in Sources */,
 				9419696A280316C7008AAEB2 /* openFilesApp.swift in Sources */,
@@ -4246,6 +4251,7 @@
 				F9FE0DA52F5948E0008DFB0E /* ANELLMService.swift in Sources */,
 				F9FE0DA62F5948E0008DFB0E /* ANEModelCompiler.swift in Sources */,
 				948D12222583F2A5008F877A /* Executor.swift in Sources */,
+				AACE00032F5F000100000001 /* ProtonDisplayBridge.swift in Sources */,
 				944EEBF42563C381009D77FE /* CodeApp.swift in Sources */,
 				9FC673842AA068EE00346FD7 /* PortForwardServiceProvider.swift in Sources */,
 				94A777DC257B8C99008FE7B2 /* openFilesApp.swift in Sources */,

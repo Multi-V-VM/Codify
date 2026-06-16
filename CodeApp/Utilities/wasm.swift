@@ -343,6 +343,8 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
     let stdoutFd: Int32 = (thread_stdout != nil) ? fileno(thread_stdout) : STDOUT_FILENO
     let stderrFd: Int32 = (thread_stderr != nil) ? fileno(thread_stderr) : STDERR_FILENO
     fputs("wasm: fds stdin=\(stdinFd) stdout=\(stdoutFd) stderr=\(stderrFd)\n", stderr)
+    let runtimeVersion = String(cString: wasmer_version())
+    fputs("wasm: runtime=\(runtimeVersion)\n", stderr)
     fflush(stderr)
 
     // Execute WASM with native Wasmer. The iOS bridge inherits process

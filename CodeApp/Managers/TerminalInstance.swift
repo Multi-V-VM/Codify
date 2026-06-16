@@ -9,53 +9,6 @@ import SwiftUI
 import WebKit
 import ios_system
 
-private struct WasmerDisplayFrame {
-    let width: UInt32
-    let height: UInt32
-    let stride: UInt32
-    let format: UInt32
-    let data: UnsafePointer<UInt8>?
-    let dataLen: UInt
-    let frameID: UInt64
-}
-
-private typealias WasmerDisplayFrameCallback =
-    @convention(c) (
-        UnsafeRawPointer?,
-        UnsafeMutableRawPointer?
-    ) -> Void
-
-@_silgen_name("wasmer_set_display_frame_callback")
-private func wasmer_set_display_frame_callback(
-    _ callback: WasmerDisplayFrameCallback?,
-    _ userData: UnsafeMutableRawPointer?
-)
-
-@_silgen_name("wasmer_display_enqueue_input_event")
-private func wasmer_display_enqueue_input_event(
-    _ eventType: UInt32,
-    _ code: UInt32,
-    _ x: Int32,
-    _ y: Int32,
-    _ value: Int32,
-    _ modifiers: UInt32
-) -> Int32
-
-private let protonDisplayFrameCallback: WasmerDisplayFrameCallback = { framePointer, userData in
-    guard let framePointer, let userData else { return }
-    let frame = framePointer.bindMemory(to: WasmerDisplayFrame.self, capacity: 1).pointee
-    guard frame.format == 1, let data = frame.data, frame.dataLen > 0 else { return }
-
-    let terminal = Unmanaged<TerminalInstance>.fromOpaque(userData).takeUnretainedValue()
-    let copiedFrame = Data(bytes: data, count: Int(frame.dataLen))
-    terminal.presentProtonFrame(
-        width: Int(frame.width),
-        height: Int(frame.height),
-        stride: Int(frame.stride),
-        frameID: frame.frameID,
-        data: copiedFrame)
-}
-
 struct TerminalOptions: Codable {
     var fontSize: Int = 14
     var fontFamily: String = "Menlo"
@@ -359,40 +312,8 @@ class TerminalInstance: NSObject, WKScriptMessageHandler, WKNavigationDelegate, 
         webView.showConfiguredContextMenu(hasSelection: hasSelection, at: CGPoint(x: x, y: y))
     }
 
-    private func installProtonDisplayBridge() {
-        let userData = Unmanaged.passUnretained(self).toOpaque()
-        wasmer_set_display_frame_callback(protonDisplayFrameCallback, userData)
-    }
-
     private func handleProtonInput(from result: [String: AnyObject]) {
-        let eventType = UInt32(result["Type"] as? Int ?? 0)
-        let code = UInt32(result["Code"] as? Int ?? 0)
-        let x = Int32(result["X"] as? Int ?? 0)
-        let y = Int32(result["Y"] as? Int ?? 0)
-        let value = Int32(result["Value"] as? Int ?? 0)
-        let modifiers = UInt32(result["Modifiers"] as? Int ?? 0)
-        _ = wasmer_display_enqueue_input_event(eventType, code, x, y, value, modifiers)
-    }
-
-    fileprivate func presentProtonFrame(
-        width: Int,
-        height: Int,
-        stride: Int,
-        frameID: UInt64,
-        data: Data
-    ) {
-        guard width > 0, height > 0, stride >= width * 4 else { return }
-        let encoded = data.base64EncodedString()
-        let script = """
-            window.protonPresentFrame && window.protonPresentFrame({
-              width: \(width),
-              height: \(height),
-              stride: \(stride),
-              frameID: "\(frameID)",
-              data: "\(encoded)"
-            });
-            """
-        executeScript(script)
+        ProtonDisplayBridge.shared.enqueueInput(from: result)
     }
 
     func readLine() {
@@ -700,7 +621,6 @@ class TerminalInstance: NSObject, WKScriptMessageHandler, WKNavigationDelegate, 
             terminalMessageHandlerAdded = true
             contentManager.add(self, name: "toggleMessageHandler2")
         }
-        installProtonDisplayBridge()
         setupContextMenu()
     }
 
@@ -772,7 +692,6 @@ extension TerminalInstance {
         }
         terminalServiceProvider?.kill()
         terminalServiceProvider = nil
-        wasmer_set_display_frame_callback(nil, nil)
         webView.stopLoading()
         webView.navigationDelegate = nil
         webView.uiDelegate = nil

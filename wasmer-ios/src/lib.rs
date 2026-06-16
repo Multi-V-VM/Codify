@@ -533,7 +533,16 @@ async fn execute_wasm_async(
     // CUDA/cuBLAS/display-flavored WASM needs host imports in addition to WASI.
     // Normal WASI modules can use the standard instantiation path, but still
     // need an explicit Wasmer-WASIX bootstrap before _start runs.
-    let (instance, wasi_env) = if module_needs_host_imports(&module) {
+    let needs_host_imports = module_needs_host_imports(&module);
+    eprintln!(
+        "wasmer-ios: execution path={}",
+        if needs_host_imports {
+            "host-import-direct-bootstrap"
+        } else {
+            "direct-bootstrap"
+        }
+    );
+    let (instance, wasi_env) = if needs_host_imports {
         instantiate_wasi_with_host_imports(wasi_env_builder, module.clone(), &mut store)?
     } else {
         wasi_env_builder
@@ -2378,7 +2387,12 @@ fn extract_exit_code(error: &wasmer_wasix::wasmer::RuntimeError) -> Option<i32> 
 /// Get version information about the Wasmer runtime
 #[no_mangle]
 pub extern "C" fn wasmer_version() -> *const c_char {
-    static VERSION: &str = concat!("Wasmer iOS Runtime v", env!("CARGO_PKG_VERSION"), "\0");
+    static VERSION: &str = concat!(
+        "Wasmer iOS Runtime v",
+        env!("CARGO_PKG_VERSION"),
+        " direct-bootstrap-20260615",
+        "\0"
+    );
     VERSION.as_ptr() as *const c_char
 }
 

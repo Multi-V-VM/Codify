@@ -435,6 +435,7 @@ class Executor {
         command: String,
         completionHandler: @escaping (Int32) -> Void
     ) {
+        ProtonDisplayBridge.shared.requestEditor()
         handleBundledWasmCudaProbeCommand(
             command: command,
             resourceName: "proton_display_probe",

@@ -20,6 +20,7 @@ class ExtensionManager: ObservableObject {
         MonacoIntellisenseExtension(),
         RemoteExecutionExtension(),
         LocalExecutionExtension(),
+        ProtonDisplayEditorExtension(),
         TerminalExtension(),
         ImageViewerExtension(),
         VideoViewerExtension(),
