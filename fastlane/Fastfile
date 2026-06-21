@@ -1,5 +1,7 @@
 default_platform(:ios)
 
+require "shellwords"
+
 DEVELOPER_APP_ID = ENV["DEVELOPER_APP_ID"]
 DEVELOPER_APP_IDENTIFIER = ENV["DEVELOPER_APP_IDENTIFIER"]
 DEVELOPER_APP_EXTENSION_IDENTIFIER = ENV["DEVELOPER_APP_EXTENSION_IDENTIFIER"]
@@ -33,6 +35,56 @@ end
 def ensure_temp_keychain(name, password)
   delete_temp_keychain(name)
   create_temp_keychain(name, password)
+end
+
+def app_executable_path(app_path)
+  info_plist = File.join(app_path, "Info.plist")
+  executable = `/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' #{Shellwords.escape(info_plist)} 2>/dev/null`.strip
+  UI.user_error!("Could not read CFBundleExecutable from #{info_plist}") if executable.empty?
+  File.join(app_path, executable)
+end
+
+def linked_rpath_frameworks(binary_path)
+  `otool -L #{Shellwords.escape(binary_path)} 2>/dev/null`.lines.filter_map do |line|
+    line.match(%r{@rpath/([^/]+)\.framework/})&.[](1)
+  end.uniq
+end
+
+def ensure_framework_embedded!(exported_app, framework_name)
+  frameworks_path = File.join(exported_app, "Frameworks")
+  FileUtils.mkdir_p(frameworks_path)
+
+  destination = File.join(frameworks_path, "#{framework_name}.framework")
+  return if File.directory?(destination)
+
+  project_root = File.expand_path("..", __dir__)
+  source = File.join(
+    project_root,
+    "Resources/Term/#{framework_name}.xcframework/ios-arm64/#{framework_name}.framework"
+  )
+  UI.user_error!(
+    "Missing #{framework_name}.framework in #{frameworks_path}, and no iOS arm64 source slice exists at #{source}"
+  ) unless File.directory?(source)
+
+  FileUtils.cp_r(source, destination, preserve: true)
+  UI.important("Repaired missing launch framework: copied #{framework_name}.framework into #{frameworks_path}")
+end
+
+def ensure_launch_frameworks_embedded!(exported_app)
+  # App Review build 9 crashed at dyld launch because curl_ios.framework was
+  # linked from the app binary but absent from CodifyOne.app/Frameworks.
+  %w[curl_ios libssh2 openssl ios_system].each do |framework_name|
+    ensure_framework_embedded!(exported_app, framework_name)
+  end
+end
+
+def verify_launch_frameworks_embedded!(exported_app)
+  frameworks_path = File.join(exported_app, "Frameworks")
+  executable = app_executable_path(exported_app)
+  missing = linked_rpath_frameworks(executable).reject do |framework_name|
+    File.directory?(File.join(frameworks_path, "#{framework_name}.framework"))
+  end
+  UI.user_error!("Missing launch-time frameworks in #{frameworks_path}: #{missing.join(', ')}") if missing.any?
 end
 
 platform :ios do
@@ -186,6 +238,9 @@ platform :ios do
     sh("codesign -d --entitlements ':#{main_entitlements_file}' '#{exported_app}' 2>/dev/null || true")
     has_main_entitlements = File.exist?(main_entitlements_file) && File.size(main_entitlements_file) > 0
 
+    ensure_launch_frameworks_embedded!(exported_app)
+    verify_launch_frameworks_embedded!(exported_app)
+
     # Re-sign embedded frameworks (no entitlements needed for frameworks)
     frameworks_path = File.join(exported_app, "Frameworks")
     if File.directory?(frameworks_path)
@@ -224,6 +279,7 @@ platform :ios do
     end
 
     # Verify the signature is valid before creating IPA
+    verify_launch_frameworks_embedded!(exported_app)
     sh("codesign --verify --deep --strict '#{exported_app}'")
     UI.message("Signature verification details:")
     sh("codesign -dvvv '#{exported_app}' 2>&1 || true")

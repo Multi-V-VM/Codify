@@ -331,6 +331,201 @@ class WasminspectService: ObservableObject {
         }
     }
 
+    private static func encodeWASMULEB(_ value: UInt64) -> [UInt8] {
+        var value = value
+        var bytes: [UInt8] = []
+        repeat {
+            var byte = UInt8(value & 0x7F)
+            value >>= 7
+            if value != 0 {
+                byte |= 0x80
+            }
+            bytes.append(byte)
+        } while value != 0
+        return bytes
+    }
+
+    private static func debuggerWasmByExportingPrivateMemory(_ data: Data) -> Data? {
+        let bytes = [UInt8](data)
+        guard bytes.count >= 8, Array(bytes.prefix(4)) == [0x00, 0x61, 0x73, 0x6D] else {
+            return nil
+        }
+
+        func readULEB(_ offset: inout Int, end: Int) -> UInt64? {
+            var result: UInt64 = 0
+            var shift: UInt64 = 0
+            while offset < end {
+                let byte = bytes[offset]
+                offset += 1
+                result |= UInt64(byte & 0x7F) << shift
+                if byte < 0x80 { return result }
+                shift += 7
+                if shift > 63 { return nil }
+            }
+            return nil
+        }
+
+        func readName(_ offset: inout Int, end: Int) -> String? {
+            guard let length = readULEB(&offset, end: end), offset + Int(length) <= end else {
+                return nil
+            }
+            let nameBytes = bytes[offset..<offset + Int(length)]
+            offset += Int(length)
+            return String(bytes: nameBytes, encoding: .utf8)
+        }
+
+        var scanOffset = 8
+        var importsMemory = false
+        var definesMemory = false
+        var exportsMemory = false
+        while scanOffset < bytes.count {
+            let sectionID = bytes[scanOffset]
+            scanOffset += 1
+            guard let sectionSize = readULEB(&scanOffset, end: bytes.count),
+                scanOffset + Int(sectionSize) <= bytes.count
+            else {
+                return nil
+            }
+            let sectionEnd = scanOffset + Int(sectionSize)
+
+            switch sectionID {
+            case 2:
+                guard let importCount = readULEB(&scanOffset, end: sectionEnd) else { return nil }
+                for _ in 0..<importCount {
+                    guard readName(&scanOffset, end: sectionEnd) != nil,
+                        readName(&scanOffset, end: sectionEnd) != nil,
+                        scanOffset < sectionEnd
+                    else {
+                        return nil
+                    }
+                    let kind = bytes[scanOffset]
+                    scanOffset += 1
+                    if kind == 2 {
+                        importsMemory = true
+                    }
+                    switch kind {
+                    case 0:
+                        _ = readULEB(&scanOffset, end: sectionEnd)
+                    case 1:
+                        scanOffset += 1
+                        guard let flags = readULEB(&scanOffset, end: sectionEnd),
+                            readULEB(&scanOffset, end: sectionEnd) != nil
+                        else { return nil }
+                        if flags & 1 != 0 { _ = readULEB(&scanOffset, end: sectionEnd) }
+                    case 2:
+                        guard let flags = readULEB(&scanOffset, end: sectionEnd),
+                            readULEB(&scanOffset, end: sectionEnd) != nil
+                        else { return nil }
+                        if flags & 1 != 0 { _ = readULEB(&scanOffset, end: sectionEnd) }
+                    case 3:
+                        scanOffset += 2
+                    default:
+                        return nil
+                    }
+                }
+            case 5:
+                if let memoryCount = readULEB(&scanOffset, end: sectionEnd), memoryCount > 0 {
+                    definesMemory = true
+                }
+            case 7:
+                guard let exportCount = readULEB(&scanOffset, end: sectionEnd) else { return nil }
+                for _ in 0..<exportCount {
+                    guard readName(&scanOffset, end: sectionEnd) != nil, scanOffset < sectionEnd
+                    else {
+                        return nil
+                    }
+                    let kind = bytes[scanOffset]
+                    scanOffset += 1
+                    _ = readULEB(&scanOffset, end: sectionEnd)
+                    if kind == 2 {
+                        exportsMemory = true
+                    }
+                }
+            default:
+                break
+            }
+
+            scanOffset = sectionEnd
+        }
+
+        if importsMemory || exportsMemory {
+            return data
+        }
+        guard definesMemory else { return nil }
+
+        func memoryExportSection(existingPayload: ArraySlice<UInt8>?) -> [UInt8]? {
+            let exportName = "memory"
+            let exportEntry =
+                Self.encodeWASMULEB(UInt64(exportName.utf8.count))
+                + Array(exportName.utf8)
+                + [2]
+                + Self.encodeWASMULEB(0)
+
+            let payload: [UInt8]
+            if let existingPayload {
+                var payloadOffset = existingPayload.startIndex
+                guard let exportCount = readULEB(&payloadOffset, end: existingPayload.endIndex)
+                else {
+                    return nil
+                }
+                payload =
+                    Self.encodeWASMULEB(exportCount + 1)
+                    + Array(existingPayload[payloadOffset..<existingPayload.endIndex])
+                    + exportEntry
+            } else {
+                payload = Self.encodeWASMULEB(1) + exportEntry
+            }
+
+            return [7] + Self.encodeWASMULEB(UInt64(payload.count)) + payload
+        }
+
+        var output = Array(bytes[0..<8])
+        var offset = 8
+        var insertedExport = false
+
+        while offset < bytes.count {
+            let sectionStart = offset
+            let sectionID = bytes[offset]
+            offset += 1
+            guard let sectionSize = readULEB(&offset, end: bytes.count),
+                offset + Int(sectionSize) <= bytes.count
+            else {
+                return nil
+            }
+            let payloadStart = offset
+            let sectionEnd = offset + Int(sectionSize)
+
+            if sectionID == 7 {
+                guard
+                    let section = memoryExportSection(
+                        existingPayload: bytes[payloadStart..<sectionEnd])
+                else {
+                    return nil
+                }
+                output += section
+                insertedExport = true
+            } else {
+                if !insertedExport && sectionID > 7 {
+                    guard let section = memoryExportSection(existingPayload: nil) else {
+                        return nil
+                    }
+                    output += section
+                    insertedExport = true
+                }
+                output += bytes[sectionStart..<sectionEnd]
+            }
+
+            offset = sectionEnd
+        }
+
+        if !insertedExport {
+            guard let section = memoryExportSection(existingPayload: nil) else { return nil }
+            output += section
+        }
+
+        return Data(output)
+    }
+
     static func debuggerWasmCompatibilityIssue(at path: String) -> String? {
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)) else {
             return "Failed to read wasminspect.wasm at \(path)"
@@ -444,12 +639,9 @@ class WasminspectService: ObservableObject {
                 "This wasminspect.wasm imports \(importsWasix ? "WASIX" : "host") runtime features that CodifyOne's iOS Wasmer bridge cannot run safely. Install a WASI preview1 command build of wasminspect.wasm."
         }
 
-        if !importsMemory && !exportsMemory {
-            let memoryDetail =
-                definesMemory
-                ? "defines private memory but does not export it" : "defines no linear memory"
+        if !importsMemory && !exportsMemory && !definesMemory {
             return
-                "This wasminspect.wasm \(memoryDetail). CodifyOne's Wasmer-WASI bridge requires a command-style WASI module with imported or exported memory. Install a WASI preview1 command build of wasminspect.wasm."
+                "This wasminspect.wasm defines no linear memory. CodifyOne's Wasmer-WASI bridge requires a command-style WASI module with imported or exported memory. Install a WASI preview1 command build of wasminspect.wasm."
         }
 
         return nil
@@ -507,8 +699,17 @@ class WasminspectService: ObservableObject {
 
         // Load wasm bytes
         let wasmURL = URL(fileURLWithPath: wasminspectWasmPath)
-        guard let data = try? Data(contentsOf: wasmURL) else {
+        guard var data = try? Data(contentsOf: wasmURL) else {
             state = .error("Failed to read wasminspect.wasm")
+            return
+        }
+        if let patchedData = Self.debuggerWasmByExportingPrivateMemory(data) {
+            if patchedData != data {
+                data = patchedData
+                log("Exported private debugger memory for WASI compatibility")
+            }
+        } else {
+            state = .error("Failed to prepare wasminspect.wasm for WASI execution")
             return
         }
 
