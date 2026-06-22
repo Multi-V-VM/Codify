@@ -3504,6 +3504,7 @@
 				9419693B280316C7008AAEB2 /* ShellScript */,
 				9419693C280316C7008AAEB2 /* Sources */,
 				9419698E280316C7008AAEB2 /* Frameworks */,
+				C0DA0E022F68000100000002 /* Generate WASM Probe Resources */,
 				9419699A280316C7008AAEB2 /* Resources */,
 				FABC00012F6500000000AAA1 /* Embed hetGPU Apple ANE Runtime */,
 				941969AA280316C7008AAEB2 /* Embed Frameworks */,
@@ -3591,6 +3592,7 @@
 				9455423B27FC410F00DAF941 /* Run Script */,
 				944EEBEC2563C381009D77FE /* Sources */,
 				944EEBED2563C381009D77FE /* Frameworks */,
+				C0DA0E012F68000100000001 /* Generate WASM Probe Resources */,
 				944EEBEE2563C381009D77FE /* Resources */,
 				FABC00022F6500000000AAA2 /* Embed hetGPU Apple ANE Runtime */,
 				94A77817257BC13F008FE7B2 /* Embed Frameworks */,
@@ -3851,6 +3853,62 @@
 				"else",
 				"    echo \"warning: swift-format not installed, install it by running brew install swift-format\"",
 				"fi",
+				"",
+			);
+		};
+		C0DA0E012F68000100000001 /* Generate WASM Probe Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			inputPaths = (
+				"$(PROJECT_DIR)/examples/wasm-cuda-oxide/build.sh",
+				"$(PROJECT_DIR)/examples/wasm-cuda-oxide/cuda_oxide_probe.c",
+				"$(PROJECT_DIR)/examples/wasm-cuda-ptx/build.sh",
+				"$(PROJECT_DIR)/examples/wasm-cuda-ptx/cuda_ptx_probe.c",
+				"$(PROJECT_DIR)/examples/wasm-proton-display/build.sh",
+				"$(PROJECT_DIR)/examples/wasm-proton-display/display_probe.c",
+			);
+			name = "Generate WASM Probe Resources";
+			outputPaths = (
+				"$(PROJECT_DIR)/Resources/NodeJS/cuda_oxide_probe.wasm",
+				"$(PROJECT_DIR)/Resources/NodeJS/cuda_ptx_probe.wasm",
+				"$(PROJECT_DIR)/Resources/NodeJS/proton_display_probe.wasm",
+			);
+			shellPath = /bin/sh;
+			shellScript = (
+				"set -eu",
+				"export PATH=\"/opt/homebrew/bin:${PATH}\"",
+				"mkdir -p \"${PROJECT_DIR}/Resources/NodeJS\"",
+				"\"${PROJECT_DIR}/examples/wasm-cuda-oxide/build.sh\" \"${PROJECT_DIR}/Resources/NodeJS/cuda_oxide_probe.wasm\"",
+				"\"${PROJECT_DIR}/examples/wasm-cuda-ptx/build.sh\" \"${PROJECT_DIR}/Resources/NodeJS/cuda_ptx_probe.wasm\"",
+				"\"${PROJECT_DIR}/examples/wasm-proton-display/build.sh\" \"${PROJECT_DIR}/Resources/NodeJS/proton_display_probe.wasm\"",
+				"",
+			);
+		};
+		C0DA0E022F68000100000002 /* Generate WASM Probe Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			inputPaths = (
+				"$(PROJECT_DIR)/examples/wasm-cuda-oxide/build.sh",
+				"$(PROJECT_DIR)/examples/wasm-cuda-oxide/cuda_oxide_probe.c",
+				"$(PROJECT_DIR)/examples/wasm-cuda-ptx/build.sh",
+				"$(PROJECT_DIR)/examples/wasm-cuda-ptx/cuda_ptx_probe.c",
+				"$(PROJECT_DIR)/examples/wasm-proton-display/build.sh",
+				"$(PROJECT_DIR)/examples/wasm-proton-display/display_probe.c",
+			);
+			name = "Generate WASM Probe Resources";
+			outputPaths = (
+				"$(PROJECT_DIR)/Resources/NodeJS/cuda_oxide_probe.wasm",
+				"$(PROJECT_DIR)/Resources/NodeJS/cuda_ptx_probe.wasm",
+				"$(PROJECT_DIR)/Resources/NodeJS/proton_display_probe.wasm",
+			);
+			shellPath = /bin/sh;
+			shellScript = (
+				"set -eu",
+				"export PATH=\"/opt/homebrew/bin:${PATH}\"",
+				"mkdir -p \"${PROJECT_DIR}/Resources/NodeJS\"",
+				"\"${PROJECT_DIR}/examples/wasm-cuda-oxide/build.sh\" \"${PROJECT_DIR}/Resources/NodeJS/cuda_oxide_probe.wasm\"",
+				"\"${PROJECT_DIR}/examples/wasm-cuda-ptx/build.sh\" \"${PROJECT_DIR}/Resources/NodeJS/cuda_ptx_probe.wasm\"",
+				"\"${PROJECT_DIR}/examples/wasm-proton-display/build.sh\" \"${PROJECT_DIR}/Resources/NodeJS/proton_display_probe.wasm\"",
 				"",
 			);
 		};
