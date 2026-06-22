@@ -3,8 +3,8 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 OUT=${1:-"$SCRIPT_DIR/cuda_oxide_probe.wasm"}
-CLANG=${CLANG:-/usr/bin/clang}
-WASM_LD=${WASM_LD:-/opt/homebrew/bin/wasm-ld}
+CLANG=${CLANG:-$(xcrun --find clang 2>/dev/null || command -v clang || printf '%s' /usr/bin/clang)}
+WASM_LD=${WASM_LD:-$(xcrun --find wasm-ld 2>/dev/null || command -v wasm-ld || printf '%s' /opt/homebrew/bin/wasm-ld)}
 OBJ=${TMPDIR:-/tmp}/cuda_oxide_probe.$$.o
 
 cleanup() {

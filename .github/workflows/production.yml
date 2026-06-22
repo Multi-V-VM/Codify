@@ -16,6 +16,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install WASM build tools
+        run: brew install lld
+
       - name: Deploy production build to App Store via Fastlane
         run: echo "$MATCH_DEPLOY_KEY" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa && fastlane beta
         env:

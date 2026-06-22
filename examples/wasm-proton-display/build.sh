@@ -3,8 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUT=${1:-"$SCRIPT_DIR/proton_display_probe.wasm"}
-CLANG=${CLANG:-/opt/homebrew/opt/llvm/bin/clang}
-WASM_LD=${WASM_LD:-/opt/homebrew/bin/wasm-ld}
+CLANG=${CLANG:-$(xcrun --find clang 2>/dev/null || command -v clang || printf '%s' /usr/bin/clang)}
+WASM_LD=${WASM_LD:-$(xcrun --find wasm-ld 2>/dev/null || command -v wasm-ld || printf '%s' /opt/homebrew/bin/wasm-ld)}
 
 "$CLANG" \
     --target=wasm32-unknown-unknown \
