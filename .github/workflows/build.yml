@@ -21,6 +21,15 @@ jobs:
       - name: Install WASM build tools
         run: brew install lld
 
+      - name: Verify wasm-ld installation
+        run: |
+          echo "Checking wasm-ld location..."
+          which wasm-ld || echo "wasm-ld not found in PATH"
+          ls -la /opt/homebrew/bin/wasm-ld 2>/dev/null || echo "wasm-ld not in /opt/homebrew/bin"
+          ls -la /usr/local/bin/wasm-ld 2>/dev/null || echo "wasm-ld not in /usr/local/bin"
+          export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+          which wasm-ld && echo "wasm-ld found after PATH update"
+
       - name: Deploy iOS Beta to TestFlight via Fastlane
         run: echo "$MATCH_DEPLOY_KEY" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa && fastlane beta
         env:
@@ -44,6 +53,7 @@ jobs:
           JUDGE0_ENDPOINT: ""
           DISTRIBUTE_EXTERNAL: "true"
           XCODE_PATH: "/Applications/Xcode_26.2.app"
+          PATH: "/opt/homebrew/bin:/usr/local/bin:${{ env.PATH }}"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
