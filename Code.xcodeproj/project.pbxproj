@@ -3876,7 +3876,7 @@
 			shellPath = /bin/sh;
 			shellScript = (
 				"set -eu",
-				"export PATH=\"/opt/homebrew/bin:${PATH}\"",
+				"export PATH=\"/opt/homebrew/bin:/usr/local/bin:${PATH}\"",
 				"mkdir -p \"${PROJECT_DIR}/Resources/NodeJS\"",
 				"\"${PROJECT_DIR}/examples/wasm-cuda-oxide/build.sh\" \"${PROJECT_DIR}/Resources/NodeJS/cuda_oxide_probe.wasm\"",
 				"\"${PROJECT_DIR}/examples/wasm-cuda-ptx/build.sh\" \"${PROJECT_DIR}/Resources/NodeJS/cuda_ptx_probe.wasm\"",
@@ -3904,7 +3904,7 @@
 			shellPath = /bin/sh;
 			shellScript = (
 				"set -eu",
-				"export PATH=\"/opt/homebrew/bin:${PATH}\"",
+				"export PATH=\"/opt/homebrew/bin:/usr/local/bin:${PATH}\"",
 				"mkdir -p \"${PROJECT_DIR}/Resources/NodeJS\"",
 				"\"${PROJECT_DIR}/examples/wasm-cuda-oxide/build.sh\" \"${PROJECT_DIR}/Resources/NodeJS/cuda_oxide_probe.wasm\"",
 				"\"${PROJECT_DIR}/examples/wasm-cuda-ptx/build.sh\" \"${PROJECT_DIR}/Resources/NodeJS/cuda_ptx_probe.wasm\"",
