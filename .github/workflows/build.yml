@@ -31,7 +31,9 @@ jobs:
           which wasm-ld && echo "wasm-ld found after PATH update"
 
       - name: Deploy iOS Beta to TestFlight via Fastlane
-        run: echo "$MATCH_DEPLOY_KEY" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa && fastlane beta
+        run: |
+          export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+          echo "$MATCH_DEPLOY_KEY" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa && fastlane beta
         env:
           MATCH_DEPLOY_KEY: "${{ secrets.MATCH_DEPLOY_KEY }}"
           APP_STORE_CONNECT_TEAM_ID: "${{ secrets.APP_STORE_CONNECT_TEAM_ID }}"
@@ -53,7 +55,6 @@ jobs:
           JUDGE0_ENDPOINT: ""
           DISTRIBUTE_EXTERNAL: "true"
           XCODE_PATH: "/Applications/Xcode_26.2.app"
-          PATH: "/opt/homebrew/bin:/usr/local/bin:${{ env.PATH }}"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
