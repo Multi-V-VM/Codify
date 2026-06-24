@@ -54,9 +54,12 @@ mkdir -p NodeJS
 cd NodeJS
 curl -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
   -L -o node.wasm https://asplos.dev/about/node.wasm
-../../examples/wasm-cuda-oxide/build.sh cuda_oxide_probe.wasm
-../../examples/wasm-cuda-ptx/build.sh cuda_ptx_probe.wasm
-../../examples/wasm-proton-display/build.sh proton_display_probe.wasm
+curl -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
+  -L -o cuda_ptx_probe.wasm https://asplos.dev/about/cuda_ptx_probe.wasm
+curl -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
+  -L -o proton_display_probe.wasm https://asplos.dev/about/proton_display_probe.wasm
+curl -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
+  -L -o cuda_oxide_probe.wasm https://asplos.dev/about/cuda_oxide_probe.wasm
 curl -OL https://github.com/1Conan/nodejs-mobile/releases/download/v18.19.0-ios/NodeMobile.xcframework.zip
 unzip -q NodeMobile.xcframework.zip
 rm -f NodeMobile.xcframework.zip
