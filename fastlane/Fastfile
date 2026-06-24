@@ -50,6 +50,18 @@ def linked_rpath_frameworks(binary_path)
   end.uniq
 end
 
+def framework_source_for(framework_name)
+  project_root = File.expand_path("..", __dir__)
+  framework_path = "#{framework_name}.xcframework/ios-arm64/#{framework_name}.framework"
+  candidates = [
+    File.join(project_root, "Resources/Term", framework_path),
+    File.join(project_root, "Resources", framework_path),
+    File.join(project_root, "Resources/NodeJS", framework_path)
+  ]
+  candidates += Dir[File.join(project_root, "Resources/**", framework_path)].sort
+  candidates.uniq.find { |path| File.directory?(path) }
+end
+
 def ensure_framework_embedded!(exported_app, framework_name)
   frameworks_path = File.join(exported_app, "Frameworks")
   FileUtils.mkdir_p(frameworks_path)
@@ -57,14 +69,10 @@ def ensure_framework_embedded!(exported_app, framework_name)
   destination = File.join(frameworks_path, "#{framework_name}.framework")
   return if File.directory?(destination)
 
-  project_root = File.expand_path("..", __dir__)
-  source = File.join(
-    project_root,
-    "Resources/Term/#{framework_name}.xcframework/ios-arm64/#{framework_name}.framework"
-  )
+  source = framework_source_for(framework_name)
   UI.user_error!(
-    "Missing #{framework_name}.framework in #{frameworks_path}, and no iOS arm64 source slice exists at #{source}"
-  ) unless File.directory?(source)
+    "Missing #{framework_name}.framework in #{frameworks_path}, and no iOS arm64 source slice exists under Resources"
+  ) unless source
 
   FileUtils.cp_r(source, destination, preserve: true)
   UI.important("Repaired missing launch framework: copied #{framework_name}.framework into #{frameworks_path}")
@@ -73,7 +81,9 @@ end
 def ensure_launch_frameworks_embedded!(exported_app)
   # App Review build 9 crashed at dyld launch because curl_ios.framework was
   # linked from the app binary but absent from CodifyOne.app/Frameworks.
-  %w[curl_ios libssh2 openssl ios_system].each do |framework_name|
+  required_frameworks = %w[curl_ios libssh2 openssl ios_system]
+  required_frameworks += linked_rpath_frameworks(app_executable_path(exported_app))
+  required_frameworks.uniq.each do |framework_name|
     ensure_framework_embedded!(exported_app, framework_name)
   end
 end
