@@ -50,6 +50,35 @@ def linked_rpath_frameworks(binary_path)
   end.uniq
 end
 
+def bitcode_strip_tool
+  @bitcode_strip_tool ||= begin
+    tool = `xcrun --find bitcode_strip 2>/dev/null`.strip
+    UI.user_error!("Could not find bitcode_strip in the selected Xcode toolchain") if tool.empty?
+    tool
+  end
+end
+
+def bundle_executable_path(bundle_path)
+  return bundle_path unless File.directory?(bundle_path)
+
+  info_plist = File.join(bundle_path, "Info.plist")
+  executable = ""
+  if File.exist?(info_plist)
+    executable = `/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' #{Shellwords.escape(info_plist)} 2>/dev/null`.strip
+  end
+  executable = File.basename(bundle_path, ".framework") if executable.empty? && bundle_path.end_with?(".framework")
+  File.join(bundle_path, executable)
+end
+
+def strip_bitcode!(bundle_or_binary_path)
+  binary_path = bundle_executable_path(bundle_or_binary_path)
+  return unless File.file?(binary_path)
+
+  UI.message("Stripping bitcode from #{binary_path}")
+  stripped = system(bitcode_strip_tool, "-r", binary_path, "-o", binary_path)
+  UI.user_error!("bitcode_strip failed for #{binary_path}") unless stripped
+end
+
 def framework_source_for(framework_name)
   project_root = File.expand_path("..", __dir__)
   framework_path = "#{framework_name}.xcframework/ios-arm64/#{framework_name}.framework"
@@ -255,6 +284,7 @@ platform :ios do
     frameworks_path = File.join(exported_app, "Frameworks")
     if File.directory?(frameworks_path)
       Dir["#{frameworks_path}/*.framework", "#{frameworks_path}/*.dylib"].each do |fw|
+        strip_bitcode!(fw)
         sh("codesign --force --sign '#{sign_identity}' --keychain '#{keychain_path}' --timestamp '#{fw}'")
       end
     end
