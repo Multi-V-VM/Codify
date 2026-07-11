@@ -485,6 +485,23 @@ class Executor {
         tool: String,
         completionHandler: @escaping (Int32) -> Void
     ) {
+        let tokens = command.split(separator: " ").map(String.init)
+        if let validationFailure = rustToolValidationFailure(
+            tool: tool, arguments: Array(tokens.dropFirst()))
+        {
+            receivedStderr("\(validationFailure)\r\n".data(using: .utf8)!)
+            completionHandler(1)
+            return
+        }
+
+        if tool == "cargo",
+            tokens.dropFirst().first.map({ $0 == "--version" || $0 == "-V" }) == true
+        {
+            receivedStdout("cargo codifyone-minicargo 1.90 (wasm32-wasip1)\r\n".data(using: .utf8)!)
+            completionHandler(0)
+            return
+        }
+
         guard let wasmURL = Bundle.main.url(forResource: "rust_toolchain", withExtension: "wasm")
         else {
             receivedStderr("\(tool): bundled rust_toolchain.wasm not found\r\n".data(using: .utf8)!)
@@ -578,7 +595,6 @@ class Executor {
             return
         }
 
-        let tokens = command.split(separator: " ").map(String.init)
         let rest = tokens.dropFirst().joined(separator: " ")
         let wasmCommand = "wasm \(wasmURL.path) \(tool)" + (rest.isEmpty ? "" : " \(rest)")
         handleWasmCommand(
@@ -597,6 +613,68 @@ class Executor {
                 }
                 completionHandler(exitCode)
             })
+    }
+
+    /// mrustc/minicargo are built with C++ exceptions disabled for Wasmi. Their
+    /// fatal argument and filesystem paths therefore end in `unreachable`
+    /// instead of a catchable diagnostic. Reject ordinary CLI mistakes before
+    /// entering the guest so they behave like normal rustc/cargo failures.
+    private func rustToolValidationFailure(tool: String, arguments: [String]) -> String? {
+        if tool == "rustc" {
+            if arguments.isEmpty {
+                return "usage: rustc [OPTIONS] INPUT"
+            }
+            let informational = Set(["--help", "-h", "--version", "-V", "-vV"])
+            if arguments.contains(where: { informational.contains($0) }) {
+                return nil
+            }
+            let sourceArguments = arguments.filter { !$0.hasPrefix("-") }
+            guard !sourceArguments.isEmpty else {
+                return "rustc: no input filename given"
+            }
+            for input in sourceArguments {
+                let inputURL = URL(fileURLWithPath: input, relativeTo: currentWorkingDirectory)
+                    .standardizedFileURL
+                var isDirectory: ObjCBool = false
+                if FileManager.default.fileExists(
+                    atPath: inputURL.path, isDirectory: &isDirectory), !isDirectory.boolValue
+                {
+                    return nil
+                }
+            }
+            return "rustc: input file not found: \(sourceArguments[0])"
+        }
+
+        guard tool == "cargo" else { return nil }
+        if arguments.isEmpty {
+            return "usage: cargo build [PACKAGE_DIR]\n       cargo [PACKAGE_DIR]"
+        }
+        if arguments[0] == "--version" || arguments[0] == "-V"
+            || arguments[0] == "--help" || arguments[0] == "-h"
+        {
+            return nil
+        }
+
+        let packageArgument: String
+        if arguments[0] == "build" {
+            packageArgument = arguments.dropFirst().first(where: { !$0.hasPrefix("-") }) ?? "."
+        } else {
+            packageArgument = arguments[0]
+        }
+        let packageURL = URL(
+            fileURLWithPath: packageArgument, relativeTo: currentWorkingDirectory
+        ).standardizedFileURL
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: packageURL.path, isDirectory: &isDirectory),
+            isDirectory.boolValue
+        else {
+            return "cargo: package path is not a directory: \(packageArgument)"
+        }
+        let manifest = packageURL.appendingPathComponent("Cargo.toml")
+        guard FileManager.default.fileExists(atPath: manifest.path) else {
+            return "cargo: no Cargo.toml found in \(packageArgument)"
+        }
+        return nil
     }
 
     private func prepareRustWorkspace(
