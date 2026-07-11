@@ -839,6 +839,8 @@
 		94CF58D1265E4B3000CB6A4B /* ar.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 94CF58BD265E4A9E00CB6A4B /* ar.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		94CF58D2265E4B3000CB6A4B /* link.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 94CF58BE265E4A9E00CB6A4B /* link.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		94CF58D3265E4B3000CB6A4B /* libLLVM.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 94CF58BF265E4A9E00CB6A4B /* libLLVM.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		C0DA10012F69000100000001 /* libLLVM.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 94CF58BF265E4A9E00CB6A4B /* libLLVM.xcframework */; };
+		C0DA10022F69000100000002 /* libLLVM.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 94CF58BF265E4A9E00CB6A4B /* libLLVM.xcframework */; };
 		94CF58D4265E4B3000CB6A4B /* lld.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 94CF58C0265E4A9E00CB6A4B /* lld.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		94CF58D5265E4B3000CB6A4B /* clang.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 94CF58C1265E4A9E00CB6A4B /* clang.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		94CF58D6265E4B3000CB6A4B /* nm.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 94CF58C2265E4A9E00CB6A4B /* nm.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -2193,6 +2195,7 @@
 		9419698E280316C7008AAEB2 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				C0DA10022F69000100000002 /* libLLVM.xcframework in Frameworks */,
 				9419698F280316C7008AAEB2 /* FilesProvider in Frameworks */,
 				94FD17022BAED26A003E1545 /* Runestone in Frameworks */,
 				947BBC862C12ED7E00FFD0C5 /* TreeSitterLaTeXRunestone in Frameworks */,
@@ -2255,6 +2258,7 @@
 		944EEBED2563C381009D77FE /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				C0DA10012F69000100000001 /* libLLVM.xcframework in Frameworks */,
 				947BBCDE2C12F5A600FFD0C5 /* TreeSitterPerlRunestone in Frameworks */,
 				947BBCF22C12F5A900FFD0C5 /* TreeSitterTOMLRunestone in Frameworks */,
 				948F174E26B91C2600B277FC /* FilesProvider in Frameworks */,

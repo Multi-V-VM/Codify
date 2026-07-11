@@ -565,7 +565,11 @@ async fn execute_wasm_async(
             }
         }
         wasi_env_builder = wasi_env_builder.sandbox_fs(fs);
-        wasi_env_builder.preopen_vfs_dirs(vec!["/workspace".to_string()])?;
+        wasi_env_builder.preopen_vfs_dirs(vec![
+            "/workspace".to_string(),
+            "/home/workspace".to_string(),
+            "/usr/share/codifyone-rust".to_string(),
+        ])?;
     }
 
     // Preopen host directories listed in WASM_PREOPENS (colon-separated);
@@ -601,7 +605,7 @@ async fn execute_wasm_async(
     // but Path::new("/") is also a valid host path on iOS; passing it through
     // here makes the runtime use the host root as cwd, which is not intended.
     if let Ok(cwd) = std::env::var("WASM_CWD") {
-        if cwd != "/" && Path::new(&cwd).is_dir() {
+        if cwd != "/" && (uses_embedded_files || Path::new(&cwd).is_dir()) {
             wasi_env_builder = wasi_env_builder.current_dir(cwd);
         }
     }

@@ -9,6 +9,31 @@ import Darwin
 import SwiftUI
 import ios_system
 
+@_silgen_name("LLVMCreateMemoryBufferWithContentsOfFile")
+private func LLVMCreateMemoryBufferWithContentsOfFile(
+    _ path: UnsafePointer<CChar>,
+    _ buffer: UnsafeMutablePointer<OpaquePointer?>,
+    _ message: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>
+) -> Int32
+
+@_silgen_name("LLVMParseBitcode2")
+private func LLVMParseBitcode2(
+    _ buffer: OpaquePointer,
+    _ module: UnsafeMutablePointer<OpaquePointer?>
+) -> Int32
+
+@_silgen_name("LLVMPrintModuleToString")
+private func LLVMPrintModuleToString(_ module: OpaquePointer) -> UnsafeMutablePointer<CChar>
+
+@_silgen_name("LLVMDisposeMemoryBuffer")
+private func LLVMDisposeMemoryBuffer(_ buffer: OpaquePointer)
+
+@_silgen_name("LLVMDisposeModule")
+private func LLVMDisposeModule(_ module: OpaquePointer)
+
+@_silgen_name("LLVMDisposeMessage")
+private func LLVMDisposeMessage(_ message: UnsafeMutablePointer<CChar>)
+
 class Executor {
 
     enum State {
@@ -186,6 +211,11 @@ class Executor {
         if ["rustc", "cargo", "rustup"].contains(cmdName) {
             handleRustToolCommand(
                 command: command, tool: cmdName, completionHandler: completionHandler)
+            return
+        }
+
+        if cmdName == "llvm-dis" {
+            handleLLVMDisCommand(command: command, completionHandler: completionHandler)
             return
         }
 
@@ -588,6 +618,9 @@ class Executor {
             setenv("CODIFYONE_RUST_TARGET_SPEC", "/usr/share/codifyone-rust/wasm32-wasip1.toml", 1)
             setenv("CODIFYONE_RUST_LIBDIR", "/usr/share/codifyone-rust/lib", 1)
             setenv("CODIFYONE_RUST_HOST_ROOT", rustRoot.path, 1)
+            let embeddedFiles = try rustEmbeddedFileMappings(
+                workspace: workspace, rustRoot: rustRoot, fileManager: fileManager)
+            setenv("WASM_EMBED_FILES", embeddedFiles, 1)
         } catch {
             receivedStderr(
                 "\(tool): cannot prepare local WASI toolchain: \(error)\r\n".data(using: .utf8)!)
@@ -611,8 +644,47 @@ class Executor {
                         "cargo: cannot copy WASI build results back: \(error)\r\n"
                             .data(using: .utf8)!)
                 }
+                unsetenv("WASM_EMBED_FILES")
                 completionHandler(exitCode)
             })
+    }
+
+    /// Host directory mounts are not reliable for iOS app-container paths.
+    /// Materialize the small Rust workspace and sysroot into Wasmer's memfs so
+    /// mrustc can actually read its target, libraries, manifest and sources.
+    private func rustEmbeddedFileMappings(
+        workspace: URL,
+        rustRoot: URL,
+        fileManager: FileManager
+    ) throws -> String {
+        var mappings = [String]()
+        let roots = [(workspace, "/home/workspace"), (rustRoot, "/usr/share/codifyone-rust")]
+        for (hostRoot, guestRoot) in roots {
+            guard
+                let enumerator = fileManager.enumerator(
+                    at: hostRoot,
+                    includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey],
+                    options: [.skipsHiddenFiles])
+            else { continue }
+            for case let fileURL as URL in enumerator {
+                let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+                guard values.isRegularFile == true else { continue }
+                // Compiled games/Node modules in Documents are unrelated input
+                // and can be hundreds of MB. Cargo/Rust sources and manifests
+                // remain well below this bound.
+                if hostRoot == workspace, (values.fileSize ?? 0) > 16 * 1024 * 1024 {
+                    continue
+                }
+                let relative = String(fileURL.path.dropFirst(hostRoot.path.count))
+                mappings.append("\(guestRoot)\(relative)::\(fileURL.path)")
+            }
+        }
+        guard !mappings.isEmpty else {
+            throw NSError(
+                domain: "CodifyOneRust", code: 2,
+                userInfo: [NSLocalizedDescriptionKey: "Rust WASI memfs input set is empty"])
+        }
+        return mappings.joined(separator: ";")
     }
 
     /// mrustc/minicargo are built with C++ exceptions disabled for Wasmi. Their
@@ -675,6 +747,88 @@ class Executor {
             return "cargo: no Cargo.toml found in \(packageArgument)"
         }
         return nil
+    }
+
+    private func handleLLVMDisCommand(
+        command: String,
+        completionHandler: @escaping (Int32) -> Void
+    ) {
+        let arguments = command.split(separator: " ").dropFirst().map(String.init)
+        if arguments.isEmpty || arguments.contains("--help") || arguments.contains("-h") {
+            receivedStdout("usage: llvm-dis INPUT.bc [-o OUTPUT.ll|-]\r\n".data(using: .utf8)!)
+            completionHandler(arguments.isEmpty ? 1 : 0)
+            return
+        }
+
+        var input: String?
+        var output: String?
+        var index = 0
+        while index < arguments.count {
+            if arguments[index] == "-o" {
+                guard index + 1 < arguments.count else {
+                    receivedStderr("llvm-dis: missing filename after -o\r\n".data(using: .utf8)!)
+                    completionHandler(1)
+                    return
+                }
+                output = arguments[index + 1]
+                index += 2
+            } else if arguments[index].hasPrefix("-") {
+                receivedStderr(
+                    "llvm-dis: unsupported option: \(arguments[index])\r\n".data(using: .utf8)!)
+                completionHandler(1)
+                return
+            } else {
+                input = input ?? arguments[index]
+                index += 1
+            }
+        }
+        guard let input else {
+            receivedStderr("llvm-dis: no input file\r\n".data(using: .utf8)!)
+            completionHandler(1)
+            return
+        }
+
+        let inputURL = URL(fileURLWithPath: input, relativeTo: currentWorkingDirectory)
+            .standardizedFileURL
+        var memoryBuffer: OpaquePointer?
+        var errorMessage: UnsafeMutablePointer<CChar>?
+        let bufferResult = inputURL.path.withCString {
+            LLVMCreateMemoryBufferWithContentsOfFile($0, &memoryBuffer, &errorMessage)
+        }
+        guard bufferResult == 0, let memoryBuffer else {
+            let detail = errorMessage.map { String(cString: $0) } ?? "cannot read input"
+            if let errorMessage { LLVMDisposeMessage(errorMessage) }
+            receivedStderr("llvm-dis: \(detail)\r\n".data(using: .utf8)!)
+            completionHandler(1)
+            return
+        }
+        defer { LLVMDisposeMemoryBuffer(memoryBuffer) }
+
+        var module: OpaquePointer?
+        guard LLVMParseBitcode2(memoryBuffer, &module) == 0, let module else {
+            receivedStderr("llvm-dis: invalid LLVM bitcode: \(input)\r\n".data(using: .utf8)!)
+            completionHandler(1)
+            return
+        }
+        defer { LLVMDisposeModule(module) }
+
+        let printed = LLVMPrintModuleToString(module)
+        defer { LLVMDisposeMessage(printed) }
+        let llvmIR = String(cString: printed)
+        if let output, output != "-" {
+            let outputURL = URL(fileURLWithPath: output, relativeTo: currentWorkingDirectory)
+                .standardizedFileURL
+            do {
+                try llvmIR.write(to: outputURL, atomically: true, encoding: .utf8)
+            } catch {
+                receivedStderr("llvm-dis: \(error)\r\n".data(using: .utf8)!)
+                completionHandler(1)
+                return
+            }
+        } else {
+            receivedStdout(llvmIR.data(using: .utf8)!)
+        }
+        completionHandler(0)
     }
 
     private func prepareRustWorkspace(

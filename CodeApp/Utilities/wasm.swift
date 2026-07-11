@@ -661,6 +661,7 @@ func setupWASMSysroot(currentDirectory: String, gpuBackend: String? = nil) {
     let sysroot = wasmSysrootURL()
     let resolvedCurrentDirectory = safeWASMCurrentDirectory(currentDirectory)
     let gpuRuntime = configureWASMGPURuntime(backend: gpuBackend)
+    let usesEmbeddedFiles = getenv("WASM_EMBED_FILES").map { $0.pointee != 0 } ?? false
 
     // Build the skeleton once; subsequent runs reuse it so guest state persists.
     let skeletonDirs = ["tmp", "home", "etc", "usr", "Tools"]
@@ -724,7 +725,9 @@ func setupWASMSysroot(currentDirectory: String, gpuBackend: String? = nil) {
     }
 
     let wasmCWD: String
-    if wasmHostPathIsUsableByWasmer(runtimeHomePath),
+    if usesEmbeddedFiles {
+        wasmCWD = "/home/workspace"
+    } else if wasmHostPathIsUsableByWasmer(runtimeHomePath),
         let guestPath = wasmGuestPath(
             forHostPath: wasmCWDHost, hostRoot: runtimeHomePath, guestRoot: "/home")
     {
@@ -874,6 +877,7 @@ private func withMinimalWASMProcessEnvironment<T>(
         "WASM_PREOPENS",
         "WASM_MAP_DIRS",
         "WASM_CWD",
+        "WASM_EMBED_FILES",
         "WASM_GUEST_HOME",
         "WASM_AOT_CACHE",
         "WASM_FORCE_INTERPRETER",
