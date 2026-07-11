@@ -565,11 +565,10 @@ async fn execute_wasm_async(
             }
         }
         wasi_env_builder = wasi_env_builder.sandbox_fs(fs);
-        wasi_env_builder.preopen_vfs_dirs(vec![
-            "/workspace".to_string(),
-            "/home/workspace".to_string(),
-            "/usr/share/codifyone-rust".to_string(),
-        ])?;
+        // Preopen the memfs root once. Deep preopens are resolved against the
+        // host filesystem by Wasmer-WASIX during inode finalization and return
+        // NOENT even though those paths exist in TmpFileSystem.
+        wasi_env_builder.preopen_vfs_dirs(vec!["/".to_string()])?;
     }
 
     // Preopen host directories listed in WASM_PREOPENS (colon-separated);

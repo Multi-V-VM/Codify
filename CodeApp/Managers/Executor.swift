@@ -16,8 +16,15 @@ private func LLVMCreateMemoryBufferWithContentsOfFile(
     _ message: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>
 ) -> Int32
 
-@_silgen_name("LLVMParseBitcode2")
-private func LLVMParseBitcode2(
+@_silgen_name("LLVMContextCreate")
+private func LLVMContextCreate() -> OpaquePointer
+
+@_silgen_name("LLVMContextDispose")
+private func LLVMContextDispose(_ context: OpaquePointer)
+
+@_silgen_name("LLVMParseBitcodeInContext2")
+private func LLVMParseBitcodeInContext2(
+    _ context: OpaquePointer,
     _ buffer: OpaquePointer,
     _ module: UnsafeMutablePointer<OpaquePointer?>
 ) -> Int32
@@ -804,8 +811,13 @@ class Executor {
         }
         defer { LLVMDisposeMemoryBuffer(memoryBuffer) }
 
+        // Avoid LLVM's process-global context. The embedded clang command and
+        // editor services may use it concurrently, which made llvm-dis crash
+        // the entire app. A command-local context keeps ownership isolated.
+        let context = LLVMContextCreate()
+        defer { LLVMContextDispose(context) }
         var module: OpaquePointer?
-        guard LLVMParseBitcode2(memoryBuffer, &module) == 0, let module else {
+        guard LLVMParseBitcodeInContext2(context, memoryBuffer, &module) == 0, let module else {
             receivedStderr("llvm-dis: invalid LLVM bitcode: \(input)\r\n".data(using: .utf8)!)
             completionHandler(1)
             return
