@@ -16,7 +16,12 @@ use wasmer_wasix::wasmer::{
     ExternType, Function, FunctionEnv, FunctionEnvMut, Imports, Instance, Memory, Module, Store,
     Type, Value,
 };
-use wasmer_wasix::{PluggableRuntime, WasiEnvBuilder, WasiFunctionEnv};
+use wasmer_wasix::{
+    PluggableRuntime, WasiEnvBuilder, WasiFunctionEnv, WasiModuleInstanceHandles,
+    WasiModuleTreeHandles,
+};
+
+pub mod atomic_lowering;
 
 const CUDA_SUCCESS: i32 = 0;
 const CUDA_ERROR_INVALID_VALUE: i32 = 1;
@@ -478,6 +483,14 @@ async fn execute_wasm_async(
     //   the compiled artifact for AOT-style instant reloads.
     // - Otherwise fall back to the default interpreter (Wasmi via the
     //   "wasmi-default" feature), which avoids executable memory on devices.
+    let lowered_wasm;
+    let wasm_bytes = if module_uses_shared_memory(wasm_bytes) {
+        eprintln!("wasmer-ios: lowering shared-memory atomics for single-threaded iOS execution");
+        lowered_wasm = atomic_lowering::lower_threads_to_single_thread(wasm_bytes)?;
+        lowered_wasm.as_slice()
+    } else {
+        wasm_bytes
+    };
     let (mut store, jit_enabled) = create_store();
 
     // Load the WASM module, going through the AOT cache when compiling
@@ -751,8 +764,17 @@ fn module_has_display_imports(module: &Module) -> bool {
     })
 }
 
+fn module_has_rust_codegen_imports(module: &Module) -> bool {
+    module.imports().any(|import| {
+        import.module() == "env" && import.name() == "codifyone_rust_codegen"
+    })
+}
+
 fn module_needs_host_imports(module: &Module) -> bool {
-    module_has_cuda_imports(module) || module_has_display_imports(module)
+    module_has_cuda_imports(module)
+        || module_has_display_imports(module)
+        || module_has_rust_codegen_imports(module)
+        || module_has_imported_memory(module)
 }
 
 fn module_has_imported_memory(module: &Module) -> bool {
@@ -766,12 +788,6 @@ fn instantiate_wasi_with_host_imports(
     module: Module,
     store: &mut Store,
 ) -> Result<(Instance, WasiFunctionEnv), Box<dyn std::error::Error>> {
-    if module_has_imported_memory(&module) {
-        return Err(
-            "host import bridge currently supports modules that export their linear memory".into(),
-        );
-    }
-
     let mut wasi_env = wasi_env_builder
         .finalize(store)
         .map_err(|e| format!("Failed to finalize WASI environment: {}", e))?;
@@ -780,27 +796,76 @@ fn instantiate_wasi_with_host_imports(
         .map_err(|e| format!("Failed to create WASI imports: {}", e))?;
 
     let cuda_env = FunctionEnv::new(store, CudaBridge::new());
+    let mut bridge_memory = None;
+    for import in module.imports() {
+        if let ExternType::Memory(memory_type) = import.ty() {
+            let memory = Memory::new(store, *memory_type)
+                .map_err(|e| format!(
+                    "Failed to allocate imported memory {}.{} ({}): {}",
+                    import.module(), import.name(), memory_type, e
+                ))?;
+            imports.define(import.module(), import.name(), memory.clone());
+            if bridge_memory.is_none() {
+                bridge_memory = Some(memory);
+            }
+        }
+    }
+    // Start sections can call host functions while Instance::new is running,
+    // so expose imported memory to the bridge before instantiation.
+    cuda_env.as_mut(store).memory = bridge_memory;
     if module_has_cuda_imports(&module) {
         define_cuda_imports(store, &mut imports, &cuda_env);
     }
     if module_has_display_imports(&module) {
         define_display_imports(store, &mut imports, &cuda_env);
     }
+    if module_has_rust_codegen_imports(&module) {
+        define_rust_codegen_imports(store, &mut imports, &cuda_env);
+    }
 
     let instance = Instance::new(store, &module, &imports)
         .map_err(|e| format!("Failed to instantiate host-import WASI module: {}", e))?;
-    let memory = instance
-        .exports
-        .get_memory("memory")
-        .map_err(|e| format!("host-import WASM module must export memory: {}", e))?
-        .clone();
-
-    cuda_env.as_mut(store).memory = Some(memory);
+    if cuda_env.as_ref(store).memory.is_none() {
+        let memory = instance
+            .exports
+            .get_memory("memory")
+            .map_err(|e| format!("host-import WASM module must export or import memory: {}", e))?
+            .clone();
+        cuda_env.as_mut(store).memory = Some(memory);
+    }
+    let wasi_memory = cuda_env
+        .as_ref(store)
+        .memory
+        .clone()
+        .ok_or("host-import WASM module has no linear memory")?;
     wasi_env
-        .initialize(store, instance.clone())
+        .initialize_handles_and_layout(
+            store,
+            instance.clone(),
+            WasiModuleTreeHandles::Static(WasiModuleInstanceHandles::new(
+                wasi_memory,
+                store,
+                instance.clone(),
+                None,
+            )),
+            None,
+            true,
+        )
         .map_err(|e| format!("Failed to initialize WASI environment: {}", e))?;
 
     Ok((instance, wasi_env))
+}
+
+fn define_rust_codegen_imports(
+    store: &mut Store,
+    imports: &mut Imports,
+    env: &FunctionEnv<CudaBridge>,
+) {
+    imports.define(
+        "env",
+        "codifyone_rust_codegen",
+        Function::new_typed_with_env(store, env, codifyone_rust_codegen),
+    );
 }
 
 fn define_display_imports(store: &mut Store, imports: &mut Imports, env: &FunctionEnv<CudaBridge>) {
@@ -1034,6 +1099,36 @@ fn read_guest_c_string(
         bytes.push(byte[0]);
     }
     None
+}
+
+type IosSystemFn = unsafe extern "C" fn(*const c_char) -> i32;
+
+fn codifyone_rust_codegen(mut ctx: FunctionEnvMut<CudaBridge>, command_ptr: i32) -> i32 {
+    let Some(command) = read_guest_c_string(&mut ctx, command_ptr, 1024 * 1024) else {
+        eprintln!("wasmer-ios: invalid rust codegen command pointer");
+        return -1;
+    };
+    let Ok(mut command) = String::from_utf8(command) else {
+        eprintln!("wasmer-ios: rust codegen command is not UTF-8");
+        return -1;
+    };
+    if let Ok(host_root) = std::env::var("CODIFYONE_RUST_HOST_ROOT") {
+        command = command.replace("/usr/share/codifyone-rust", &host_root);
+    }
+    if let Ok(host_cwd) = std::env::var("CODIFYONE_WASM_HOST_CWD") {
+        command = command.replace("/home/workspace", &host_cwd);
+    }
+    let Ok(command) = CString::new(command) else {
+        eprintln!("wasmer-ios: rust codegen command contains an embedded NUL");
+        return -1;
+    };
+    let Some(symbol) = resolve_symbol(b"ios_system\0") else {
+        eprintln!("wasmer-ios: ios_system is unavailable for rust codegen");
+        return -1;
+    };
+    let ios_system = unsafe { std::mem::transmute::<*mut c_void, IosSystemFn>(symbol) };
+    eprintln!("wasmer-ios: rust codegen via embedded clang");
+    unsafe { ios_system(command.as_ptr()) }
 }
 
 fn read_guest_f32(ctx: &mut FunctionEnvMut<CudaBridge>, ptr: i32) -> Option<f32> {
@@ -2366,9 +2461,42 @@ fn jit_available() -> bool {
 
 /// Pick the execution engine. Returns the store and whether a compiling
 /// (JIT-capable) engine was selected, which also enables the AOT cache.
+fn module_uses_shared_memory(wasm_bytes: &[u8]) -> bool {
+    use wasmparser::{Parser, Payload, TypeRef};
+
+    for payload in Parser::new(0).parse_all(wasm_bytes) {
+        match payload {
+            Ok(Payload::ImportSection(reader)) => {
+                for group in reader {
+                    let Ok(group) = group else { return false };
+                    for import in group.into_iter().flatten().map(|(_, import)| import) {
+                        if matches!(import.ty, TypeRef::Memory(memory) if memory.shared) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            Ok(Payload::MemorySection(reader)) => {
+                if reader.into_iter().flatten().any(|memory| memory.shared) {
+                    return true;
+                }
+            }
+            Err(_) => return false,
+            _ => {}
+        }
+    }
+    false
+}
+
 fn create_store() -> (Store, bool) {
     if std::env::var_os("WASM_FORCE_INTERPRETER").is_some() {
-        return (Store::default(), false);
+        // Select Wasmi explicitly.  Store::default() is sensitive to feature
+        // unification and older XCFramework builds selected the Sys/Cranelift
+        // backend here, producing HeapAccessOutOfBounds traps on iOS devices.
+        return (
+            Store::new(wasmer_wasix::wasmer::wasmi::Wasmi::default()),
+            false,
+        );
     }
 
     #[cfg(feature = "cranelift")]
@@ -2380,7 +2508,10 @@ fn create_store() -> (Store, bool) {
         }
     }
 
-    (Store::default(), false)
+    (
+        Store::new(wasmer_wasix::wasmer::wasmi::Wasmi::default()),
+        false,
+    )
 }
 
 /// FNV-1a 64-bit hash, used to key AOT cache artifacts by module content.
@@ -2436,7 +2567,14 @@ fn load_module(
 }
 
 fn extract_exit_code(error: &wasmer_wasix::wasmer::RuntimeError) -> Option<i32> {
-    // Try to extract WASI exit code from error
+    if let Some(wasi_error) = error.downcast_ref::<wasmer_wasix::WasiError>() {
+        return match wasi_error {
+            wasmer_wasix::WasiError::Exit(code) => Some(code.raw()),
+            wasmer_wasix::WasiError::ThreadExit => Some(0),
+            _ => None,
+        };
+    }
+    // Fallback for backends that flatten the typed error into text.
     // WASI programs exit by calling proc_exit, which causes a trap
     let error_msg = error.to_string();
     if error_msg.contains("exit") {

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-crate-type = ["staticlib"]
+crate-type = ["staticlib", "rlib"]
 
 [features]
 # Enables the Cranelift compiling engine + AOT artifact cache when the host
@@ -15,10 +15,16 @@ cranelift = ["wasmer/cranelift"]
 
 [dependencies]
 wasmer = { path = "./wasmer/lib/api", default-features = false, features = ["wasmi-default", "cranelift"] }
-wasmer7 = { package = "wasmer", version = "7.1.0", default-features = false, features = ["sys", "cranelift"] }
-wasmer-wasix = { version = "0.701.0", features = ["sys-default"] }
+wasmer7 = { package = "wasmer", version = "7.1.0", default-features = false, features = ["sys", "cranelift", "wasmi-default"] }
+# Keep WASIX host services, but do not enable its `sys-default` feature: that
+# feature silently makes Store::default() select Cranelift ahead of Wasmi.
+# The explicit `sys` feature plus the direct Wasmer dependency retains both
+# engines while leaving Wasmi as the sole default backend.
+wasmer-wasix = { version = "0.701.0", default-features = false, features = ["sys"] }
 tokio = { version = "1", features = ["rt", "sync"] }
 libc = "0.2.186"
+wasmparser = { version = "0.245.1", default-features = false }
+wasm-encoder = { version = "0.245.1", features = ["wasmparser"] }
 nix = { version = "0.27", features = ["fs"] }
 
 [patch.crates-io]
@@ -27,6 +33,7 @@ wasmer-types = { path = "./wasmer/lib/types" }
 wasmer-vm = { path = "./wasmer/lib/vm" }
 wasmer-compiler = { path = "./wasmer/lib/compiler" }
 wasmer-derive = { path = "./wasmer/lib/derive" }
+wasmi_c_api_impl = { path = "./vendor/wasmi_c_api_impl" }
 
 [profile.release]
 opt-level = "z"     # Optimize for size

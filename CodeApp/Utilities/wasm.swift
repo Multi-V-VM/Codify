@@ -166,18 +166,15 @@ private func readWASMModuleSummary(from data: Data) -> WASMModuleSummary? {
 
 private func wasmRuntimeCompatibilityIssue(_ summary: WASMModuleSummary) -> String? {
     for entry in summary.imports {
-        if entry.module.hasPrefix("wasix_") {
-            return
-                "module imports WASIX runtime feature \(entry.module).\(entry.name); rebuild it as WASI preview1"
-        }
+        // Wasmer-WASIX supplies the versioned `wasix_*` namespaces.  Keep
+        // preview1 diagnostics below, but do not reject WASIX modules before
+        // the runtime has a chance to link them.
         if entry.module == "env", entry.name.hasPrefix("__wasi_") {
             return
                 "module imports \(entry.module).\(entry.name); clang linked WASI syscalls with the wrong import ABI"
         }
-        if entry.module == "env", entry.kind == 2 {
-            return
-                "module imports host memory env.\(entry.name), which this Wasmer bridge does not provide"
-        }
+        // Imported memories (including Emscripten/Node's `env.memory`) are
+        // allocated from the module's declared MemoryType by the Rust bridge.
     }
 
     if summary.memories.isEmpty {
@@ -282,8 +279,10 @@ private func executeWebAssembly(arguments: [String]?) -> Int32 {
     }
 
     let wasmFile = arguments[commandOptions.wasmIndex]
-    let hostCurrentDirectory = resolvedWASMCurrentDirectory(
-        FileManager.default.currentDirectoryPath)
+    let requestedHostDirectory =
+        ProcessInfo.processInfo.environment["CODIFYONE_WASM_HOST_CWD"]
+        ?? FileManager.default.currentDirectoryPath
+    let hostCurrentDirectory = resolvedWASMCurrentDirectory(requestedHostDirectory)
     let fileName = wasmFile.hasPrefix("/") ? wasmFile : hostCurrentDirectory + "/" + wasmFile
     let wasmCurrentDirectory = safeWASMCurrentDirectory(hostCurrentDirectory)
 
@@ -784,19 +783,12 @@ func setupWASMSysroot(currentDirectory: String, gpuBackend: String? = nil) {
     // the host HOME value if one leaks in from a caller.
     setenv("WASM_GUEST_HOME", guestHome, 1)
 
-    // AOT artifact cache, used when the runtime selects a compiling engine.
-    // Keep the env value short: the iOS bridge copies env strings into guest
-    // memory during startup and long app-container paths can trap there.
-    let aotCacheName = "aot-cache"
-    let aotCache = runtimeHomeURL.appendingPathComponent(aotCacheName, isDirectory: true)
-    try? fileManager.createDirectory(at: aotCache, withIntermediateDirectories: true)
-    if gpuBackend != nil {
-        unsetenv("WASM_FORCE_INTERPRETER")
-        setenv("WASM_AOT_CACHE", aotCacheName, 1)
-    } else {
-        setenv("WASM_FORCE_INTERPRETER", "1", 1)
-        unsetenv("WASM_AOT_CACHE")
-    }
+    // Use the explicit Wasmi backend for every iOS guest, including CUDA/PTX
+    // modules. GPU acceleration happens in native hetGPU/Metal host imports
+    // and does not require the faulty iOS Sys/Cranelift guest engine.
+    let aotCacheName = "disabled"
+    setenv("WASM_FORCE_INTERPRETER", "1", 1)
+    unsetenv("WASM_AOT_CACHE")
 
     logWASMRuntimeEnvironment(
         wasmCWD: wasmCWD,
@@ -885,6 +877,11 @@ private func withMinimalWASMProcessEnvironment<T>(
         "WASM_GUEST_HOME",
         "WASM_AOT_CACHE",
         "WASM_FORCE_INTERPRETER",
+        "CC",
+        "CODIFYONE_RUST_TARGET_SPEC",
+        "CODIFYONE_RUST_LIBDIR",
+        "CODIFYONE_RUST_HOST_ROOT",
+        "CODIFYONE_WASM_HOST_CWD",
         "HOME",
         "PWD",
     ]

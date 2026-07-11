@@ -984,6 +984,10 @@
 		C0DA0B022F66010100000002 /* CudaAppleBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DA0B002F66010100000000 /* CudaAppleBridge.swift */; };
 		C0DA0C012F66020100000001 /* cuda_ptx_probe.wasm in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0C002F66020100000000 /* cuda_ptx_probe.wasm */; };
 		C0DA0C022F66020100000002 /* cuda_ptx_probe.wasm in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0C002F66020100000000 /* cuda_ptx_probe.wasm */; };
+		C0DA0E012F66040100000001 /* rust_toolchain.wasm in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0E002F66040100000000 /* rust_toolchain.wasm */; };
+		C0DA0E022F66040100000002 /* rust_toolchain.wasm in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0E002F66040100000000 /* rust_toolchain.wasm */; };
+		C0DA0F012F66050100000001 /* RustWasi in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0F002F66050100000000 /* RustWasi */; };
+		C0DA0F022F66050100000002 /* RustWasi in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0F002F66050100000000 /* RustWasi */; };
 		C0DA0D012F66030100000001 /* proton_display_probe.wasm in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0D002F66030100000000 /* proton_display_probe.wasm */; };
 		C0DA0D022F66030100000002 /* proton_display_probe.wasm in Resources */ = {isa = PBXBuildFile; fileRef = C0DA0D002F66030100000000 /* proton_display_probe.wasm */; };
 		F97209422F46383C00DA803A /* DebuggerExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97209402F46383C00DA803A /* DebuggerExtension.swift */; };
@@ -2161,6 +2165,8 @@
 		C0DA0A002F66000100000000 /* cuda_oxide_probe.wasm */ = {isa = PBXFileReference; lastKnownFileType = file; path = cuda_oxide_probe.wasm; sourceTree = "<group>"; };
 		C0DA0B002F66010100000000 /* CudaAppleBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CudaAppleBridge.swift; sourceTree = "<group>"; };
 		C0DA0C002F66020100000000 /* cuda_ptx_probe.wasm */ = {isa = PBXFileReference; lastKnownFileType = file; path = cuda_ptx_probe.wasm; sourceTree = "<group>"; };
+		C0DA0E002F66040100000000 /* rust_toolchain.wasm */ = {isa = PBXFileReference; lastKnownFileType = file; path = rust_toolchain.wasm; sourceTree = "<group>"; };
+		C0DA0F002F66050100000000 /* RustWasi */ = {isa = PBXFileReference; lastKnownFileType = folder; path = RustWasi; sourceTree = "<group>"; };
 		C0DA0D002F66030100000000 /* proton_display_probe.wasm */ = {isa = PBXFileReference; lastKnownFileType = file; path = proton_display_probe.wasm; sourceTree = "<group>"; };
 		F97209402F46383C00DA803A /* DebuggerExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebuggerExtension.swift; sourceTree = "<group>"; };
 		F97209442F4638C200DA803A /* DebuggerSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebuggerSidebarView.swift; sourceTree = "<group>"; };
@@ -2558,6 +2564,8 @@
 				94AA00012E7F886A00BBCC01 /* node.wasm */,
 				C0DA0A002F66000100000000 /* cuda_oxide_probe.wasm */,
 				C0DA0C002F66020100000000 /* cuda_ptx_probe.wasm */,
+				C0DA0E002F66040100000000 /* rust_toolchain.wasm */,
+				C0DA0F002F66050100000000 /* RustWasi */,
 				C0DA0D002F66030100000000 /* proton_display_probe.wasm */,
 			);
 			path = NodeJS;
@@ -3766,6 +3774,8 @@
 				94AA00022E7F886A00BBCC02 /* node.wasm in Resources */,
 				C0DA0A012F66000100000001 /* cuda_oxide_probe.wasm in Resources */,
 				C0DA0C012F66020100000001 /* cuda_ptx_probe.wasm in Resources */,
+				C0DA0E012F66040100000001 /* rust_toolchain.wasm in Resources */,
+				C0DA0F012F66050100000001 /* RustWasi in Resources */,
 				C0DA0D012F66030100000001 /* proton_display_probe.wasm in Resources */,
 				F9FE0DBE2F594A00008DFB0E /* Qwen3.5-0.8B-Q8_0.gguf in Resources */,
 				941969A6280316C7008AAEB2 /* terminal.bundle in Resources */,
@@ -3806,6 +3816,8 @@
 				94AA00032E7F886A00BBCC03 /* node.wasm in Resources */,
 				C0DA0A022F66000100000002 /* cuda_oxide_probe.wasm in Resources */,
 				C0DA0C022F66020100000002 /* cuda_ptx_probe.wasm in Resources */,
+				C0DA0E022F66040100000002 /* rust_toolchain.wasm in Resources */,
+				C0DA0F022F66050100000002 /* RustWasi in Resources */,
 				C0DA0D022F66030100000002 /* proton_display_probe.wasm in Resources */,
 				F9FE0DBF2F594A00008DFB0E /* Qwen3.5-0.8B-Q8_0.gguf in Resources */,
 				94B3D6DE25F77AFE00C4F2B1 /* Library in Resources */,
@@ -3881,14 +3893,8 @@
 				"CUDA_OXIDE_PROBE=\"${PROJECT_DIR}/Resources/NodeJS/cuda_oxide_probe.wasm\"",
 				"CUDA_PTX_PROBE=\"${PROJECT_DIR}/Resources/NodeJS/cuda_ptx_probe.wasm\"",
 				"PROTON_DISPLAY_PROBE=\"${PROJECT_DIR}/Resources/NodeJS/proton_display_probe.wasm\"",
-				"# Skip if all WASM files already exist",
-				"if [ -f \"${CUDA_OXIDE_PROBE}\" ]; then",
-				"    if [ -f \"${CUDA_PTX_PROBE}\" ]; then",
-				"        if [ -f \"${PROTON_DISPLAY_PROBE}\" ]; then",
-				"            echo \"WASM probe files already exist, skipping build\"",
-				"            exit 0",
-				"        fi",
-				"    fi",
+				"if [ ! -f \"${PROJECT_DIR}/Resources/NodeJS/rust_toolchain.wasm\" ]; then",
+				"    \"${PROJECT_DIR}/scripts/fetch_rust_wasip1_toolchain.sh\"",
 				"fi",
 				"\"${PROJECT_DIR}/examples/wasm-cuda-oxide/build.sh\" \"${CUDA_OXIDE_PROBE}\"",
 				"\"${PROJECT_DIR}/examples/wasm-cuda-ptx/build.sh\" \"${CUDA_PTX_PROBE}\"",
@@ -3921,14 +3927,8 @@
 				"CUDA_OXIDE_PROBE=\"${PROJECT_DIR}/Resources/NodeJS/cuda_oxide_probe.wasm\"",
 				"CUDA_PTX_PROBE=\"${PROJECT_DIR}/Resources/NodeJS/cuda_ptx_probe.wasm\"",
 				"PROTON_DISPLAY_PROBE=\"${PROJECT_DIR}/Resources/NodeJS/proton_display_probe.wasm\"",
-				"# Skip if all WASM files already exist",
-				"if [ -f \"${CUDA_OXIDE_PROBE}\" ]; then",
-				"    if [ -f \"${CUDA_PTX_PROBE}\" ]; then",
-				"        if [ -f \"${PROTON_DISPLAY_PROBE}\" ]; then",
-				"            echo \"WASM probe files already exist, skipping build\"",
-				"            exit 0",
-				"        fi",
-				"    fi",
+				"if [ ! -f \"${PROJECT_DIR}/Resources/NodeJS/rust_toolchain.wasm\" ]; then",
+				"    \"${PROJECT_DIR}/scripts/fetch_rust_wasip1_toolchain.sh\"",
 				"fi",
 				"\"${PROJECT_DIR}/examples/wasm-cuda-oxide/build.sh\" \"${CUDA_OXIDE_PROBE}\"",
 				"\"${PROJECT_DIR}/examples/wasm-cuda-ptx/build.sh\" \"${CUDA_PTX_PROBE}\"",

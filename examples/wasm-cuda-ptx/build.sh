@@ -52,8 +52,8 @@ trap cleanup EXIT INT TERM
     --export-memory \
     --allow-undefined \
     --import-undefined \
-    --initial-memory=131072 \
-    --max-memory=131072 \
+    --initial-memory=16777216 \
+    --max-memory=268435456 \
     "$OBJ" \
     -o "$OUT"
 

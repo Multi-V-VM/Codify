@@ -183,6 +183,12 @@ class Executor {
             return
         }
 
+        if ["rustc", "cargo", "rustup"].contains(cmdName) {
+            handleRustToolCommand(
+                command: command, tool: cmdName, completionHandler: completionHandler)
+            return
+        }
+
         // Check if executing a file directly (e.g., ./a.out, a.out, build/main.wasm)
         // If it's a WASM file, forward to wasm runtime
         if let wasmCommand = detectAndForwardWasmFile(command: command) {
@@ -474,6 +480,177 @@ class Executor {
         handleWasmCommand(command: wasmCommand, completionHandler: completionHandler)
     }
 
+    private func handleRustToolCommand(
+        command: String,
+        tool: String,
+        completionHandler: @escaping (Int32) -> Void
+    ) {
+        guard let wasmURL = Bundle.main.url(forResource: "rust_toolchain", withExtension: "wasm")
+        else {
+            receivedStderr("\(tool): bundled rust_toolchain.wasm not found\r\n".data(using: .utf8)!)
+            completionHandler(127)
+            return
+        }
+
+        let fileManager = FileManager.default
+        let runtimeRoot = wasmTemporaryRuntimeURL(fileManager: fileManager)
+        let workspace = runtimeRoot.appendingPathComponent("home/workspace", isDirectory: true)
+        let rustRoot = runtimeRoot.appendingPathComponent(
+            "usr/share/codifyone-rust", isDirectory: true)
+        do {
+            try prepareRustWorkspace(
+                source: currentWorkingDirectory, workspace: workspace, fileManager: fileManager)
+            try fileManager.createDirectory(at: workspace, withIntermediateDirectories: true)
+            try fileManager.createDirectory(at: rustRoot, withIntermediateDirectories: true)
+            guard
+                let bundledRust = Bundle.main.url(
+                    forResource: "RustWasi", withExtension: nil)
+            else {
+                throw NSError(
+                    domain: "CodifyOneRust", code: 1,
+                    userInfo: [
+                        NSLocalizedDescriptionKey: "bundled RustWasi standard library is missing"
+                    ])
+            }
+            try copyRustTree(
+                source: bundledRust,
+                destination: rustRoot,
+                fileManager: fileManager,
+                excluding: [])
+            let library = try fileManager.url(
+                for: .libraryDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+            let clangSysroot = library.appendingPathComponent("usr").path
+            let rustInclude = rustRoot.appendingPathComponent("include", isDirectory: true)
+            try fileManager.createDirectory(at: rustInclude, withIntermediateDirectories: true)
+            let setjmpShim = """
+                #ifndef CODIFYONE_WASI_SETJMP_H
+                #define CODIFYONE_WASI_SETJMP_H
+                #include <stdint.h>
+                typedef uintptr_t jmp_buf[32];
+                typedef jmp_buf sigjmp_buf;
+                #define setjmp(env) (0)
+                #define sigsetjmp(env, savesigs) (0)
+                __attribute__((noreturn)) static inline void longjmp(jmp_buf env, int value) {
+                    (void)env; (void)value; __builtin_trap();
+                }
+                __attribute__((noreturn)) static inline void siglongjmp(sigjmp_buf env, int value) {
+                    (void)env; (void)value; __builtin_trap();
+                }
+                #endif
+                """
+            try setjmpShim.write(
+                to: rustInclude.appendingPathComponent("setjmp.h"),
+                atomically: true,
+                encoding: .utf8)
+            let targetSpec = rustRoot.appendingPathComponent("wasm32-wasip1.toml")
+            let spec = """
+                [target]
+                family = "wasm"
+                os-name = "wasi"
+                env-name = "p1"
+
+                [backend.c]
+                variant = "gnu"
+                target = "wasm32-wasip1"
+                emulate-i128 = true
+                compiler-opts = ["--target=wasm32-wasip1", "--sysroot=\(clangSysroot)", "-I\(rustInclude.path)", "-fno-exceptions", "-Wl,--initial-memory=16777216", "-Wl,--max-memory=268435456"]
+                linker-opts-post = ["\(rustRoot.appendingPathComponent("unwind.o").path)"]
+
+                [arch]
+                name = "wasm32"
+                pointer-bits = 32
+                is-big-endian = false
+                has-atomic-u8 = true
+                has-atomic-u16 = true
+                has-atomic-u32 = true
+                has-atomic-u64 = false
+                has-atomic-ptr = true
+                """
+            try spec.write(to: targetSpec, atomically: true, encoding: .utf8)
+            setenv("CC", "clang", 1)
+            setenv("CODIFYONE_RUST_TARGET_SPEC", "/usr/share/codifyone-rust/wasm32-wasip1.toml", 1)
+            setenv("CODIFYONE_RUST_LIBDIR", "/usr/share/codifyone-rust/lib", 1)
+            setenv("CODIFYONE_RUST_HOST_ROOT", rustRoot.path, 1)
+        } catch {
+            receivedStderr(
+                "\(tool): cannot prepare local WASI toolchain: \(error)\r\n".data(using: .utf8)!)
+            completionHandler(1)
+            return
+        }
+
+        let tokens = command.split(separator: " ").map(String.init)
+        let rest = tokens.dropFirst().joined(separator: " ")
+        let wasmCommand = "wasm \(wasmURL.path) \(tool)" + (rest.isEmpty ? "" : " \(rest)")
+        handleWasmCommand(
+            command: wasmCommand,
+            workingDirectory: workspace,
+            completionHandler: { exitCode in
+                do {
+                    try self.copyRustWorkspaceResults(
+                        workspace: workspace,
+                        destination: self.currentWorkingDirectory,
+                        fileManager: fileManager)
+                } catch {
+                    self.receivedStderr(
+                        "cargo: cannot copy WASI build results back: \(error)\r\n"
+                            .data(using: .utf8)!)
+                }
+                completionHandler(exitCode)
+            })
+    }
+
+    private func prepareRustWorkspace(
+        source: URL,
+        workspace: URL,
+        fileManager: FileManager
+    ) throws {
+        if fileManager.fileExists(atPath: workspace.path) {
+            try fileManager.removeItem(at: workspace)
+        }
+        try fileManager.createDirectory(at: workspace, withIntermediateDirectories: true)
+        try copyRustTree(
+            source: source, destination: workspace, fileManager: fileManager,
+            excluding: [".git", ".svn", ".hg"])
+    }
+
+    private func copyRustWorkspaceResults(
+        workspace: URL,
+        destination: URL,
+        fileManager: FileManager
+    ) throws {
+        try copyRustTree(
+            source: workspace, destination: destination, fileManager: fileManager,
+            excluding: [".git", ".svn", ".hg"])
+    }
+
+    private func copyRustTree(
+        source: URL,
+        destination: URL,
+        fileManager: FileManager,
+        excluding excludedNames: Set<String>
+    ) throws {
+        try fileManager.createDirectory(at: destination, withIntermediateDirectories: true)
+        for item in try fileManager.contentsOfDirectory(
+            at: source, includingPropertiesForKeys: [.isDirectoryKey],
+            options: [])
+        {
+            if excludedNames.contains(item.lastPathComponent) { continue }
+            let target = destination.appendingPathComponent(item.lastPathComponent)
+            let isDirectory =
+                try item.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true
+            if isDirectory {
+                try copyRustTree(
+                    source: item, destination: target, fileManager: fileManager,
+                    excluding: excludedNames)
+            } else {
+                if fileManager.fileExists(atPath: target.path) {
+                    try fileManager.removeItem(at: target)
+                }
+                try fileManager.copyItem(at: item, to: target)
+            }
+        }
+    }
+
     private func normalizedWasmCommand(_ command: String) -> String {
         var components = command.split(separator: " ").map(String.init)
         guard components.first == "wasm" else { return command }
@@ -500,7 +677,11 @@ class Executor {
         return components.joined(separator: " ")
     }
 
-    private func handleWasmCommand(command: String, completionHandler: @escaping (Int32) -> Void) {
+    private func handleWasmCommand(
+        command: String,
+        workingDirectory: URL? = nil,
+        completionHandler: @escaping (Int32) -> Void
+    ) {
         let command = normalizedWasmCommand(command)
 
         // Set up stdin pipe
@@ -539,8 +720,9 @@ class Executor {
             // bridge from a stable runtime directory while passing the module by
             // absolute path.
             ios_switchSession(self.persistentIdentifier.toCString())
+            let requestedWorkingDirectory = workingDirectory ?? self.currentWorkingDirectory
             let wasmHostCWD = URL(
-                fileURLWithPath: safeWASMCurrentDirectory(self.currentWorkingDirectory.path))
+                fileURLWithPath: safeWASMCurrentDirectory(requestedWorkingDirectory.path))
             ios_setDirectoryURL(wasmHostCWD)
             ios_setContext(UnsafeMutableRawPointer(mutating: self.persistentIdentifier.toCString()))
             ios_setStreams(self.stdin_file, self.stdout_file, stderr_file ?? self.stdout_file)
@@ -550,6 +732,10 @@ class Executor {
             thread_stdin = self.stdin_file
             thread_stdout = self.stdout_file
             thread_stderr = stderr_file ?? self.stdout_file
+            let previousWASMHostCWD = getenv("CODIFYONE_WASM_HOST_CWD").map {
+                String(cString: $0)
+            }
+            setenv("CODIFYONE_WASM_HOST_CWD", requestedWorkingDirectory.path, 1)
 
             fputs("wasm runner: \(command)\n", self.stdout_file)
             fflush(self.stdout_file)
@@ -560,6 +746,11 @@ class Executor {
             cStrings.append(nil)
 
             defer {
+                if let previousWASMHostCWD {
+                    setenv("CODIFYONE_WASM_HOST_CWD", previousWASMHostCWD, 1)
+                } else {
+                    unsetenv("CODIFYONE_WASM_HOST_CWD")
+                }
                 ios_setDirectoryURL(self.currentWorkingDirectory)
                 thread_stdin = previousStdin
                 thread_stdout = previousStdout

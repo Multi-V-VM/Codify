@@ -71,6 +71,10 @@ private func needToUpdateCFiles() -> Bool {
         create: true)
     let requiredFiles = [
         "usr/include/stdio.h",
+        // Headers such as __struct_iovec.h include Clang's builtin stddef.h.
+        // Keep this as a separate sentinel so a partial/stale SDK install is
+        // repaired instead of failing later during preprocessing.
+        "usr/lib/clang/14.0.0/include/stddef.h",
         "usr/lib/wasm32-wasi/crt1.o",
         "usr/lib/wasm32-wasi/libc.imports",
         "usr/lib/wasm32-wasi/libc.a",
@@ -724,9 +728,12 @@ private func setupEnvironment() {
     let wasiImports = libraryURL.appendingPathComponent(
         "usr/lib/wasm32-wasi/libc.imports"
     ).path
+    let clangResourceDir = libraryURL.appendingPathComponent(
+        "usr/lib/clang/14.0.0"
+    ).path
     setenv(
         "CCC_OVERRIDE_OPTIONS",
-        "#^--target=wasm32-wasi +-fno-exceptions +-lc-printscan-long-double +-Wl,-z,stack-size=1048576 +-Wl,--initial-memory=16777216 +-Wl,--allow-undefined-file=\(wasiImports)",
+        "#^--target=wasm32-wasi +-resource-dir=\(clangResourceDir) +-fno-exceptions +-lc-printscan-long-double +-Wl,-z,stack-size=1048576 +-Wl,--initial-memory=16777216 +-Wl,--allow-undefined-file=\(wasiImports)",
         1)
     setenv("MAKESYSPATH", Bundle.main.resourcePath! + "ClangLib/usr/share/mk", 1)
     setenv("PHPRC", bundleUrl.path.toCString(), 1)
