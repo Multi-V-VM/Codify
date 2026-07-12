@@ -9,38 +9,6 @@ import Darwin
 import SwiftUI
 import ios_system
 
-@_silgen_name("LLVMCreateMemoryBufferWithContentsOfFile")
-private func LLVMCreateMemoryBufferWithContentsOfFile(
-    _ path: UnsafePointer<CChar>,
-    _ buffer: UnsafeMutablePointer<OpaquePointer?>,
-    _ message: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>
-) -> Int32
-
-@_silgen_name("LLVMContextCreate")
-private func LLVMContextCreate() -> OpaquePointer
-
-@_silgen_name("LLVMContextDispose")
-private func LLVMContextDispose(_ context: OpaquePointer)
-
-@_silgen_name("LLVMParseBitcodeInContext2")
-private func LLVMParseBitcodeInContext2(
-    _ context: OpaquePointer,
-    _ buffer: OpaquePointer,
-    _ module: UnsafeMutablePointer<OpaquePointer?>
-) -> Int32
-
-@_silgen_name("LLVMPrintModuleToString")
-private func LLVMPrintModuleToString(_ module: OpaquePointer) -> UnsafeMutablePointer<CChar>
-
-@_silgen_name("LLVMDisposeMemoryBuffer")
-private func LLVMDisposeMemoryBuffer(_ buffer: OpaquePointer)
-
-@_silgen_name("LLVMDisposeModule")
-private func LLVMDisposeModule(_ module: OpaquePointer)
-
-@_silgen_name("LLVMDisposeMessage")
-private func LLVMDisposeMessage(_ message: UnsafeMutablePointer<CChar>)
-
 class Executor {
 
     enum State {
@@ -193,6 +161,7 @@ class Executor {
         }
 
         let cmdName = command.split(separator: " ", maxSplits: 1).first.map(String.init) ?? command
+        let command = cmdName == "clang" ? normalizedClangCommand(command) : command
 
         // Intercept wasm command and handle it directly
         if command.starts(with: "wasm ") || command == "wasm" {
@@ -795,52 +764,37 @@ class Executor {
             return
         }
 
-        let inputURL = URL(fileURLWithPath: input, relativeTo: currentWorkingDirectory)
-            .standardizedFileURL
-        var memoryBuffer: OpaquePointer?
-        var errorMessage: UnsafeMutablePointer<CChar>?
-        let bufferResult = inputURL.path.withCString {
-            LLVMCreateMemoryBufferWithContentsOfFile($0, &memoryBuffer, &errorMessage)
-        }
-        guard bufferResult == 0, let memoryBuffer else {
-            let detail = errorMessage.map { String(cString: $0) } ?? "cannot read input"
-            if let errorMessage { LLVMDisposeMessage(errorMessage) }
-            receivedStderr("llvm-dis: \(detail)\r\n".data(using: .utf8)!)
-            completionHandler(1)
-            return
-        }
-        defer { LLVMDisposeMemoryBuffer(memoryBuffer) }
+        // Run bitcode through the already-embedded clang driver. Calling the
+        // LLVM C API directly shares process-global LLVM state with clang and
+        // editor services, and has proven able to crash the entire iOS app.
+        let clangOutput = output ?? "-"
+        dispatch(
+            command: "clang -S -emit-llvm \(input) -o \(clangOutput)",
+            completionHandler: completionHandler)
+    }
 
-        // Avoid LLVM's process-global context. The embedded clang command and
-        // editor services may use it concurrently, which made llvm-dis crash
-        // the entire app. A command-local context keeps ownership isolated.
-        let context = LLVMContextCreate()
-        defer { LLVMContextDispose(context) }
-        var module: OpaquePointer?
-        guard LLVMParseBitcodeInContext2(context, memoryBuffer, &module) == 0, let module else {
-            receivedStderr("llvm-dis: invalid LLVM bitcode: \(input)\r\n".data(using: .utf8)!)
-            completionHandler(1)
-            return
+    private func normalizedClangCommand(_ command: String) -> String {
+        var arguments = command.split(separator: " ").map(String.init)
+        guard arguments.first == "clang", arguments.contains("-emit-bitcode") else {
+            return command
         }
-        defer { LLVMDisposeModule(module) }
 
-        let printed = LLVMPrintModuleToString(module)
-        defer { LLVMDisposeMessage(printed) }
-        let llvmIR = String(cString: printed)
-        if let output, output != "-" {
-            let outputURL = URL(fileURLWithPath: output, relativeTo: currentWorkingDirectory)
-                .standardizedFileURL
-            do {
-                try llvmIR.write(to: outputURL, atomically: true, encoding: .utf8)
-            } catch {
-                receivedStderr("llvm-dis: \(error)\r\n".data(using: .utf8)!)
-                completionHandler(1)
-                return
-            }
-        } else {
-            receivedStdout(llvmIR.data(using: .utf8)!)
+        arguments = arguments.map { $0 == "-emit-bitcode" ? "-emit-llvm" : $0 }
+        if !arguments.contains("-c") {
+            arguments.insert("-c", at: 1)
         }
-        completionHandler(0)
+        if !arguments.contains("-o"),
+            let input = arguments.dropFirst().first(where: {
+                !$0.hasPrefix("-")
+                    && ["c", "cc", "cpp", "cxx"].contains(
+                        URL(fileURLWithPath: $0).pathExtension.lowercased())
+            })
+        {
+            let output = URL(fileURLWithPath: input).deletingPathExtension()
+                .appendingPathExtension("bc").path
+            arguments.append(contentsOf: ["-o", output])
+        }
+        return arguments.joined(separator: " ")
     }
 
     private func prepareRustWorkspace(
