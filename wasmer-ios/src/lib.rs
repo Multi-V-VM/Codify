@@ -1106,7 +1106,56 @@ fn read_guest_c_string(
 
 type IosSystemFn = unsafe extern "C" fn(*const c_char) -> i32;
 
-fn codifyone_rust_codegen(mut ctx: FunctionEnvMut<CudaBridge>, command_ptr: i32) -> i32 {
+fn rust_guest_path_to_host(path: &str) -> String {
+    let mut translated = path.to_string();
+    if let Ok(host_root) = std::env::var("CODIFYONE_RUST_HOST_ROOT") {
+        translated = translated.replace("/usr/share/codifyone-rust", &host_root);
+    }
+    if let Ok(host_cwd) = std::env::var("CODIFYONE_WASM_HOST_CWD") {
+        translated = translated.replace("/home/workspace", &host_cwd);
+    }
+    translated
+}
+
+fn stage_rust_codegen_file(
+    ctx: &mut FunctionEnvMut<CudaBridge>,
+    path_ptr: i32,
+    data_ptr: i32,
+    data_len: i32,
+    translate_contents: bool,
+) -> Result<(), &'static str> {
+    if data_len < 0 {
+        return Err("negative file length");
+    }
+    let path = read_guest_c_string(ctx, path_ptr, 1024 * 1024)
+        .ok_or("invalid file path")?;
+    if path.is_empty() {
+        return Ok(());
+    }
+    let path = String::from_utf8(path).map_err(|_| "file path is not UTF-8")?;
+    let mut bytes = read_guest_memory(ctx, data_ptr, data_len as usize)
+        .ok_or("invalid file contents")?;
+    if translate_contents {
+        let text = String::from_utf8(bytes).map_err(|_| "response file is not UTF-8")?;
+        bytes = rust_guest_path_to_host(&text).into_bytes();
+    }
+    let host_path = std::path::PathBuf::from(rust_guest_path_to_host(&path));
+    if let Some(parent) = host_path.parent() {
+        std::fs::create_dir_all(parent).map_err(|_| "cannot create host output directory")?;
+    }
+    std::fs::write(host_path, bytes).map_err(|_| "cannot stage generated file")
+}
+
+fn codifyone_rust_codegen(
+    mut ctx: FunctionEnvMut<CudaBridge>,
+    command_ptr: i32,
+    source_path_ptr: i32,
+    source_data_ptr: i32,
+    source_len: i32,
+    response_path_ptr: i32,
+    response_data_ptr: i32,
+    response_len: i32,
+) -> i32 {
     let Some(command) = read_guest_c_string(&mut ctx, command_ptr, 1024 * 1024) else {
         eprintln!("wasmer-ios: invalid rust codegen command pointer");
         return -1;
@@ -1115,12 +1164,19 @@ fn codifyone_rust_codegen(mut ctx: FunctionEnvMut<CudaBridge>, command_ptr: i32)
         eprintln!("wasmer-ios: rust codegen command is not UTF-8");
         return -1;
     };
-    if let Ok(host_root) = std::env::var("CODIFYONE_RUST_HOST_ROOT") {
-        command = command.replace("/usr/share/codifyone-rust", &host_root);
+    if let Err(error) = stage_rust_codegen_file(
+        &mut ctx, source_path_ptr, source_data_ptr, source_len, false,
+    ) {
+        eprintln!("wasmer-ios: cannot stage generated Rust C source: {error}");
+        return -1;
     }
-    if let Ok(host_cwd) = std::env::var("CODIFYONE_WASM_HOST_CWD") {
-        command = command.replace("/home/workspace", &host_cwd);
+    if let Err(error) = stage_rust_codegen_file(
+        &mut ctx, response_path_ptr, response_data_ptr, response_len, true,
+    ) {
+        eprintln!("wasmer-ios: cannot stage Rust clang response file: {error}");
+        return -1;
     }
+    command = rust_guest_path_to_host(&command);
     let Ok(command) = CString::new(command) else {
         eprintln!("wasmer-ios: rust codegen command contains an embedded NUL");
         return -1;
@@ -2441,15 +2497,16 @@ fn cublas_sgemm_v2(
     CUDA_SUCCESS
 }
 
-/// Whether the process can map writable+executable pages. True on the
-/// simulator, macOS, and devices running with the JIT entitlement; false on
-/// normal iOS devices, where only the interpreter is allowed.
+/// Whether the process can publish generated code. Cranelift allocates code as
+/// writable memory and then changes it to read+execute, so probe that exact
+/// transition instead of requesting an RWX page. Hardened macOS rejects RWX
+/// even though W->RX is permitted, which previously disabled JIT unnecessarily.
 fn jit_available() -> bool {
     unsafe {
         let page = libc::mmap(
             std::ptr::null_mut(),
             4096,
-            libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
+            libc::PROT_READ | libc::PROT_WRITE,
             libc::MAP_PRIVATE | libc::MAP_ANON,
             -1,
             0,
@@ -2457,8 +2514,9 @@ fn jit_available() -> bool {
         if page == libc::MAP_FAILED {
             return false;
         }
+        let can_publish = libc::mprotect(page, 4096, libc::PROT_READ | libc::PROT_EXEC) == 0;
         libc::munmap(page, 4096);
-        true
+        can_publish
     }
 }
 
@@ -2496,6 +2554,7 @@ fn create_store() -> (Store, bool) {
         // Select Wasmi explicitly.  Store::default() is sensitive to feature
         // unification and older XCFramework builds selected the Sys/Cranelift
         // backend here, producing HeapAccessOutOfBounds traps on iOS devices.
+        eprintln!("wasmer-ios: engine=wasmi (forced)");
         return (
             Store::new(wasmer_wasix::wasmer::wasmi::Wasmi::default()),
             false,
@@ -2507,10 +2566,12 @@ fn create_store() -> (Store, bool) {
         if jit_available() {
             use wasmer_wasix::wasmer::sys::{Cranelift, EngineBuilder};
             let engine = EngineBuilder::new(Cranelift::default()).engine();
+            eprintln!("wasmer-ios: engine=cranelift");
             return (Store::new(engine), true);
         }
     }
 
+    eprintln!("wasmer-ios: engine=wasmi (JIT unavailable)");
     (
         Store::new(wasmer_wasix::wasmer::wasmi::Wasmi::default()),
         false,

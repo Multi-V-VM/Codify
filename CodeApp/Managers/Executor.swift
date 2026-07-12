@@ -492,6 +492,55 @@ class Executor {
         completionHandler: @escaping (Int32) -> Void
     ) {
         let tokens = command.split(separator: " ").map(String.init)
+        if tool == "cargo", tokens.count >= 2, tokens[1] == "clean" {
+            let fileManager = FileManager.default
+            for directory in ["output", "target"] {
+                let url = currentWorkingDirectory.appendingPathComponent(directory)
+                try? fileManager.removeItem(at: url)
+            }
+            receivedStdout("Removed WASIp1 build artifacts\r\n".data(using: .utf8)!)
+            completionHandler(0)
+            return
+        }
+        if tool == "cargo", tokens.count >= 2, tokens[1] == "new" {
+            guard tokens.count == 3, !tokens[2].hasPrefix("-") else {
+                receivedStderr("usage: cargo new PATH\r\n".data(using: .utf8)!)
+                completionHandler(1)
+                return
+            }
+            let projectURL = URL(
+                fileURLWithPath: tokens[2], relativeTo: currentWorkingDirectory
+            ).standardizedFileURL
+            let manifest = projectURL.appendingPathComponent("Cargo.toml")
+            guard !FileManager.default.fileExists(atPath: projectURL.path) else {
+                receivedStderr(
+                    "cargo new: destination already exists: \(tokens[2])\r\n".data(using: .utf8)!)
+                completionHandler(1)
+                return
+            }
+            do {
+                let source = projectURL.appendingPathComponent("src/main.rs")
+                try FileManager.default.createDirectory(
+                    at: source.deletingLastPathComponent(), withIntermediateDirectories: true)
+                let packageName = projectURL.lastPathComponent
+                try """
+                [package]
+                name = "\(packageName)"
+                version = "0.1.0"
+                edition = "2024"
+
+                [dependencies]
+                """.write(to: manifest, atomically: true, encoding: .utf8)
+                try "fn main() {\n    println!(\"Hello, world!\");\n}\n".write(
+                    to: source, atomically: true, encoding: .utf8)
+                receivedStdout("Created binary package `\(packageName)`\r\n".data(using: .utf8)!)
+                completionHandler(0)
+            } catch {
+                receivedStderr("cargo new: \(error)\r\n".data(using: .utf8)!)
+                completionHandler(1)
+            }
+            return
+        }
         if let validationFailure = rustToolValidationFailure(
             tool: tool, arguments: Array(tokens.dropFirst()))
         {
@@ -704,7 +753,7 @@ class Executor {
         }
 
         let packageArgument: String
-        if arguments[0] == "build" {
+        if arguments[0] == "build" || arguments[0] == "check" {
             packageArgument = arguments.dropFirst().first(where: { !$0.hasPrefix("-") }) ?? "."
         } else {
             packageArgument = arguments[0]
