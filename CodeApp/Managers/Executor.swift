@@ -626,7 +626,7 @@ class Executor {
                 target = "wasm32-wasip1"
                 emulate-i128 = true
                 compiler-opts = ["--target=wasm32-wasip1", "--sysroot=\(clangSysroot)", "-I\(rustInclude.path)", "-fno-exceptions", "-Wl,--initial-memory=16777216", "-Wl,--max-memory=268435456"]
-                linker-opts-post = ["\(rustRoot.appendingPathComponent("unwind.o").path)"]
+                linker-opts-post = ["\(rustRoot.appendingPathComponent("unwind.o").path)", "\(rustRoot.appendingPathComponent("rust_wasi_abi.o").path)"]
 
                 [arch]
                 name = "wasm32"

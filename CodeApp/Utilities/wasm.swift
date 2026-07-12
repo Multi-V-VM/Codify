@@ -786,12 +786,23 @@ func setupWASMSysroot(currentDirectory: String, gpuBackend: String? = nil) {
     // the host HOME value if one leaks in from a caller.
     setenv("WASM_GUEST_HOME", guestHome, 1)
 
-    // Use the explicit Wasmi backend for every iOS guest, including CUDA/PTX
-    // modules. GPU acceleration happens in native hetGPU/Metal host imports
-    // and does not require the faulty iOS Sys/Cranelift guest engine.
-    let aotCacheName = "disabled"
-    setenv("WASM_FORCE_INTERPRETER", "1", 1)
-    unsetenv("WASM_AOT_CACHE")
+    // A physical iOS device cannot create executable JIT pages, but an iOS app
+    // running on Apple silicon macOS can. Let the bridge select Cranelift there;
+    // large mrustc phases are impractically slow in the interpreter.
+    let aotCacheName: String
+    if ProcessInfo.processInfo.isiOSAppOnMac {
+        let aotCachePath = URL(fileURLWithPath: runtimeRootPath)
+            .appendingPathComponent("aot", isDirectory: true).path
+        try? FileManager.default.createDirectory(
+            atPath: aotCachePath, withIntermediateDirectories: true)
+        unsetenv("WASM_FORCE_INTERPRETER")
+        setenv("WASM_AOT_CACHE", aotCachePath, 1)
+        aotCacheName = aotCachePath
+    } else {
+        setenv("WASM_FORCE_INTERPRETER", "1", 1)
+        unsetenv("WASM_AOT_CACHE")
+        aotCacheName = "disabled"
+    }
 
     logWASMRuntimeEnvironment(
         wasmCWD: wasmCWD,
